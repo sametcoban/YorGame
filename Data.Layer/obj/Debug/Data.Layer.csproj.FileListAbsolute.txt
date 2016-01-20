@@ -1,0 +1,10 @@
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\Data.Layer.dll.config
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\Data.Layer.dll
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\Data.Layer.pdb
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\EntityFramework.dll
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\EntityFramework.SqlServer.dll
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\EntityFramework.xml
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\bin\Debug\EntityFramework.SqlServer.xml
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\obj\Debug\Data.Layer.csprojResolveAssemblyReference.cache
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\obj\Debug\Data.Layer.dll
+C:\Users\Eren\Documents\GitHubVisualStudio\YorGame\Data.Layer\obj\Debug\Data.Layer.pdb
