@@ -59,9 +59,9 @@ For an activated Unity editor with Android modules installed, build from a termi
 ### First device acceptance check
 
 - Arena, hero, enemy, health, and buttons appear in landscape without overlapping the phone cutout.
-- Attack reduces enemy health by 25 and cannot be repeated during the enemy turn.
-- Dodge during FLASH prevents damage; a prompt parry prevents damage and counters for 10. Missing defense costs 35 health.
-- Win by defeating the enemy; lose by missing three defenses. Restart resets health and cancels a pending enemy turn.
+- Each living hero acts once per round. Basic attack damage depends on hero stats and the enemy elemental matchup. No hero can act during the enemy turn.
+- Dodge during FLASH prevents damage; a prompt parry prevents damage and counters with elemental damage. Missing defense costs up to 35 health; guard reduces it.
+- Win by defeating the enemy; lose when all active heroes are defeated. Restart cancels a pending enemy turn. Continue after victory advances recruitment.
 - Test repeated restarts, background/resume, and screen locking. Timing feel, frame rate, and UI layout remain unverified on devices.
 
 No APK has been built in this cloud workspace: Unity, its Android modules, and editor activation are unavailable here. The scripts prepare the build path but require an actual Unity build and phone test.
@@ -72,11 +72,11 @@ On **macOS**, switch the build profile to iOS and export an Xcode project. Open 
 
 ## Validation and current limits
 
-The engine-independent combat model passed 20 checks: turn gating, damage, dodge/parry timing, repeated defense rejection, counter damage, victory, defeat, and reset. To rerun in the prepared cloud machine:
+The engine-independent combat model passes 1,335 checks covering party turns, the three-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, and reset. To rerun in the prepared cloud machine:
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -86,4 +86,41 @@ The existing Data.Layer project is separate and untouched. No backend or databas
 
 ## Updating an existing local copy
 
-For this combat polish update, stop Play mode and copy the updated `Assets/Scripts/Prototype.cs` and new `Assets/Scripts/PressAction.cs` into your local project's `Assets/Scripts` folder. Keep `Battle.cs`, your scene, and project settings. Unity will import the changes. Press Play to inspect health meters, strike motions, timing cues, and restart during an enemy turn. To update everything instead, extract the new GitHub ZIP into a separate directory and open its `MobileGame` folder.
+Stop Play mode. Copy **all** `.cs` files from this branch's `Assets/Scripts` into your local project's matching folder, including `CharacterClass.cs`, `HeroDefinition.cs`, `SkillDefinition.cs`, `Elements.cs`, and `PressAction.cs`. Preserve your scene and settings. Unity will import the changes. Alternatively, extract the updated GitHub ZIP into a separate directory and open that `MobileGame` folder.
+
+## Party, recruitment, and named heroes
+
+Start with **Rowan**, a Common Knight. Each prototype victory recruits the next named hero when you press **Continue**. The first allies are Lucan (Paladin) and Elara (Sorceress). The active party never exceeds **three heroes**. Later recruits enter reserves; select a class button to open its named hero list. Selecting an active party member changes whose action you control. Selecting a recruited reserve replaces the currently selected party slot, before battle only. Two different named heroes of the same class can be in the party, but the same named hero cannot occupy two slots.
+
+All living heroes receive one action before the enemy responds. The enemy cycles targets across living allies. Defeated allies cannot act. Party healing does not revive defeated allies. Full party defeat ends the battle.
+
+The roster contains **30 named heroes**: five per class, across Common, Uncommon, Rare, Epic, and Legendary. Rarity scales base health, attack, skill damage, healing, and guard. This is a starting balance, not a final progression economy. See [HEROES.md](HEROES.md) for the complete roster and skill catalog.
+
+Recruitment is currently a battle-victory placeholder, not world exploration. Progress exists only during the current play session; persistent saves and story encounters are not implemented. Restart restores health and skill uses while retaining the current roster and equipped skills. Reserve hero loadouts are retained within the session.
+
+## Equip two of six skills
+
+Select a party hero through its class/hero list before battle, then press **Skills**. Select **Slot 1** or **Slot 2**, then choose from that class's six skills. The two slots must contain different skills. Press **Done** to return. Skill selection locks after combat begins. Both skill buttons appear beside the basic attack button; each has two independent uses per battle. Skills consume that hero's action. Higher rarity strengthens the same class skills rather than adding equipped slots.
+
+## Elements and enemies
+
+Named hero affinities follow class themes: Knight Physical/Fire; Paladin Fire/Light; Sorceress Cold/Lightning/Fire; Rogue Physical/Poison; Ranger Physical/Cold; Cleric Light. Basic attacks and skills without an explicit override use hero affinity. All current class skills have explicit affinities, independent of the named hero's basic attack affinity: Flame Lance uses Fire, Frost Ward uses Cold, Arcane Burst and Starfall use Lightning, and Frost Drain uses Cold. Some weapon skills use Physical, which is neutral against the current enemies. Skill affinity is displayed in the loadout panel.
+
+Enemies show their weakness and resistance before you attack. Weakness multiplies damage by **1.5**; resistance by **0.5**; other damage is neutral. Damage is rounded, with at least one damage for a positive attack. Healing and guard are unaffected. The encounter cycles among Lantern Warden, Ember Sentinel, Storm Revenant, Blight Guardian, and Dusk Shade with increasing health (capped at 400). These enemy values remain provisional.
+
+**Poison is currently an elemental damage type**, not a damage-over-time status. Burn, freeze, poison ticks, stun, cleanse, and revival are future mechanics. Explicit skill affinity overrides preserve their element across all rarity tiers.
+
+## Validate the updated Unity presentation
+
+The combat/roster model has been exercised outside Unity. The new UI, 3D party props, and builds remain unverified until opened in Unity. Check:
+
+- Start shows Rowan alone, with two equipped skills and locked unrecruited heroes.
+- Win, Continue, and recruit Lucan, then Elara; three characters appear together.
+- Each living hero acts once before the enemy attack; the targeted ally is identified.
+- Skill selection rejects duplicates and cannot change during a fight.
+- Recruit a reserve, select an active party slot, then replace it without exceeding three heroes.
+- Named hero lists display rarity, affinity, scaled health/attack, and recruitment status.
+- Weakness/resistance feedback agrees with the skill's shown element.
+- Restart mid-attack cancels the old coroutine and preserves the roster/loadouts.
+
+Characters still use procedural capsule bodies and simple class props rather than finished character art or rigged animation.
