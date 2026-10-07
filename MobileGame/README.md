@@ -7,7 +7,9 @@ An original combat prototype inspired by reactive turn-based RPGs. Uses simple c
 1. Install Unity Hub and Unity **6000.0.65f1** with **Web Build Support (WebGL)** for browser testing on iPhone from Windows. Android Build Support is optional for Android APKs.
 2. Open this `MobileGame` directory as a Unity project. Allow package import to finish.
 3. The editor helper creates `Assets/Scenes/Battle.unity` and registers it for builds. If necessary select **Ashlight > Prepare Mobile Project**. Open that scene, then press Play.
-4. Use **Attack**, then wait for the yellow **FLASH**. Dodge within 400 ms, or parry within 180 ms to deal counter damage. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
+4. Use **Attack**, then watch **GET READY** followed by **PARRY OR DODGE!**. The shrinking defense meter is yellow during the 180 ms parry window, then blue for the remaining dodge window (400 ms total). Defense registers on button press, not release. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
+
+The combat presentation includes health bars, attack lunges, enemy windup, dodge motion, and parry/counter feedback. These procedural movements use placeholder capsule characters. Safe-area bounds update when the window or phone orientation changes. New presentation and touch-down behavior require Unity/device validation.
 
 The scene starts empty intentionally: `Prototype` generates the camera, lighting, arena, characters, event system, and HUD at runtime. Use the built-in rendering pipeline. The UI uses the legacy input module; keep Active Input Handling set to **Input Manager (Old)** or **Both**. Landscape orientation and safe-area bounds are configured for the prototype. Device cutouts, aspect ratios, timing feel, and actual rendering need device testing.
 
@@ -81,3 +83,7 @@ mono /tmp/ashlight-checks.exe
 Unity is not installed in the onboarding machine. Unity script compilation, scene rendering, touch input, Android builds, and iOS builds have **not** been verified. Open in Unity to perform these checks before calling this a playable device build.
 
 The existing Data.Layer project is separate and untouched. No backend or database is required. Exploration, character art/animation, audio, progression, save data, accessibility settings, and performance tuning are future work.
+
+## Updating an existing local copy
+
+For this combat polish update, stop Play mode and copy the updated `Assets/Scripts/Prototype.cs` and new `Assets/Scripts/PressAction.cs` into your local project's `Assets/Scripts` folder. Keep `Battle.cs`, your scene, and project settings. Unity will import the changes. Press Play to inspect health meters, strike motions, timing cues, and restart during an enemy turn. To update everything instead, extract the new GitHub ZIP into a separate directory and open its `MobileGame` folder.
