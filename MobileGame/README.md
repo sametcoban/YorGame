@@ -4,12 +4,34 @@ An original combat prototype inspired by reactive turn-based RPGs. Uses simple c
 
 ## Open and play
 
-1. Install Unity Hub and Unity **6000.0.65f1** with Android Build Support (SDK, NDK, OpenJDK). iOS is deferred until the Android prototype is validated.
+1. Install Unity Hub and Unity **6000.0.65f1** with **Web Build Support (WebGL)** for browser testing on iPhone from Windows. Android Build Support is optional for Android APKs.
 2. Open this `MobileGame` directory as a Unity project. Allow package import to finish.
 3. The editor helper creates `Assets/Scenes/Battle.unity` and registers it for builds. If necessary select **Ashlight > Prepare Mobile Project**. Open that scene, then press Play.
 4. Use **Attack**, then wait for the yellow **FLASH**. Dodge within 400 ms, or parry within 180 ms to deal counter damage. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
 
 The scene starts empty intentionally: `Prototype` generates the camera, lighting, arena, characters, event system, and HUD at runtime. Use the built-in rendering pipeline. The UI uses the legacy input module; keep Active Input Handling set to **Input Manager (Old)** or **Both**. Landscape orientation and safe-area bounds are configured for the prototype. Device cutouts, aspect ratios, timing feel, and actual rendering need device testing.
+
+## iPhone browser testing from Windows
+
+This route uses Safari, without Xcode or a native app installation. Unity's mobile Web support varies by browser/device; use a recent iPhone with updated Safari. Real device validation is required.
+
+1. In Unity Hub > Installs > your editor > Add modules, install **Web Build Support** (sometimes labeled WebGL Build Support).
+2. Stop Play mode. Select **Ashlight > Browser > Configure Browser**, wait for importing, then select **Ashlight > Browser > Build Browser Game**.
+3. A successful build creates `Builds/Browser/index.html` plus the `Build` folder. The custom template supplies a touch-friendly launch screen, landscape reminder, safe-area margins, loading progress, and error messages. Builds disable compression so static hosting does not require special compression headers.
+4. Host the **entire `Builds/Browser` folder** with a static website host, such as Netlify's manual deploy, then open its HTTPS URL in Safari on your phone. Hosting uploads your game publicly; review the files and choose your host before uploading. No site has been published automatically.
+5. Rotate the iPhone sideways and tap Play. Try attacks, timed dodges/parries, victory/defeat, and restart. Also check Safari's toolbar, orientation changes, and returning from the background.
+
+For local testing instead of public hosting, install Python 3 on Windows, open a terminal in `Builds/Browser`, and run:
+
+```powershell
+py -m http.server 8000 --bind 0.0.0.0
+```
+
+Keep PC and iPhone on the same trusted Wi-Fi network. Run `ipconfig` on Windows to find the PC's Wi-Fi IPv4 address; open `http://YOUR-PC-IP:8000` in Safari. If Windows Firewall asks, allow Python on **Private networks only**. `localhost` on the phone refers to the phone, not the PC. Stop the server with Ctrl+C when finished. Guest Wi-Fi/client isolation may prevent access. Do not open `index.html` directly with a file URL.
+
+Existing ZIP users: download the updated GitHub branch into a **separate directory**, then open its `MobileGame` folder through Unity Hub. Preserve your existing local scene/settings. To update an existing project without replacing it, copy `Assets/Editor/BrowserBuild.cs` and the whole `Assets/WebGLTemplates/MobileSafari` directory into the same paths in your local project; allow Unity to import them.
+
+The build helper and template are source changes only: Unity Web compilation and iPhone Safari behavior have not been verified in this cloud machine. Combat logic checks still pass; your existing editor play test does not validate the Web build.
 
 ## Android first: build and test
 

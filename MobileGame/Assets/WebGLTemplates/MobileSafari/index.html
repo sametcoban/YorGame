@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Ashlight</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #121523; color: white; font-family: system-ui, sans-serif; }
+    #game { position: fixed; inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+    #launch { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; padding: 20px; background: #121523; }
+    button { font: inherit; font-size: 22px; padding: 16px 40px; color: white; background: #286378; border: 0; border-radius: 10px; }
+    #message { max-width: 550px; white-space: pre-wrap; }
+    #rotate { position: fixed; top: env(safe-area-inset-top); left: 0; right: 0; padding: 6px; background: #121523; text-align: center; pointer-events: none; display: none; }
+    @media (orientation: portrait) { #rotate { display: block; } }
+  </style>
+</head>
+<body>
+  <main id="game">
+    <canvas id="unity-canvas" tabindex="0" aria-label="Ashlight combat game"></canvas>
+    <section id="launch">
+      <h1>Ashlight</h1>
+      <p id="message" role="status">Turn your phone sideways, then tap Play.</p>
+      <button id="play" type="button">Play</button>
+    </section>
+  </main>
+  <aside id="rotate">Turn your phone sideways for the battle.</aside>
+  <script>
+    const canvas = document.getElementById('unity-canvas');
+    const button = document.getElementById('play');
+    const message = document.getElementById('message');
+    const buildUrl = 'Build';
+    const config = {
+      dataUrl: buildUrl + '/{{{ DATA_FILENAME }}}',
+      frameworkUrl: buildUrl + '/{{{ FRAMEWORK_FILENAME }}}',
+      codeUrl: buildUrl + '/{{{ CODE_FILENAME }}}',
+      streamingAssetsUrl: 'StreamingAssets',
+      companyName: 'AshlightStudio',
+      productName: 'Ashlight',
+      productVersion: '0.1',
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 2)
+    };
+    function failed(error) {
+      button.disabled = false;
+      button.textContent = 'Retry';
+      message.textContent = 'Could not start the game. Check your connection and try again.\n' + String(error);
+    }
+    button.addEventListener('click', () => {
+      button.disabled = true;
+      message.textContent = 'Loading game…';
+      const loader = document.createElement('script');
+      loader.src = buildUrl + '/{{{ LOADER_FILENAME }}}';
+      loader.onerror = () => { loader.remove(); failed('Game loader unavailable.'); };
+      loader.onload = () => {
+        createUnityInstance(canvas, config, progress => {
+          message.textContent = 'Loading game… ' + Math.round(progress * 100) + '%';
+        }).then(instance => {
+          window.ashlight = instance;
+          document.getElementById('launch').style.display = 'none';
+          canvas.focus();
+        }).catch(failed);
+      };
+      document.body.appendChild(loader);
+    });
+  </script>
+</body>
+</html>
