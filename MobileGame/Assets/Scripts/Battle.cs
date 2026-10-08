@@ -23,6 +23,9 @@ namespace Ashlight {
     public sealed class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
+        public int Crystals { get; private set; }
+        public int RareMisses { get; private set; }
+        public int LegendaryMisses { get; private set; }
         public bool CampaignComplete { get { return campaign && encounter >= ChapterDefinition.TotalStages; } }
         public int ChapterIndex { get { return Math.Min(encounter / ChapterDefinition.StagesPerChapter, ChapterDefinition.Catalog.Count - 1); } }
         public int StageIndex { get { return encounter % ChapterDefinition.StagesPerChapter; } }
@@ -49,7 +52,7 @@ namespace Ashlight {
         public bool Defended { get; private set; }
         public Battle() : this(HeroClass.Knight) { }
         public Battle(HeroClass kind) { unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset(); }
-        public Battle(bool recruitmentCampaign) { campaign = recruitmentCampaign; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
+        public Battle(bool recruitmentCampaign) { campaign = recruitmentCampaign; Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
         public void SelectClass(HeroClass kind) {
             if (campaign) throw new InvalidOperationException("Campaign heroes are recruited, not replaced.");
             party.Clear(); recruits.Clear(); unlocked.Clear(); unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset();
@@ -92,17 +95,40 @@ namespace Ashlight {
         // Prototype story checkpoints: victory unlocks an ally for the next encounter.
         public bool ContinueAfterVictory() {
             if (Current != Phase.Won) return false;
-            if (campaign && recruits.Count < HeroDefinition.Catalog.Count) {
-                var recruit = HeroDefinition.Catalog[recruits.Count];
-                recruits.Add(recruit);
-                if (!unlocked.Contains(recruit.Class)) unlocked.Add(recruit.Class);
-                if (party.Count < MaxPartySize) party.Add(new PartyHero(recruit));
+            if (campaign) {
+                foreach(var candidate in HeroDefinition.Catalog) {
+                    bool known=false;
+                    foreach(var recruit in recruits) if(recruit.Id==candidate.Id) known=true;
+                    if(!known) { AddRecruit(candidate,true); break; }
+                }
+                Crystals+=Summoning.VictoryCrystals;
+                encounter++;
             }
-            if (campaign) encounter++;
             Reset(); return true;
         }
+        void AddRecruit(HeroDefinition hero, bool addToParty) {
+            recruits.Add(hero);
+            if(!unlocked.Contains(hero.Class)) unlocked.Add(hero.Class);
+            if(addToParty && party.Count<MaxPartySize) party.Add(new PartyHero(hero));
+        }
+        public bool CanSummon { get { return campaign && (CanChangeParty || CampaignComplete) && Crystals>=Summoning.Cost; } }
+        public SummonResult Summon(double rarityRoll, int classIndex) {
+            if(!CanSummon || classIndex<0 || classIndex>=6 || double.IsNaN(rarityRoll) || double.IsInfinity(rarityRoll) || rarityRoll<0 || rarityRoll>=1) return null;
+            var quality=Summoning.Quality(rarityRoll,RareMisses,LegendaryMisses);
+            HeroDefinition candidate=null;
+            foreach(var hero in HeroDefinition.Catalog) if(hero.Quality==quality && (int)hero.Class==classIndex) candidate=hero;
+            if(candidate==null) return null;
+            bool duplicate=false;
+            foreach(var known in recruits) if(known.Id==candidate.Id) duplicate=true;
+            int refund=duplicate?Summoning.DuplicateRefund(quality):0;
+            Crystals=Crystals-Summoning.Cost+refund;
+            RareMisses=quality>=HeroQuality.Rare?0:RareMisses+1;
+            LegendaryMisses=quality==HeroQuality.Legendary?0:LegendaryMisses+1;
+            if(!duplicate) AddRecruit(candidate,false);
+            return new SummonResult(candidate,duplicate,refund);
+        }
         public ProgressData ExportProgress() {
-            var data = new ProgressData { encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
             for (int i = 0; i < recruits.Count; i++) {
@@ -116,17 +142,21 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || data.version != 1 || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
-                data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count || data.recruited.Length > data.encounter + 1 ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+                data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
                 data.activeIndex < 0 || data.activeIndex >= data.party.Length) return false;
+            if(data.version==2 && (data.crystals<0 || data.crystals>1000000 || data.rareMisses<0 || data.rareMisses>=Summoning.RareGuarantee || data.legendaryMisses<0 || data.legendaryMisses>=Summoning.LegendaryGuarantee)) return false;
             var restored = new Dictionary<string, PartyHero>();
             for (int i = 0; i < data.recruited.Length; i++) {
-                if (data.recruited[i] != HeroDefinition.Catalog[i].Id || data.loadouts[i] == null || data.loadouts[i].id != data.recruited[i]) return false;
+                HeroDefinition identity=null;
+                foreach(var known in HeroDefinition.Catalog) if(known.Id==data.recruited[i]) identity=known;
+                if(identity==null || restored.ContainsKey(identity.Id) || data.loadouts[i]==null || data.loadouts[i].id!=identity.Id) return false;
+                if(i==0 && identity.Id!=HeroDefinition.Common(HeroClass.Knight).Id) return false;
                 var loadout = data.loadouts[i];
                 if (loadout.firstSkill < 0 || loadout.firstSkill >= 6 || loadout.secondSkill < 0 || loadout.secondSkill >= 6 || loadout.firstSkill == loadout.secondSkill) return false;
-                var member = new PartyHero(HeroDefinition.Catalog[i]);
+                var member = new PartyHero(identity);
                 member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
                 restored.Add(member.Identity.Id, member);
             }
@@ -134,11 +164,13 @@ namespace Ashlight {
             foreach (var id in data.party) if (id == null || !restored.ContainsKey(id) || !chosen.Add(id)) return false;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();
             for (int i = 0; i < data.recruited.Length; i++) {
-                var identity = HeroDefinition.Catalog[i]; recruits.Add(identity);
+                var identity = restored[data.recruited[i]].Identity; recruits.Add(identity);
                 if (!unlocked.Contains(identity.Class)) unlocked.Add(identity.Class);
                 savedHeroes.Add(identity.Id, restored[identity.Id]);
             }
             foreach (var id in data.party) party.Add(restored[id]);
+            Crystals=data.version==1?Summoning.StarterCrystals:data.crystals;
+            RareMisses=data.version==1?0:data.rareMisses; LegendaryMisses=data.version==1?0:data.legendaryMisses;
             encounter = data.encounter; Reset(); ActiveIndex = data.activeIndex;
             if (data.pendingVictory) { Current = Phase.Won; EnemyHealth = 0; }
             return true;

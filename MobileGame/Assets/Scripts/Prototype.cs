@@ -9,6 +9,8 @@ namespace Ashlight {
         GameObject chapterRoot;
         Text chapterTitle;
         Button[] chapterChoices;
+        Button summonButton;
+        readonly System.Random summonRandom = new System.Random();
         Transform battleStage;
         Camera battleCamera;
         Button chaptersButton;
@@ -328,7 +330,22 @@ namespace Ashlight {
                 chapterChoices[i]=MakeButton(chapterRoot.transform,"",left,left+.43f,()=>StartChapter(index));
                 var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.17f);
             }
-            Label(chapterRoot.transform,"Prepare your heroes in battle before the first action. Progress saves automatically.",new Vector2(.05f,.02f),new Vector2(.95f,.14f),22);
+            summonButton=MakeButton(chapterRoot.transform,"SUMMON — 100",.05f,.37f,SummonHero);
+            var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.37f,.135f);
+            Label(chapterRoot.transform,Summoning.Odds+"\nRare+ within 5 pulls; Legendary within 15. Six heroes per rarity have equal odds.",new Vector2(.4f,.02f),new Vector2(.96f,.15f),18);
+        }
+        string SummonWallet() {
+            return "Crystals "+battle.Crystals+" | Rare+ in "+(Summoning.RareGuarantee-battle.RareMisses)+" | Legendary in "+(Summoning.LegendaryGuarantee-battle.LegendaryMisses);
+        }
+        void SummonHero() {
+            if(!atChapters) return;
+            var result=battle.Summon(summonRandom.NextDouble(),summonRandom.Next(6));
+            if(result==null) return;
+            SaveProgress();
+            var hero=result.Hero;
+            chapterTitle.color=hero.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):hero.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):hero.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
+            chapterTitle.text="SUMMON: "+hero.Name+" — "+hero.Quality+" "+hero.Class+" / "+hero.Affinity+"\n"+
+                (result.Duplicate?"Duplicate: +"+result.Refund+" crystals refunded.":"New hero added to reserves! Choose them before battle.")+"\n"+SummonWallet()+" | "+saveNotice;
         }
         void StartChapter(int index) {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
@@ -351,7 +368,8 @@ namespace Ashlight {
             atChapters=true; attackTime=-10; feedbackUntil=0; parried=false;
             selectionRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
             SaveProgress();
-            chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All six chapters completed!":"Continue your journey.")+"\n"+saveNotice;
+            chapterTitle.color=Color.white;
+            chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All six chapters completed!":"Continue your journey.")+"\n"+SummonWallet()+" | "+saveNotice;
             for(int i=0;i<chapterChoices.Length;i++) {
                 var chapter=ChapterDefinition.Catalog[i];
                 string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5: "+battle.Enemy.Name;
@@ -403,7 +421,7 @@ namespace Ashlight {
             dodge.interactable = parry.interactable = defending && !battle.Defended;
             SetMeter(heroHealth, battle.HeroHealth / (float)battle.Hero.MaxHealth);
             SetMeter(enemyHealth, battle.EnemyHealth / (float)battle.Enemy.MaxHealth);
-            if(atChapters) { timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
+            if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>().text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
             float elapsed = Time.time - strikeTime;
             bool striking = battle.Current == Phase.EnemyStrike;
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);

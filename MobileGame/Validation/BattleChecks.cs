@@ -189,7 +189,7 @@ class BattleChecks {
   Check(!resumed.RestoreProgress(invalidSave));
   invalidSave=campaign.ExportProgress();invalidSave.activeIndex=3;
   Check(!resumed.RestoreProgress(invalidSave));
-  invalidSave=campaign.ExportProgress();invalidSave.encounter=0;
+  invalidSave=campaign.ExportProgress();invalidSave.crystals=-1;
   Check(!resumed.RestoreProgress(invalidSave));
   Check(!resumed.RestoreProgress(null));
   // Reloading midway through a fight restores the pre-encounter loadout, not health/turn state.
@@ -223,6 +223,60 @@ class BattleChecks {
   Check(wonReload.ContinueAfterVictory() && wonReload.Encounter==1 && wonReload.Recruits.Count==2);
   Check(!wonReload.ContinueAfterVictory());
   Check(!wonReload.ExportProgress().pendingVictory);
+  Check(Summoning.Quality(0,0,0)==HeroQuality.Common);
+  Check(Summoning.Quality(.599999,0,0)==HeroQuality.Common);
+  Check(Summoning.Quality(.60,0,0)==HeroQuality.Uncommon);
+  Check(Summoning.Quality(.85,0,0)==HeroQuality.Rare);
+  Check(Summoning.Quality(.95,0,0)==HeroQuality.Epic);
+  Check(Summoning.Quality(.99,0,0)==HeroQuality.Legendary);
+  Check(Summoning.Quality(0,4,0)==HeroQuality.Rare);
+  Check(Summoning.Quality(.97,4,0)==HeroQuality.Epic);
+  Check(Summoning.Quality(0,4,14)==HeroQuality.Legendary);
+  int[] distribution=new int[5];
+  for(int i=0;i<10000;i++) distribution[(int)Summoning.Quality((i+.5)/10000,0,0)]++;
+  Check(distribution[0]==6000 && distribution[1]==2500 && distribution[2]==1000 && distribution[3]==400 && distribution[4]==100);
+  var summonGame=new Battle(true);
+  Check(summonGame.Crystals==300 && summonGame.CanSummon);
+  Check(summonGame.Summon(double.NaN,0)==null && summonGame.Crystals==300);
+  Check(summonGame.Summon(1,0)==null && summonGame.Summon(0,6)==null);
+  var duplicate=summonGame.Summon(0,0);
+  Check(duplicate.Duplicate && duplicate.Refund==20 && summonGame.Crystals==220 && summonGame.Recruits.Count==1);
+  var rare=summonGame.Summon(.9,2);
+  Check(!rare.Duplicate && rare.Hero.Id=="Sorceress_Rare" && summonGame.Recruits.Count==2 && summonGame.Party.Count==1);
+  Check(summonGame.RareMisses==0 && summonGame.LegendaryMisses==2 && summonGame.Crystals==120);
+  var legend=summonGame.Summon(.995,1);
+  Check(legend.Hero.Quality==HeroQuality.Legendary && summonGame.LegendaryMisses==0 && summonGame.Crystals==20);
+  Check(summonGame.Summon(0,0)==null && summonGame.Crystals==20);
+  var summonSave=summonGame.ExportProgress();var summonReload=new Battle(true);
+  Check(summonReload.RestoreProgress(summonSave) && summonReload.Crystals==20 && summonReload.Recruits[1].Id=="Sorceress_Rare");
+  Check(summonReload.EquipHero("Paladin_Legendary"));
+  Check(summonReload.Party.Count==1);
+  var funded=new Battle(true);var funds=funded.ExportProgress();funds.crystals=5000;
+  Check(funded.RestoreProgress(funds));
+  for(int i=0;i<15;i++) {
+   var result=funded.Summon(0,0);
+   Check(result!=null);
+   if(i==4 || i==9) Check(result.Hero.Quality>=HeroQuality.Rare);
+   if(i==14) Check(result.Hero.Quality==HeroQuality.Legendary);
+  }
+  Check(funded.LegendaryMisses==0 && funded.RareMisses==0 && funded.Party.Count==1);
+  funds=funded.ExportProgress();funds.rareMisses=5;
+  Check(!funded.RestoreProgress(funds));
+  funds=funded.ExportProgress();funds.legendaryMisses=15;
+  Check(!funded.RestoreProgress(funds));
+  funds=funded.ExportProgress();funds.recruited[1]=funds.recruited[0];
+  Check(!funded.RestoreProgress(funds));
+  var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
+  var migrated=new Battle(true);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==2);
+  var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
+  while(rewarded.Current!=Phase.Won) {
+   if(rewarded.Current==Phase.Player) rewarded.Attack();
+   else {rewarded.BeginStrike();rewarded.Defend(false,.1f);rewarded.FinishStrike();}
+  }
+  Check(rewarded.ContinueAfterVictory() && rewarded.Crystals==beforeCurrency+50);
+  Check(!rewarded.ContinueAfterVictory() && rewarded.Crystals==beforeCurrency+50);
+  Check(rewarded.Attack() && !rewarded.CanSummon && rewarded.Summon(0,0)==null);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, and battle outcomes.");
  }
 }

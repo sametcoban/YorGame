@@ -7,7 +7,9 @@ namespace Ashlight {
     }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 1;
+        public int version = 2;
+        public int crystals;
+        public int rareMisses, legendaryMisses;
         public int encounter;
         public bool pendingVictory;
         public string[] recruited;
