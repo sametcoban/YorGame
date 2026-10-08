@@ -133,7 +133,7 @@ On Windows, saves are local to Unity's company/product preferences. On Web build
 
 Save keys are `Ashlight.Progress.v1` and `Ashlight.Progress.v1.backup`. For developers testing from a clean state, remove both keys in Unity deliberately; no automatic save deletion is performed during project updates.
 
-Characters still use procedural capsule bodies and simple class props rather than finished character art or rigged animation.
+Knight-class heroes now use the free rigged KayKit model when its generated prefab is available. Other classes still use procedural capsule bodies and class props. See the free character section below.
 
 ## Free hero summons
 
@@ -170,3 +170,16 @@ The 1,472 engine-independent checks remain passing. Unity effect rendering has n
 ## Battle HUD visibility
 
 Hero selection, Skills, and Chapters appear only before the first action. Once combat starts, those controls disappear and heroes act in automatic party order. Restart is hidden throughout combat and returns after defeat; Continue appears after victory. Chapters also returns on the result screen. The selection overlay is closed whenever preparation ends. Attack, equipped skills, dodge/parry, health, and timing feedback remain on the battle HUD.
+
+## First free character asset: the Knight
+
+The project includes **KayKit Adventurers**' CC0 Knight model, texture, rig, and animations from Kay Lousberg's official repository. Commercial use is permitted by the included license. Source/credit/checksums are in [`Assets/ThirdParty/KayKit/ATTRIBUTION.md`](Assets/ThirdParty/KayKit/ATTRIBUTION.md). No paid asset-pack extras are included.
+
+1. Download the updated project into a separate folder, or copy the new `Assets/ThirdParty/KayKit` directory, updated Editor/Scripts folders, and updated `Packages/manifest.json` into your local project (preserve local scenes/settings). The manifest enables Unity's animation module.
+2. Wait for the FBX import. Select **Ashlight > Prepare Mobile Project**. The helper generates `Assets/Resources/Heroes/Knight.prefab`, `Knight.controller`, and `KnightDark.mat`. If needed use **Ashlight > Characters > Build Free Knight** to rebuild the generated assets.
+3. Start Chapter 1: Rowan should be the rigged Knight instead of a capsule. All named Knight variants currently share this visual.
+4. Test basic attacks, elemental skills, dodge, parry, being hit, and defeat. Animator states are Idle, Attack, Cast, Dodge, Parry, Hit, and Death. Root motion is disabled so the existing battle positioning remains authoritative. Legacy capsule squash/defeat rotation is skipped for the animated Knight.
+
+The setup darkens the texture atlas and adds subdued metal shading and cooler battle lighting. The low-poly proportions remain stylized; this is a first dark fantasy art pass rather than photorealistic character art. Knight weapons are selected from the model's embedded accessories. Paladin, Sorceress, Ranger, Rogue, and Cleric remain placeholders until their asset integrations are added. If the generated prefab is absent, the Knight falls back to its capsule, and preparation can be rerun.
+
+**Verification:** vendored model/texture/license match the official checkout byte-for-byte; checksums are recorded. The 1,472 combat checks still pass. Unity import and animation/rendering behavior remain unverified here. In your Unity editor, check scale, floor contact, sword/shield attachment, facing direction, all seven animations, and returning to Idle. Then test the Web build on iPhone before judging mobile performance.

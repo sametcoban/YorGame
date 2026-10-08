@@ -1,0 +1,3 @@
+b25e35cc7eaaa3c7c103f10a4f41fde1cbd81936fede9aa9ae4efbd29d40ba1b  Source/Knight.fbx
+5d250ccc5da020e6126bfa3839f83bd9a465a951ed223e4d13c08b1925e154d4  Source/knight_texture.png
+ae322141814056dda0deea7540d74c41d87aee1da319977cd1bd84ee5a923629  LICENSE.txt

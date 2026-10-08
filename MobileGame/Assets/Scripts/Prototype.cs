@@ -74,9 +74,9 @@ namespace Ashlight {
             camera.transform.LookAt(new Vector3(0, 1, 0));
             camera.backgroundColor = new Color(.07f, .08f, .14f);
             var light = new GameObject("Moonlight").AddComponent<Light>();
-            light.type = LightType.Directional; light.intensity = 1.3f;
+            light.type = LightType.Directional; light.intensity = 1.15f; light.color = new Color(.75f,.8f,.95f);
             light.transform.rotation = Quaternion.Euler(40, -30, 0);
-            MakeShape("Arena", PrimitiveType.Cube, new Vector3(0, -.2f, 0), new Vector3(12, .4f, 8), new Color(.2f, .22f, .3f)).transform.SetParent(battleStage);
+            MakeShape("Arena", PrimitiveType.Cube, new Vector3(0, -.2f, 0), new Vector3(12, .4f, 8), new Color(.13f, .14f, .18f)).transform.SetParent(battleStage);
             enemy = MakeShape("Enemy", PrimitiveType.Capsule, new Vector3(2, 1.3f, 0), new Vector3(1.3f, 1.3f, 1.3f), enemyColor).transform;
             enemy.SetParent(battleStage);
             enemyRenderer = enemy.GetComponent<Renderer>();
@@ -175,6 +175,7 @@ namespace Ashlight {
             int healthBefore = battle.Party[target].Health;
             battle.FinishStrike();
             lastHitDamage = healthBefore - battle.Party[target].Health;
+            if (lastHitDamage > 0) { var visual = allies[target].GetComponent<HeroVisual>(); if (visual != null) visual.Play("Hit"); }
             if (lastHitDamage > 0) effects.Attack(enemy.position, allies[target].position, Element.Physical, lastHitDamage, 1);
             else if (!battle.Defended) effects.Floating(allies[target].position, "BLOCKED", Element.Light);
             enemyRenderer.material.color = enemyColor;
@@ -183,6 +184,7 @@ namespace Ashlight {
         }
         void Defend(bool isParry) {
             if (battle.Defend(isParry, Time.time - strikeTime)) {
+                var visual = allies[battle.ActiveIndex].GetComponent<HeroVisual>(); if (visual != null) visual.Play(isParry ? "Parry" : "Dodge");
                 effects.Defense(allies[battle.ActiveIndex].position, isParry);
                 if (isParry) effects.Attack(allies[battle.ActiveIndex].position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
                 parried = isParry; feedbackUntil = Time.time + .7f;
@@ -202,6 +204,8 @@ namespace Ashlight {
             string actionName = skillSlot >= 0 ? battle.Party[battle.ActiveIndex].Skill(skillSlot).Name : "Attack";
             bool accepted = skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack();
             if (!accepted) return;
+            var visual = actingHero.GetComponent<HeroVisual>();
+            if (visual != null) visual.Play(skillSlot >= 0 && battle.LastElement != Element.Physical ? "Cast" : "Attack");
             effects.Attack(actingHero.position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
             for (int i = 0; i < members.Count; i++) {
                 int restoredHealth = members[i].Health - previousHealth[i];
@@ -292,6 +296,13 @@ namespace Ashlight {
                 allies[i] = null;
                 if (i >= battle.Party.Count) continue;
                 var kind = battle.Party[i].Definition.Kind;
+                var prefab = kind == HeroClass.Knight ? Resources.Load<GameObject>("Heroes/Knight") : null;
+                if (prefab != null) {
+                    hero = Instantiate(prefab, homes[i], Quaternion.identity, battleStage).transform;
+                    hero.name = battle.Party[i].Identity.Name;
+                    allies[i] = hero;
+                    continue;
+                }
                 Color color = kind == HeroClass.Knight ? new Color(.3f, .5f, .75f) :
                     kind == HeroClass.Paladin ? new Color(.95f, .78f, .3f) :
                     kind == HeroClass.Sorceress ? new Color(.6f, .3f, .8f) :
@@ -462,11 +473,13 @@ namespace Ashlight {
             for (int i = 0; i < party.Count; i++) {
                 allies[i].position = homes[i];
                 allies[i].localScale = Vector3.one;
-                allies[i].localRotation = party[i].Health == 0 ? Quaternion.Euler(0, 0, 75) : Quaternion.identity;
+                var visual = allies[i].GetComponent<HeroVisual>();
+                if (visual != null) { visual.SetDefeated(party[i].Health == 0); allies[i].localRotation = Quaternion.identity; }
+                else allies[i].localRotation = party[i].Health == 0 ? Quaternion.Euler(0, 0, 75) : Quaternion.identity;
             }
             if (attacker != null) attacker.position += Vector3.right * Mathf.Sin(attackProgress * Mathf.PI) * 1.4f;
             if (striking && battle.Defended && !parried) hero.position += Vector3.back * .8f;
-            hero.localScale = striking && battle.Defended && !parried ? new Vector3(1, .6f, 1) : Vector3.one;
+            hero.localScale = hero.GetComponent<HeroVisual>() == null && striking && battle.Defended && !parried ? new Vector3(1, .6f, 1) : Vector3.one;
             float lunge = striking ? Mathf.Sin(Mathf.Clamp01(elapsed / .45f) * Mathf.PI) : 0;
             enemy.position = Vector3.Lerp(enemyHome, hero.position + Vector3.right, lunge);
             enemy.localRotation = battle.Current == Phase.EnemyWindup ? Quaternion.Euler(0, 0, -12) : Quaternion.identity;
