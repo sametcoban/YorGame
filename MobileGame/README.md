@@ -133,7 +133,7 @@ On Windows, saves are local to Unity's company/product preferences. On Web build
 
 Save keys are `Ashlight.Progress.v1` and `Ashlight.Progress.v1.backup`. For developers testing from a clean state, remove both keys in Unity deliberately; no automatic save deletion is performed during project updates.
 
-Knight-class heroes now use the free rigged KayKit model when its generated prefab is available. Other classes still use procedural capsule bodies and class props. See the free character section below.
+All six classes use the included rigged male/female human meshes after project preparation. See the human character setup below.
 
 ## Free hero summons
 
@@ -171,33 +171,21 @@ The 1,513 engine-independent checks remain passing. Unity effect rendering has n
 
 Hero selection, Skills, and Chapters appear only before the first action. Once combat starts, those controls disappear and heroes act in automatic party order. Restart is hidden throughout combat and returns after defeat; Continue appears after victory. Chapters also returns on the result screen. The selection overlay is closed whenever preparation ends. Attack, equipped skills, dodge/parry, health, and timing feedback remain on the battle HUD.
 
-## First free character asset: the Knight
+## Human character models
 
-The project includes **KayKit Adventurers**' CC0 Knight model, texture, rig, and animations from Kay Lousberg's official repository. Commercial use is permitted by the included license. Source/credit/checksums are in [`Assets/ThirdParty/KayKit/ATTRIBUTION.md`](Assets/ThirdParty/KayKit/ATTRIBUTION.md). No paid asset-pack extras are included.
+The project includes two adult human base models derived from MakeHuman/MPFB's CC0 anatomical mesh and skeleton, with original fitted clothing and basic animation. These replace the rejected procedural outfit figures. Preparation generates **12 class/gender prefabs**: Knight, Paladin, Sorceress, Ranger, Rogue, and Cleric, each with a male and female visual. Women have cropped fitted bodices/armor, shorts, and tall boots; men have sleeveless cuirasses, shorts, and tall leg coverings. Sorceress/Cleric add split robe panels. Class colors and small bone-attached weapon props distinguish the six classes.
 
-1. Download the updated project into a separate folder, or copy the new `Assets/ThirdParty/KayKit` directory, updated Editor/Scripts folders, and updated `Packages/manifest.json` into your local project (preserve local scenes/settings). The manifest enables Unity's animation module.
-2. Wait for the FBX import. Select **Ashlight > Prepare Mobile Project**. The helper generates `Assets/Resources/Heroes/Knight.prefab`, `Knight.controller`, and `KnightDark.mat`. If needed use **Ashlight > Characters > Build Free Knight** to rebuild the generated assets.
-3. Start Chapter 1: Rowan should be the rigged Knight instead of a capsule. All named Knight variants currently share this visual.
-4. Test basic attacks, elemental skills, dodge, parry, being hit, and defeat. Animator states are Idle, Attack, Cast, Dodge, Parry, Hit, and Death. Root motion is disabled so the existing battle positioning remains authoritative. Legacy capsule squash/defeat rotation is skipped for the animated Knight.
+1. Download the updated project separately, or copy **Assets/ThirdParty/MakeHuman**, the updated **Assets/Editor** and **Assets/Scripts** folders into your current Unity project. Preserve your local scenes and settings. Delete the old `TemporaryOutfit.cs` script if updating files manually; it is no longer used.
+2. Wait for Unity to finish importing the FBX files, then choose **Ashlight > Prepare Mobile Project**. The helper generates matching prefabs, materials, and two animation controllers in `Assets/Resources/Heroes`.
+3. Open the battle scene and press Play. Rowan should now have an actual human mesh. Recruit/select a woman to see the female model. All genders use the same stats, skills, rarity rules, and progression.
+4. If a human prefab is missing, choose **Ashlight > Characters > Build Realistic Humans**. This explicitly rebuilds class/gender prefabs; automatic preparation preserves existing prefabs. A missing model shows a neutral capsule and a Console warning rather than the old outfit figures.
 
-The setup darkens the texture atlas and adds subdued metal shading and cooler battle lighting. The low-poly proportions remain stylized; this is a first dark fantasy art pass rather than photorealistic character art. Knight weapons are selected from the model's embedded accessories. Paladin, Sorceress, Ranger, Rogue, and Cleric remain placeholders until their asset integrations are added. If the generated prefab is absent, the Knight falls back to its capsule, and preparation can be rerun.
+Models have faces, fingers, natural proportions, a 53-bone skeleton, opaque mesh clothing, and seven basic states: Idle, Attack, Cast, Dodge, Parry, Hit, Death. Root motion is disabled. A named prefab at `Resources/Heroes/Named/<hero-id>.prefab` still takes priority over a class/gender prefab. The 30 named heroes currently share these two base faces/bodies; unique faces, detailed skin/hair textures, polished animation and weapon meshes remain future art work. These are simple human models, not film-quality or photorealistic characters.
 
-**Verification:** vendored model/texture/license match the official checkout byte-for-byte; checksums are recorded. The 1,513 combat checks still pass. Unity import and animation/rendering behavior remain unverified here. In your Unity editor, check scale, floor contact, sword/shield attachment, facing direction, all seven animations, and returning to Idle. Then test the Web build on iPhone before judging mobile performance.
+The 30 authored hero profiles include 18 women and 12 men, all adults ages 24–52. Stable IDs and gameplay are unchanged. Men in the Sorceress class display as Sorcerer; its class-selection button reads Sorcery.
 
-## Mixed adult hero roster and revised art direction
+**Verified here:** both FBX exports were independently reimported in Blender to check mesh budget, skeleton/hand attachments, weighted meshes, material roles, and all seven animation states. A Blender render was inspected for proportions and wardrobe fit. The asset report, source revision, license and checksums are in [Assets/ThirdParty/MakeHuman/CREDITS.md](Assets/ThirdParty/MakeHuman/CREDITS.md). Regeneration and validation tools are in `Tools/`. **Unity compilation/import, animation playback, battle appearance and phone/browser performance remain unverified here.** Check floor contact, facing, weapon attachment, clothing clipping during each action, and returning to Idle in Play mode.
 
-The 30 named heroes now have authored gender and age profiles: 18 women and 12 men, with women and men represented in every class. All are adults (ages 24–52). Examples include **Brenna and Seraphine** (Knights), **Mira, Aurelia, Solenne** (Paladins), **Sylva and Liora** (Rangers), and **Wren, Raven, Nyx** (Rogues). Gender has no effect on stats, rarity, skills, recruitment, or summon odds. Stable hero IDs preserve existing saves. Male members of the Sorceress class display as Sorcerer, and the class-selection button reads Sorcery.
+The older licensed KayKit cartoon asset remains archived in `Assets/ThirdParty/KayKit`, with its optional build menu, but is not selected by gameplay. Previously generated `Resources/Heroes/Knight.prefab` and its materials/controller are unused; remove them deliberately if you do not want them included in Resources builds. No user assets are deleted automatically.
 
-The cartoon KayKit Knight is no longer used automatically following the change in art direction. Its licensed source and optional build menu are retained, but gameplay now looks for a matching named model (`Resources/Heroes/Named/<hero-id>.prefab`) first, then a class/gender model (`Resources/Heroes/<class>_Woman.prefab` or `<class>_Man.prefab`). It uses neutral capsule placeholders when neither exists. This avoids assigning the same male-looking model to women. Preparation no longer regenerates the KayKit character automatically.
-
-**Female body meshes and realistic dark fantasy models are not yet included.** The roster and matching-model routing are implemented; character art is pending. The intended wardrobe uses adult human proportions, weathered materials, and class-appropriate outfits. More revealing outfit variants may include exposed shoulders, open backs, or split robes, subject to verified asset licenses.
-
-For an existing local project, copy the updated `HeroDefinition.cs`, `Prototype.cs`, and `Assets/Editor/ProjectSetup.cs`. Generated old `Resources/Heroes/Knight.prefab`, controller and material are unused; developers may remove those generated files deliberately to keep them out of Resources builds. User assets are never deleted automatically.
-
-Free outfit candidates for adult heroes are documented in [WARDROBE.md](WARDROBE.md): bodice/halter tops (CC0), and sleeveless goddess dresses (listed CC-BY). These are research candidates and require fitting, rigging, export, and license-metadata checks before Unity integration.
-
-## Temporary revealing wardrobe previews
-
-Where a matching authored prefab is not available, heroes now use an original procedural adult-proportioned figure rather than a capsule. Women wear opaque sleeveless cropped cuirasses/bodices with exposed midriff and arms, shorts or short split robes, bracers, and tall boots. Knight/Paladin outfits use plate panels; Sorceress/Cleric use short front/back robe panels; Ranger/Rogue use fitted leather-style bodices. Men use sleeveless full-length torso garments with visible arms. This is a temporary wardrobe preview with simple geometry, not finished realistic clothing or a skeletal rig. Gender does not change gameplay stats.
-
-Copy the new `Assets/Scripts/TemporaryOutfit.cs` and updated `Prototype.cs` into an existing project. The preview is generated at runtime and needs no external garment download. Named/class-gender prefabs still take precedence. Large placeholder capes have been removed, and weapon sizes/positions adjusted so the outfits remain visible. Unity appearance and clipping need local Play-mode validation; the combat model is unchanged.
+Additional free garment candidates remain documented in [WARDROBE.md](WARDROBE.md). None of those downloaded community clothing packs is bundled in this version.

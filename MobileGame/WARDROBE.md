@@ -1,4 +1,4 @@
-# Free dark fantasy wardrobe shortlist
+# Additional free wardrobe candidates
 
 These are candidate outfits for the game's adult, human-proportioned heroes. They have been found and their published license labels checked in the official MakeHuman community website source. **They are not yet imported into Unity or fitted to a character.**
 
@@ -21,4 +21,4 @@ Source evidence: [official tops listing](https://github.com/makehumancommunity/m
 4. Export a rigged FBX, optimize textures and mesh count for mobile, then test all battle animations for clipping.
 5. Create a matching Unity prefab: `Resources/Heroes/<class>_Woman.prefab` or `Resources/Heroes/Named/<hero-id>.prefab`. Assign an Animator using the Idle/Attack/Cast/Dodge/Parry/Hit/Death states and the `HeroVisual` component.
 
-The roster includes adult women in every class. Current gameplay still uses neutral placeholders until matching female meshes are supplied. The shortlist is asset research, not a claim that the outfits are playable, rigged, commercially bundled, or validated on iPhone.
+The roster includes adult women in every class. The game now includes male/female MakeHuman-derived models with original fitted clothing; these additional community garments are not yet integrated. The shortlist is asset research, not a claim that the outfits are playable, rigged, commercially bundled, or validated on iPhone.

@@ -1,0 +1,32 @@
+[
+  {
+    "model": "Human_Man.fbx",
+    "triangles": 42524,
+    "bones": 53,
+    "height": 1.8579902648925781,
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ]
+  },
+  {
+    "model": "Human_Woman.fbx",
+    "triangles": 41488,
+    "bones": 53,
+    "height": 1.719929575920105,
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ]
+  }
+]
