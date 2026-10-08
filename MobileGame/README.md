@@ -125,7 +125,7 @@ The combat/roster model has been exercised outside Unity. The new UI, 3D party p
 
 ## Chapters and local saves
 
-The six chapters are **The Lantern Road**, **The Frozen Pass**, **The Ember Citadel**, **The Storm Spire**, **The Blighted Garden**, and **The Eclipse Throne**. Each contains five distinct encounters. Only the current chapter is playable; previously cleared chapters show Completed and later chapters show Locked. After all 30 stages, the menu shows campaign completion. Chapter replay and New Game are not implemented yet. See [CHAPTERS.md](CHAPTERS.md) for the enemy list.
+The six chapters are **The Lantern Road**, **The Frozen Pass**, **The Ember Citadel**, **The Storm Spire**, **The Blighted Garden**, and **The Eclipse Throne**. Each contains five distinct encounters. Only the current chapter is playable; previously cleared chapters show Completed and later chapters show Locked. After all 30 stages, the menu shows **Restart Campaign**. It returns you to Chapter 1, stage 1 while preserving recruited heroes, party composition, active/reserve skill loadouts, crystals and summon pity counters. Health and skill charges refill. The restart saves immediately and also works for previously completed saves. This button is only available after campaign completion; individual chapter selection/replay is not implemented. See [CHAPTERS.md](CHAPTERS.md) for the enemy list.
 
 Progress uses Unity `PlayerPrefs` with versioned JSON and a previous valid snapshot as backup. Saves happen after summons, party/skill changes, victory, Continue, and on pause/focus loss/exit. Loading validates IDs, party size, unique members, recruited roster, skill choices, version, and stage bounds before applying anything. A valid backup is attempted if the primary save is unreadable. Each loaded encounter restores full health and skill uses. Unknown/incompatible snapshots are rejected rather than partially applied.
 
@@ -151,7 +151,7 @@ Each rarity has six named heroes with equal conditional odds. Every fifth consec
 
 Summons are available between encounters and after campaign completion, never during an active fight. Newly summoned heroes go to reserves, preserving the active party and its three-hero cap. Duplicate heroes return the listed crystals without adding another copy. The result shows name, class, quality, affinity, and whether it is new or a duplicate. The hero pool remains fixed across chapters. Deterministic chapter rewards now award the first hero you do not own so a summon cannot cause a duplicated story reward.
 
-Currency, recruits, and both pity counters save immediately. The version-2 snapshot accepts existing version-1 saves and gives those profiles the one-time 300-crystal starter balance on migration, preserving chapters/roster/loadouts. Save keys remain unchanged. Current progression only supports first-clear stage rewards; chapter replay and currency farming are future work.
+Currency, recruits, and both pity counters save immediately. The version-2 snapshot accepts existing version-1 saves and gives those profiles the one-time 300-crystal starter balance on migration, preserving chapters/roster/loadouts. Save keys remain unchanged. Each cleared encounter awards crystals once when you Continue. After restarting a completed campaign, encounters award crystals again; this deliberately allows repeat play and earning more summons in the free prototype. Existing heroes are never duplicated by story rewards; any missing hero can still be recruited on a replay. Restarting does not grant starter crystals again.
 
 Validation checks all probability boundaries, exact base-rate partition, both guarantees, duplicate refunds, invalid rolls, insufficient funds, rewards claimed once, save round trips, arbitrary summoned roster order, and legacy migration. The updated Unity summon screen and browser persistence still require local testing.
 
@@ -189,3 +189,7 @@ The 30 authored hero profiles include 18 women and 12 men, all adults ages 24–
 The older licensed KayKit cartoon asset remains archived in `Assets/ThirdParty/KayKit`, with its optional build menu, but is not selected by gameplay. Previously generated `Resources/Heroes/Knight.prefab` and its materials/controller are unused; remove them deliberately if you do not want them included in Resources builds. No user assets are deleted automatically.
 
 Additional free garment candidates remain documented in [WARDROBE.md](WARDROBE.md). None of those downloaded community clothing packs is bundled in this version.
+
+## Updating the campaign restart button
+
+Copy the updated `Assets/Scripts/Battle.cs` and `Assets/Scripts/Prototype.cs` into your current project, then press Play. Existing completed saves show the new button on the chapter menu automatically. No save deletion or project preparation is needed. The engine-independent checks cover restarting a completed save, preserving roster/party/loadouts/currency/pity, restoring battle readiness, reloading the restarted campaign, repeat rewards, and rejecting restart during unfinished encounters. Unity layout and button interaction still need local testing.

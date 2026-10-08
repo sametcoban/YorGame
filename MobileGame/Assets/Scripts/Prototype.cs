@@ -9,6 +9,7 @@ namespace Ashlight {
         GameObject chapterRoot;
         Text chapterTitle;
         Button[] chapterChoices;
+        Button restartCampaignButton;
         Button summonButton;
         readonly System.Random summonRandom = new System.Random();
         Transform battleStage;
@@ -337,6 +338,15 @@ namespace Ashlight {
             summonButton=MakeButton(chapterRoot.transform,"SUMMON — 100",.05f,.37f,SummonHero);
             var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.37f,.135f);
             Label(chapterRoot.transform,Summoning.Odds+"\nRare+ within 5 pulls; Legendary within 15. Six heroes per rarity have equal odds.",new Vector2(.4f,.02f),new Vector2(.96f,.15f),18);
+            restartCampaignButton=MakeButton(chapterRoot.transform,"RESTART CAMPAIGN\nKeep heroes, skills & crystals",.24f,.76f,RestartCampaign);
+            var replayRect=restartCampaignButton.GetComponent<RectTransform>();
+            replayRect.anchorMin=new Vector2(.24f,.43f); replayRect.anchorMax=new Vector2(.76f,.61f);
+            restartCampaignButton.gameObject.SetActive(false);
+        }
+        void RestartCampaign() {
+            if(!atChapters || !battle.RestartCampaign()) return;
+            RefreshAppearance();
+            EnterChapters();
         }
         string SummonWallet() {
             return "Crystals "+battle.Crystals+" | Rare+ in "+(Summoning.RareGuarantee-battle.RareMisses)+" | Legendary in "+(Summoning.LegendaryGuarantee-battle.LegendaryMisses);
@@ -376,7 +386,9 @@ namespace Ashlight {
             SaveProgress();
             chapterTitle.color=Color.white;
             chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All six chapters completed!":"Continue your journey.")+"\n"+SummonWallet()+" | "+saveNotice;
+            restartCampaignButton.gameObject.SetActive(battle.CampaignComplete);
             for(int i=0;i<chapterChoices.Length;i++) {
+                chapterChoices[i].gameObject.SetActive(!battle.CampaignComplete);
                 var chapter=ChapterDefinition.Catalog[i];
                 string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5: "+battle.Enemy.Name;
                 chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+"\n"+state;

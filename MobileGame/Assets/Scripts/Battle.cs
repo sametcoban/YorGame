@@ -106,6 +106,12 @@ namespace Ashlight {
             }
             Reset(); return true;
         }
+        // Replay the campaign with the existing roster, loadouts and summon economy.
+        public bool RestartCampaign() {
+            if (!CampaignComplete || Current != Phase.Complete) return false;
+            encounter = 0;
+            Reset(); return true;
+        }
         void AddRecruit(HeroDefinition hero, bool addToParty) {
             recruits.Add(hero);
             if(!unlocked.Contains(hero.Class)) unlocked.Add(hero.Class);

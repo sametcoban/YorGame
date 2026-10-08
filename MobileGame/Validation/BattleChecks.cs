@@ -203,7 +203,7 @@ class BattleChecks {
    Check(enemyNames.Add(foe.Name));
    Check(foe.MaxHealth>0 && foe.Weakness!=foe.Resistance);
   }
-  // Finish the final chapter and confirm completion is permanent across saves.
+  // Completion survives saves until the player explicitly restarts the campaign.
   resumed.Reset();
   while(resumed.Current!=Phase.Won) {
    if(resumed.Current==Phase.Player) resumed.Attack();
@@ -213,6 +213,26 @@ class BattleChecks {
   Check(!resumed.Attack() && !resumed.UseAbility() && !resumed.ContinueAfterVictory());
   var completed=new Battle(true);
   Check(completed.RestoreProgress(resumed.ExportProgress()) && completed.CampaignComplete && completed.Encounter==30);
+  var retained=completed.ExportProgress();
+  retained.crystals=913; retained.rareMisses=2; retained.legendaryMisses=9;
+  foreach(var loadout in retained.loadouts) { loadout.firstSkill=4; loadout.secondSkill=5; }
+  Check(completed.RestoreProgress(retained));
+  Check(completed.RestartCampaign() && !completed.CampaignComplete && completed.Encounter==0 && completed.Current==Phase.Player && completed.CanChangeParty);
+  var replaySave=completed.ExportProgress();
+  Check(replaySave.crystals==retained.crystals && replaySave.rareMisses==retained.rareMisses && replaySave.legendaryMisses==retained.legendaryMisses);
+  Check(string.Join(",",replaySave.recruited)==string.Join(",",retained.recruited) && string.Join(",",replaySave.party)==string.Join(",",retained.party));
+  for(int i=0;i<retained.loadouts.Length;i++) Check(replaySave.loadouts[i].id==retained.loadouts[i].id && replaySave.loadouts[i].firstSkill==retained.loadouts[i].firstSkill && replaySave.loadouts[i].secondSkill==retained.loadouts[i].secondSkill);
+  foreach(var ally in completed.Party) Check(ally.Health==ally.Definition.MaxHealth && ally.SkillCharges(0)==2 && ally.SkillCharges(1)==2 && !ally.Acted);
+  Check(!completed.RestartCampaign() && completed.Encounter==0);
+  Check(!new Battle().RestartCampaign());
+  var replayReload=new Battle(true);
+  Check(replayReload.RestoreProgress(replaySave) && !replayReload.CampaignComplete && replayReload.Encounter==0 && replayReload.Attack());
+  while(completed.Current!=Phase.Won) {
+   if(completed.Current==Phase.Player) completed.Attack();
+   else {completed.BeginStrike();completed.Defend(false,.1f);completed.FinishStrike();}
+  }
+  Check(!completed.RestartCampaign() && completed.Current==Phase.Won);
+  Check(completed.ContinueAfterVictory() && completed.Encounter==1 && completed.Crystals==retained.crystals+Summoning.VictoryCrystals && completed.Recruits.Count==retained.recruited.Length);
   var winner=new Battle(true);
   while(winner.Current!=Phase.Won) {
    if(winner.Current==Phase.Player) winner.Attack();
