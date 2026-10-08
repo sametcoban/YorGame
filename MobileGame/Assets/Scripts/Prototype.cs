@@ -311,26 +311,24 @@ namespace Ashlight {
                     kind == HeroClass.Sorceress ? new Color(.6f, .3f, .8f) :
                     kind == HeroClass.Ranger ? new Color(.25f, .6f, .3f) :
                     kind == HeroClass.Rogue ? new Color(.35f, .25f, .4f) : new Color(.85f, .85f, .8f);
-                hero = MakeShape(battle.Party[i].Identity.Name, PrimitiveType.Capsule, homes[i], Vector3.one, color).transform;
-                hero.SetParent(battleStage);
+                hero = TemporaryOutfit.Create(identity, homes[i], battleStage, color);
                 allies[i] = hero;
                 equipment = new GameObject("Class Equipment").transform;
                 equipment.SetParent(hero, false);
                 if (kind == HeroClass.Sorceress || kind == HeroClass.Cleric) {
-                    Accessory("Staff", PrimitiveType.Cylinder, new Vector3(.65f, 0, 0), new Vector3(.08f, 1.2f, .08f), new Color(.3f, .2f, .15f));
-                    Accessory("Magic Orb", PrimitiveType.Sphere, new Vector3(.65f, 1.25f, 0), Vector3.one * .35f, kind == HeroClass.Cleric ? Color.yellow : Color.cyan);
-                    Accessory("Mantle", PrimitiveType.Cube, new Vector3(0, .35f, .3f), new Vector3(1.1f, 1.2f, .15f), color * .65f);
+                    Accessory("Staff", PrimitiveType.Cylinder, new Vector3(.38f, 0, 0), new Vector3(.08f, 1.2f, .08f), new Color(.3f, .2f, .15f));
+                    Accessory("Magic Orb", PrimitiveType.Sphere, new Vector3(.38f, 1.25f, 0), Vector3.one * .35f, kind == HeroClass.Cleric ? Color.yellow : Color.cyan);
                 } else if (kind == HeroClass.Ranger) {
-                    Accessory("Bow", PrimitiveType.Cube, new Vector3(.65f, .1f, 0), new Vector3(.12f, 1.5f, .2f), new Color(.5f, .3f, .15f));
-                    Accessory("Bow String", PrimitiveType.Cube, new Vector3(.85f, .1f, 0), new Vector3(.03f, 1.5f, .03f), Color.white);
+                    Accessory("Bow", PrimitiveType.Cube, new Vector3(.38f, .1f, 0), new Vector3(.12f, 1.5f, .2f), new Color(.5f, .3f, .15f));
+                    Accessory("Bow String", PrimitiveType.Cube, new Vector3(.53f, .1f, 0), new Vector3(.03f, 1.5f, .03f), Color.white);
                     Accessory("Quiver", PrimitiveType.Cylinder, new Vector3(0, .2f, .45f), new Vector3(.3f, .55f, .3f), new Color(.3f, .2f, .1f));
                 } else if (kind == HeroClass.Rogue) {
-                    Accessory("Right Dagger", PrimitiveType.Cube, new Vector3(.65f, -.15f, 0), new Vector3(.1f, .7f, .15f), Color.gray);
-                    Accessory("Left Dagger", PrimitiveType.Cube, new Vector3(-.65f, -.15f, 0), new Vector3(.1f, .7f, .15f), Color.gray);
+                    Accessory("Right Dagger", PrimitiveType.Cube, new Vector3(.38f, -.15f, 0), new Vector3(.1f, .7f, .15f), Color.gray);
+                    Accessory("Left Dagger", PrimitiveType.Cube, new Vector3(-.38f, -.15f, 0), new Vector3(.1f, .7f, .15f), Color.gray);
                 } else {
-                    Accessory("Sword", PrimitiveType.Cube, new Vector3(.65f, .2f, 0), new Vector3(.12f, 1.4f, .18f), Color.gray);
-                    Accessory("Sword Guard", PrimitiveType.Cube, new Vector3(.65f, -.25f, 0), new Vector3(.45f, .12f, .2f), color);
-                    Accessory("Shield", PrimitiveType.Cube, new Vector3(-.65f, .05f, -.15f), new Vector3(.6f, .9f, .18f), color);
+                    Accessory("Sword", PrimitiveType.Cube, new Vector3(.38f, .2f, 0), new Vector3(.1f, 1.05f, .12f), Color.gray);
+                    Accessory("Sword Guard", PrimitiveType.Cube, new Vector3(.38f, -.25f, 0), new Vector3(.45f, .12f, .2f), color);
+                    Accessory("Shield", PrimitiveType.Cube, new Vector3(-.38f, .05f, -.15f), new Vector3(.35f, .65f, .12f), color);
                 }
             }
             hero = allies[battle.ActiveIndex];

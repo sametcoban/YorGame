@@ -195,3 +195,9 @@ The cartoon KayKit Knight is no longer used automatically following the change i
 For an existing local project, copy the updated `HeroDefinition.cs`, `Prototype.cs`, and `Assets/Editor/ProjectSetup.cs`. Generated old `Resources/Heroes/Knight.prefab`, controller and material are unused; developers may remove those generated files deliberately to keep them out of Resources builds. User assets are never deleted automatically.
 
 Free outfit candidates for adult heroes are documented in [WARDROBE.md](WARDROBE.md): bodice/halter tops (CC0), and sleeveless goddess dresses (listed CC-BY). These are research candidates and require fitting, rigging, export, and license-metadata checks before Unity integration.
+
+## Temporary revealing wardrobe previews
+
+Where a matching authored prefab is not available, heroes now use an original procedural adult-proportioned figure rather than a capsule. Women wear opaque sleeveless cropped cuirasses/bodices with exposed midriff and arms, shorts or short split robes, bracers, and tall boots. Knight/Paladin outfits use plate panels; Sorceress/Cleric use short front/back robe panels; Ranger/Rogue use fitted leather-style bodices. Men use sleeveless full-length torso garments with visible arms. This is a temporary wardrobe preview with simple geometry, not finished realistic clothing or a skeletal rig. Gender does not change gameplay stats.
+
+Copy the new `Assets/Scripts/TemporaryOutfit.cs` and updated `Prototype.cs` into an existing project. The preview is generated at runtime and needs no external garment download. Named/class-gender prefabs still take precedence. Large placeholder capes have been removed, and weapon sizes/positions adjusted so the outfits remain visible. Unity appearance and clipping need local Play-mode validation; the combat model is unchanged.
