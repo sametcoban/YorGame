@@ -1,2 +1,2 @@
-d7652a3b601bf52db11226568293b2f29211e3fc645628d7befa449c4c6ab9de  Models/Human_Man.fbx
+bb305777c9b48c562c788c28c96304ce148483c3e8bb1d9c653ea798a1a17dbe  Models/Human_Man.fbx
 d7f77a0dfa77194cdb4dd1fe459edb07f1accbe2b285f03f305a362381c786f6  Models/Human_Woman.fbx

@@ -76,6 +76,14 @@ def surface(body, indices, name, rig, mat, offset):
     for v in boundary:
         location,normal,_,_ = base_surface.find_nearest(v.co)
         if location is not None:v.co=location+normal*offset
+    if name=='SleevelessCuirass':
+        height=max(v.co.z for v in body.data.vertices)
+        for v in bm.verts:
+            z=v.co.z/height
+            front=max(0,min(1,(-v.co.y/height-.022)/.024))
+            fade=max(0,min(1,(z-.58)/.06,(.825-z)/.05))
+            plane=-height*(.068+.02*(z-.58)/.245)
+            v.co.y=v.co.y*(1-front*fade)+plane*front*fade
     if name in ['FittedBodice','SleevelessCuirass']:
         for _ in range(5): bmesh.ops.smooth_vert(bm, verts=[v for v in bm.verts if v not in boundary], factor=.55, use_axis_x=True, use_axis_y=True, use_axis_z=True)
     bm.to_mesh(obj.data); bm.free()
@@ -130,9 +138,15 @@ for woman in [False,True]:
     for action in list(bpy.data.actions):bpy.data.actions.remove(action)
     gender='Woman' if woman else 'Man'
     macro=TargetService.get_default_macro_info_dict()
-    macro.update(gender=0.0 if woman else 1.0, age=.5, height=.6, muscle=.55 if woman else .65, weight=.5)
+    macro.update(gender=0.0 if woman else 1.0, age=.5 if woman else .58, height=.6, muscle=.55 if woman else .85, weight=.5)
     body=HumanService.create_human(macro_detail_dict=macro)
+    if not woman:
+        for target,value in [('head-square',.45),('chin-width-incr',.35),('chin-bones-incr',.25),('neck-scale-horiz-incr',.2),('eyebrows-trans-forward',.3)]:
+            TargetService.load_target(body,TargetService.target_full_path(target),weight=value,name=target)
     TargetService.bake_targets(body)
+    lip_group=body.vertex_groups['lips']
+    lip_points=[v.co.copy() for v in body.data.vertices if any(g.group==lip_group.index for g in v.groups)]
+    lip_center=sum(lip_points,Vector())/len(lip_points)
     eye_centers=[]
     for name in ['joint-l-eye','joint-r-eye']:
         group=body.vertex_groups[name]
@@ -142,10 +156,11 @@ for woman in [False,True]:
     ExportService.bake_modifiers_remove_helpers(body,remove_helpers=True)
     body.name='Skin';height=max(v.co.z for v in body.data.vertices)
     skin=material('Skin',(.57,.34,.23) if not woman else (.66,.43,.32),roughness=.65)
-    lips=material('Lips',(.37,.13,.11),roughness=.55)
-    cloth=material('Cloth',(.22,.13,.32),roughness=.8)
+    lips=material('Lips',(.37,.13,.11) if woman else (.43,.23,.17),roughness=.55)
+    cloth=material('Cloth',(.22,.13,.32) if woman else (.19,.23,.28),roughness=.8)
     leather=material('Leather',(.09,.055,.035),roughness=.8)
     hair=material('Hair',(.055,.025,.014),roughness=.65)
+    facial_hair=material('FacialHair',(.045,.024,.016),roughness=.85) if not woman else None
     metal=material('Metal',(.6,.46,.2),metallic=.65,roughness=.32)
     eye_white=material('EyeWhite',(.78,.76,.69),roughness=.25)
     iris=material('Iris',(.06,.16,.13),roughness=.28)
@@ -154,15 +169,15 @@ for woman in [False,True]:
     for face in body.data.polygons:
         face.use_smooth=True
         if all(any(body.vertex_groups[g.group].name=='lips' for g in body.data.vertices[v].groups) for v in face.vertices):face.material_index=1
-    covered=set();top=[];shorts=[];boots=[];belt=[];scalp=[]
+    covered=set();top=[];shorts=[];boots=[];belt=[];scalp=[];beard=[]
     for face in body.data.polygons:
         x,y,z=face.center/height
         def has(name):return any(any(body.vertex_groups[g.group].name==name and g.weight>.4 for g in body.data.vertices[v].groups) for v in face.vertices)
         arm_groups=('upperarm_','clavicle_') if woman else ('upperarm_',)
         arm_weight=sum(g.weight for v in face.vertices for g in body.data.vertices[v].groups
             if body.vertex_groups[g.group].name.startswith(arm_groups))/len(face.vertices)
-        torso=abs(x)<.125 and .56<z<(.82 if woman else .84) and arm_weight<.3
-        neckline=(.76+.3*abs(x) if y<-.015 else .80) if woman else (.81+.15*abs(x) if y<-.015 else .825)
+        torso=abs(x)<(.125 if woman else .15) and .56<z<(.82 if woman else .86) and arm_weight<(.3 if woman else .45)
+        neckline=(.76+.3*abs(x) if y<-.015 else .80) if woman else (.825+.45*abs(x) if y<-.015 else .845)
         if torso and (.63 if woman else .57)<z<neckline:top.append(face.index);covered.add(face.index)
         if .435<z<.575 and abs(x)<.17 or has('genitals') or has('nipple') or has('nippleTip'):
             if z<.6:shorts.append(face.index);covered.add(face.index)
@@ -170,8 +185,14 @@ for woman in [False,True]:
         if z<(.275 if woman else .435):boots.append(face.index);covered.add(face.index)
         if .565<z<.585 and abs(x)<.15:belt.append(face.index)
         if has('scalp'):scalp.append(face.index)
+        if not woman and has('head') and abs(face.center.x)<height*.055:
+            lower=lip_center.z-height*.042<face.center.z<lip_center.z-height*.003 and face.center.y<lip_center.y+height*.038
+            moustache=lip_center.z+height*.002<face.center.z<lip_center.z+height*.009 and abs(x)<.027 and face.center.y<lip_center.y+height*.013
+            if (lower or moustache) and not has('lips'):beard.append(face.index)
     for faces,name,mat in [(top,'FittedBodice' if woman else 'SleevelessCuirass',cloth),(shorts,'Shorts',leather),(boots,'Boots',leather),(belt,'Belt',metal),(scalp,'HairCap',hair)]:
         surface(body,faces,name,rig,mat,.008 if name in ['FittedBodice','SleevelessCuirass'] else .014 if name=='Belt' else .0045)
+    if not woman:
+        surface(body,beard,'ShortBeard',rig,facial_hair,.0015)
     # Keep skin at garment boundaries so smoothing does not introduce gaps.
     # Anatomy beneath opaque garments is removed from the exported body.
     neighbors={v.index:set() for v in body.data.vertices}
@@ -190,9 +211,9 @@ for woman in [False,True]:
         rigid_sphere('Iris'+str(i),center+Vector((0,-height*.0084,0)),(height*.0036,height*.001,height*.0036),rig,'head',iris)
         rigid_sphere('Pupil'+str(i),center+Vector((0,-height*.0093,0)),(height*.0018,height*.0006,height*.0018),rig,'head',pupil)
     # Original overlapping hair ribbons, attached to the head bone.
-    for i in range(19 if woman else 13):
-        angle=math.pi*(.05+.9*i/(18 if woman else 12));x=math.cos(angle)*height*.043
-        y=math.sin(angle)*height*.036;end=.72 if woman else .88
+    for i in range(19 if woman else 0):
+        angle=math.pi*(.05+.9*i/18);x=math.cos(angle)*height*.043
+        y=math.sin(angle)*height*.036;end=.72
         ribbon('HairStrand',[(x,y-.005,height*.965),(x*1.07,y+.005,height*.91),(x*1.15,y+.015,height*(end+.05)),(x*.97,y+.016,height*end)],
             [height*.011,height*.012,height*.01,height*.003],rig,'head',hair)
     # Optional split skirt panels, enabled for Sorceress/Cleric prefabs only.

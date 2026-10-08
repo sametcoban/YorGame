@@ -13,6 +13,8 @@
 
 The original additions authored for these two exported models are also made available under CC0 1.0 so the assembled model assets can be reused commercially. This applies to the model data, not unrelated application code.
 
+The male variant uses stronger jaw/chin/brow and neck morphs, broader shoulders, cropped scalp hair, a short beard/moustache mesh, muted lip color, and a higher-neck sleeveless garment. The female model retains its previous silhouette and wardrobe. Regenerate class/gender prefabs with **Ashlight > Characters > Build Realistic Humans** when updating existing Unity projects so the additional facial-hair material slot is assigned correctly.
+
 ## Preparation and verification
 
 Blender **4.3.2** was used. `MobileGame/Tools/build_human_models.py` regenerates the models from the pinned MPFB source checkout; pass its `src` directory and an output directory after `--`. Set Blender's user config to a writable directory when needed. It exports FBX plus editable Blender working files; only the FBX exports are bundled here.

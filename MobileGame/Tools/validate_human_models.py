@@ -29,6 +29,7 @@ for gender in ['Man','Woman']:
     assert all(any(mod.type=='ARMATURE' and mod.object==rig for mod in obj.modifiers) for obj in meshes)
     roles={mat.name.split('.')[0] for obj in meshes for mat in obj.data.materials if mat}
     assert {'Skin','Lips','Cloth','Leather','Hair','Metal','EyeWhite','Iris','Pupil'}.issubset(roles),roles
+    assert ('FacialHair' in roles)==(gender=='Man'), 'Wrong facial-hair variant for '+gender
     triangles=sum(len(p.vertices)-2 for obj in meshes for p in obj.data.polygons)
     assert triangles<50000, 'Prototype human exceeded mesh budget'
     reports.append({'model':path.name,'triangles':triangles,'skeletons':len(rigs),'states':sorted(states),'materials':sorted(roles)})

@@ -1,9 +1,9 @@
 [
   {
     "model": "Human_Man.fbx",
-    "triangles": 42524,
+    "triangles": 44240,
     "bones": 53,
-    "height": 1.8579902648925781,
+    "height": 1.8422883749008179,
     "states": [
       "Idle",
       "Attack",
