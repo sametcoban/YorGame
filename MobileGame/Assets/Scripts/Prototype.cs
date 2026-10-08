@@ -5,6 +5,16 @@ using System.Collections;
 namespace Ashlight {
     public sealed class Prototype : MonoBehaviour {
         Battle battle = new Battle(true);
+        bool atChapters;
+        GameObject chapterRoot;
+        Text chapterTitle;
+        Button[] chapterChoices;
+        Transform battleStage;
+        Camera battleCamera;
+        Button chaptersButton;
+        ProgressData restored;
+        string saveNotice = "";
+        bool progressInitialized, saveFailed;
         Text status, cue;
         Image heroHealth, enemyHealth, timing;
         RectTransform safe;
@@ -15,7 +25,18 @@ namespace Ashlight {
         readonly Vector3 enemyHome = new Vector3(2, 1.3f, 0);
         float attackTime = -10, feedbackUntil;
         bool parried;
-        readonly Color enemyColor = new Color(.8f, .45f, .2f);
+        Color enemyColor {
+            get {
+                switch(battle.ChapterIndex) {
+                    case 1: return new Color(.4f,.75f,.95f);
+                    case 2: return new Color(.95f,.3f,.1f);
+                    case 3: return new Color(.75f,.6f,.95f);
+                    case 4: return new Color(.3f,.65f,.2f);
+                    case 5: return new Color(.35f,.25f,.4f);
+                    default: return new Color(.8f,.45f,.2f);
+                }
+            }
+        }
         Button attack, ability, abilityTwo, dodge, parry, loadout;
         GameObject selectionRoot;
         Text selectionTitle;
@@ -37,8 +58,12 @@ namespace Ashlight {
         }
         void Start() {
             Application.targetFrameRate = 60;
+            ProgressStore.Load(battle, out restored);
+            progressInitialized = true;
+            battleStage = new GameObject("Battle Stage").transform;
             var cameraObject = new GameObject("Battle Camera");
             var camera = cameraObject.AddComponent<Camera>();
+            battleCamera = camera;
             cameraObject.AddComponent<AudioListener>();
             camera.transform.position = new Vector3(0, 5, -9);
             camera.transform.LookAt(new Vector3(0, 1, 0));
@@ -46,8 +71,9 @@ namespace Ashlight {
             var light = new GameObject("Moonlight").AddComponent<Light>();
             light.type = LightType.Directional; light.intensity = 1.3f;
             light.transform.rotation = Quaternion.Euler(40, -30, 0);
-            MakeShape("Arena", PrimitiveType.Cube, new Vector3(0, -.2f, 0), new Vector3(12, .4f, 8), new Color(.2f, .22f, .3f));
-            enemy = MakeShape("Enemy", PrimitiveType.Capsule, new Vector3(2, 1.3f, 0), new Vector3(1.3f, 1.3f, 1.3f), new Color(.8f, .45f, .2f)).transform;
+            MakeShape("Arena", PrimitiveType.Cube, new Vector3(0, -.2f, 0), new Vector3(12, .4f, 8), new Color(.2f, .22f, .3f)).transform.SetParent(battleStage);
+            enemy = MakeShape("Enemy", PrimitiveType.Capsule, new Vector3(2, 1.3f, 0), new Vector3(1.3f, 1.3f, 1.3f), enemyColor).transform;
+            enemy.SetParent(battleStage);
             enemyRenderer = enemy.GetComponent<Renderer>();
             var canvas = new GameObject("Touch HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -85,8 +111,12 @@ namespace Ashlight {
             loadout = MakeButton(safe, "SKILLS", .78f, .95f, () => OpenSelection(true, battle.Hero.Kind));
             var loadoutRect = loadout.GetComponent<RectTransform>();
             loadoutRect.anchorMin = new Vector2(.78f, .405f); loadoutRect.anchorMax = new Vector2(.95f, .505f);
+            chaptersButton = MakeButton(safe, "CHAPTERS", .78f, .95f, EnterChapters);
+            var chapterRect = chaptersButton.GetComponent<RectTransform>(); chapterRect.anchorMin = new Vector2(.81f,.29f); chapterRect.anchorMax = new Vector2(.97f,.39f);
+            CreateChapterMenu();
             CreateSelectionPanel();
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
+            EnterChapters();
         }
         static GameObject MakeShape(string name, PrimitiveType shape, Vector3 position, Vector3 scale, Color color) {
             var obj = GameObject.CreatePrimitive(shape); obj.name = name;
@@ -102,7 +132,7 @@ namespace Ashlight {
             label.fontSize = size; label.alignment = TextAnchor.MiddleCenter; label.color = Color.white; label.raycastTarget = false;
             return label;
         }
-        static Button MakeButton(Transform parent, string text, float min, float max, UnityEngine.Events.UnityAction action, bool onPress = false) {
+        internal static Button MakeButton(Transform parent, string text, float min, float max, UnityEngine.Events.UnityAction action, bool onPress = false) {
             var obj = new GameObject(text, typeof(RectTransform), typeof(Image), typeof(Button)); obj.transform.SetParent(parent, false);
             var rect = obj.GetComponent<RectTransform>(); rect.anchorMin = new Vector2(min, .05f); rect.anchorMax = new Vector2(max, .22f); rect.offsetMin = rect.offsetMax = Vector2.zero;
             obj.GetComponent<Image>().color = new Color(.12f, .16f, .25f, .95f);
@@ -140,7 +170,7 @@ namespace Ashlight {
             int healthBefore = battle.Party[target].Health;
             battle.FinishStrike();
             lastHitDamage = healthBefore - battle.Party[target].Health;
-            enemyRenderer.material.color = new Color(.8f, .45f, .2f);
+            enemyRenderer.material.color = enemyColor;
             if (battle.Current == Phase.Player) message = battle.Defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
             enemyTurn = null;
         }
@@ -148,11 +178,12 @@ namespace Ashlight {
             if (battle.Defend(isParry, Time.time - strikeTime)) {
                 parried = isParry; feedbackUntil = Time.time + .7f;
                 message = isParry ? "Parried! Counter damage dealt." : "Dodged!";
+                if (battle.Current == Phase.Won) SaveProgress();
             }
             else message = "Mistimed defense. React after FLASH.";
         }
         void PerformAction(int skillSlot) {
-            if (selectionRoot.activeSelf) return;
+            if (atChapters || selectionRoot.activeSelf) return;
             var actingHero = allies[battle.ActiveIndex];
             string actionName = skillSlot >= 0 ? battle.Party[battle.ActiveIndex].Skill(skillSlot).Name : "Attack";
             bool accepted = skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack();
@@ -160,6 +191,7 @@ namespace Ashlight {
             attacker = actingHero; attackTime = Time.time;
             message = actionName + " — " + battle.LastDamage + " " + battle.LastElement + " damage" + (battle.LastElementMultiplier > 1 ? " (WEAKNESS)" : battle.LastElementMultiplier < 1 ? " (RESISTED)" : "") + ". " + (battle.Current == Phase.EnemyWindup ? "Enemy targets " + battle.Party[battle.ActiveIndex].Identity.Name + "." : "Choose the next hero's action.");
             if (battle.Current == Phase.EnemyWindup) enemyTurn = StartCoroutine(EnemyTurn());
+            if (battle.Current == Phase.Won) SaveProgress();
         }
         void SelectClass(HeroClass kind) { OpenSelection(false, kind); }
         void CreateSelectionPanel() {
@@ -181,12 +213,13 @@ namespace Ashlight {
                 var r = choices[i].GetComponent<RectTransform>(); r.anchorMin = new Vector2(left, bottom); r.anchorMax = new Vector2(left + .43f, bottom + .16f);
                 choices[i].GetComponentInChildren<Text>().fontSize = 21;
             }
-            var close = MakeButton(selectionRoot.transform, "DONE", .35f, .65f, () => selectionRoot.SetActive(false));
+            var close = MakeButton(selectionRoot.transform, "DONE", .35f, .65f, CloseSelection);
             var cr = close.GetComponent<RectTransform>(); cr.anchorMin = new Vector2(.35f, .02f); cr.anchorMax = new Vector2(.65f, .12f);
             selectionRoot.SetActive(false);
         }
         void OpenSelection(bool skills, HeroClass kind) {
             if (battle.Current != Phase.Player) return;
+
             selectingSkills = skills; browsingClass = kind; selectedSlot = 0;
             candidates.Clear();
             foreach (var candidate in HeroDefinition.Catalog) if (candidate.Class == kind) candidates.Add(candidate);
@@ -197,15 +230,15 @@ namespace Ashlight {
             return false;
         }
         void Choose(int index) {
-            if (selectingSkills) { battle.EquipSkill(selectedSlot, index); RefreshSelection(); return; }
+            if (selectingSkills) { if (battle.EquipSkill(selectedSlot, index)) SaveProgress(); RefreshSelection(); return; }
             if (index >= candidates.Count) return;
             string id = candidates[index].Id;
             for (int i = 0; i < battle.Party.Count; i++) if (battle.Party[i].Identity.Id == id) {
-                if (battle.SelectHero(i)) { selectionRoot.SetActive(false); message = candidates[index].Name + " selected."; }
+                if (battle.SelectHero(i)) { SaveProgress(); CloseSelection(); message = candidates[index].Name + " selected."; }
                 return;
             }
             if (battle.EquipHero(id)) {
-                RefreshAppearance(); selectionRoot.SetActive(false);
+                RefreshAppearance(); CloseSelection(); SaveProgress();
                 message = candidates[index].Name + " joins the active party.";
             }
         }
@@ -245,6 +278,7 @@ namespace Ashlight {
                     kind == HeroClass.Ranger ? new Color(.25f, .6f, .3f) :
                     kind == HeroClass.Rogue ? new Color(.35f, .25f, .4f) : new Color(.85f, .85f, .8f);
                 hero = MakeShape(battle.Party[i].Identity.Name, PrimitiveType.Capsule, homes[i], Vector3.one, color).transform;
+                hero.SetParent(battleStage);
                 allies[i] = hero;
                 equipment = new GameObject("Class Equipment").transform;
                 equipment.SetParent(hero, false);
@@ -272,28 +306,84 @@ namespace Ashlight {
             obj.transform.SetParent(equipment, false); obj.transform.localPosition = position;
             var collider = obj.GetComponent<Collider>(); if (collider != null) Destroy(collider);
         }
+        void CloseSelection() {
+            selectionRoot.SetActive(false);
+        }
+        void SaveProgress() {
+            if (!progressInitialized) return;
+            saveFailed = !ProgressStore.Save(battle.ExportProgress());
+            saveNotice = !saveFailed ? "Progress saved." : "Save failed. See Console; keep this session open.";
+        }
+        void OnApplicationPause(bool paused) { if (paused) SaveProgress(); }
+        void OnApplicationQuit() { SaveProgress(); }
+        void OnApplicationFocus(bool focused) { if (!focused) SaveProgress(); }
+        void CreateChapterMenu() {
+            chapterRoot=new GameObject("Chapter Menu",typeof(RectTransform),typeof(Image)); chapterRoot.transform.SetParent(safe,false);
+            var rect=chapterRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
+            chapterRoot.GetComponent<Image>().color=new Color(.06f,.08f,.13f,.98f);
+            chapterTitle=Label(chapterRoot.transform,"",new Vector2(.03f,.8f),new Vector2(.97f,.98f),30);
+            chapterChoices=new Button[ChapterDefinition.Catalog.Count];
+            for(int i=0;i<chapterChoices.Length;i++) {
+                int index=i; float left=i%2==0?.05f:.52f; float bottom=.57f-(i/2)*.2f;
+                chapterChoices[i]=MakeButton(chapterRoot.transform,"",left,left+.43f,()=>StartChapter(index));
+                var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.17f);
+            }
+            Label(chapterRoot.transform,"Prepare your heroes in battle before the first action. Progress saves automatically.",new Vector2(.05f,.02f),new Vector2(.95f,.14f),22);
+        }
+        void StartChapter(int index) {
+            if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
+            atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true);
+            battleCamera.transform.position=new Vector3(0,5,-9); battleCamera.transform.LookAt(new Vector3(0,1,0));
+            enemyRenderer.material.color=enemyColor;
+            enemy.localScale=Vector3.one*(battle.StageIndex==4?1.7f:1.15f);
+            enemy.name=battle.Enemy.Name;
+            message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";
+        }
+        void EnterChapters() {
+            if(enemyTurn!=null) StopCoroutine(enemyTurn);
+            enemyTurn=null;
+            string reward="";
+            if(battle.Current==Phase.Won) {
+                int previous=battle.Recruits.Count;
+                battle.ContinueAfterVictory(); RefreshAppearance();
+                if(battle.Recruits.Count>previous) reward=battle.Recruits[battle.Recruits.Count-1].Name+" recruited! ";
+            } else if(!battle.CanChangeParty && !battle.CampaignComplete) battle.Reset();
+            atChapters=true; attackTime=-10; feedbackUntil=0; parried=false;
+            selectionRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
+            SaveProgress();
+            chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All six chapters completed!":"Continue your journey.")+"\n"+saveNotice;
+            for(int i=0;i<chapterChoices.Length;i++) {
+                var chapter=ChapterDefinition.Catalog[i];
+                string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5: "+battle.Enemy.Name;
+                chapterChoices[i].GetComponentInChildren<Text>().text="CHAPTER "+(i+1)+" — "+chapter.Name+"\n"+state;
+                chapterChoices[i].interactable=!battle.CampaignComplete && i==battle.ChapterIndex;
+            }
+        }
         void Restart() {
-            if (enemyTurn != null) StopCoroutine(enemyTurn);
-            enemyTurn = null;
-            if (battle.Current == Phase.Won) {
-                int previous = battle.Recruits.Count;
-                battle.ContinueAfterVictory();
-                message = battle.Recruits.Count > previous ? battle.Recruits[battle.Recruits.Count - 1].Name + " recruited! Choose your party before attacking." : "All named heroes recruited. Choose up to three heroes.";
-                RefreshAppearance();
-            } else { battle.Reset(); message = "Choose your heroes, then attack."; }
-            attackTime = -10; feedbackUntil = 0; parried = false;
-            enemyRenderer.material.color = new Color(.8f, .45f, .2f);
+            if(battle.Current==Phase.Won || battle.Current==Phase.Lost) { EnterChapters(); return; }
+            if(enemyTurn!=null) StopCoroutine(enemyTurn);
+            enemyTurn=null; battle.Reset(); attackTime=-10; feedbackUntil=0; parried=false;
+            enemyRenderer.material.color=enemyColor; message="Stage restarted. Choose an action."; SaveProgress();
         }
         void Update() {
             if (status == null) return;
+            var area = Screen.safeArea;
+            safe.anchorMin = new Vector2(area.xMin / Mathf.Max(1, Screen.width), area.yMin / Mathf.Max(1, Screen.height));
+            safe.anchorMax = new Vector2(area.xMax / Mathf.Max(1, Screen.width), area.yMax / Mathf.Max(1, Screen.height));
             var party = battle.Party;
             hero = allies[battle.ActiveIndex];
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " " + party[i].Health + (i == battle.ActiveIndex ? "] " : " ");
             status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + battle.Enemy.Name + " " + battle.EnemyHealth + "/" + battle.Enemy.MaxHealth + "\nWeak: " + battle.Enemy.Weakness + " | Resists: " + battle.Enemy.Resistance + " | " + roster + " | " + battle.Hero.Name + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
-                (battle.Current == Phase.Won ? "Victory! Continue to recruit the next hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
+                (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
+            if (saveFailed) status.text += "\n" + saveNotice;
             reset.GetComponentInChildren<Text>().text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
+            attack.gameObject.SetActive(!atChapters); ability.gameObject.SetActive(!atChapters); abilityTwo.gameObject.SetActive(!atChapters);
+            dodge.gameObject.SetActive(!atChapters); parry.gameObject.SetActive(!atChapters);
+            heroHealth.transform.parent.gameObject.SetActive(!atChapters); enemyHealth.transform.parent.gameObject.SetActive(!atChapters);
+            chaptersButton.gameObject.SetActive(!atChapters);
+            chaptersButton.interactable = battle.CanChangeParty || battle.Current == Phase.Won || battle.Current == Phase.Lost;
             attack.interactable = battle.Current == Phase.Player;
             var active = party[battle.ActiveIndex];
             ability.interactable = battle.Current == Phase.Player && active.SkillCharges(0) > 0;
@@ -311,11 +401,9 @@ namespace Ashlight {
             }
             bool defending = battle.Current == Phase.EnemyWindup || battle.Current == Phase.EnemyStrike;
             dodge.interactable = parry.interactable = defending && !battle.Defended;
-            var area = Screen.safeArea;
-            safe.anchorMin = new Vector2(area.xMin / Mathf.Max(1, Screen.width), area.yMin / Mathf.Max(1, Screen.height));
-            safe.anchorMax = new Vector2(area.xMax / Mathf.Max(1, Screen.width), area.yMax / Mathf.Max(1, Screen.height));
             SetMeter(heroHealth, battle.HeroHealth / (float)battle.Hero.MaxHealth);
             SetMeter(enemyHealth, battle.EnemyHealth / (float)battle.Enemy.MaxHealth);
+            if(atChapters) { timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
             float elapsed = Time.time - strikeTime;
             bool striking = battle.Current == Phase.EnemyStrike;
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);

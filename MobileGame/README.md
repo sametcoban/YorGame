@@ -7,7 +7,7 @@ An original combat prototype inspired by reactive turn-based RPGs. Uses simple c
 1. Install Unity Hub and Unity **6000.0.65f1** with **Web Build Support (WebGL)** for browser testing on iPhone from Windows. Android Build Support is optional for Android APKs.
 2. Open this `MobileGame` directory as a Unity project. Allow package import to finish.
 3. The editor helper creates `Assets/Scenes/Battle.unity` and registers it for builds. If necessary select **Ashlight > Prepare Mobile Project**. Open that scene, then press Play.
-4. Use **Attack**, then watch **GET READY** followed by **PARRY OR DODGE!**. The shrinking defense meter is yellow during the 180 ms parry window, then blue for the remaining dodge window (400 ms total). Defense registers on button press, not release. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
+4. The game opens on the **Chapters** menu. Select the unlocked chapter, then use **Attack**, then watch **GET READY** followed by **PARRY OR DODGE!**. The shrinking defense meter is yellow during the 180 ms parry window, then blue for the remaining dodge window (400 ms total). Defense registers on button press, not release. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
 
 The combat presentation includes health bars, attack lunges, enemy windup, dodge motion, and parry/counter feedback. These procedural movements use placeholder capsule characters. Safe-area bounds update when the window or phone orientation changes. New presentation and touch-down behavior require Unity/device validation.
 
@@ -21,7 +21,7 @@ This route uses Safari, without Xcode or a native app installation. Unity's mobi
 2. Stop Play mode. Select **Ashlight > Browser > Configure Browser**, wait for importing, then select **Ashlight > Browser > Build Browser Game**.
 3. A successful build creates `Builds/Browser/index.html` plus the `Build` folder. The custom template supplies a touch-friendly launch screen, landscape reminder, safe-area margins, loading progress, and error messages. Builds disable compression so static hosting does not require special compression headers.
 4. Host the **entire `Builds/Browser` folder** with a static website host, such as Netlify's manual deploy, then open its HTTPS URL in Safari on your phone. Hosting uploads your game publicly; review the files and choose your host before uploading. No site has been published automatically.
-5. Rotate the iPhone sideways and tap Play. Try attacks, timed dodges/parries, victory/defeat, and restart. Also check Safari's toolbar, orientation changes, and returning from the background.
+5. Rotate the iPhone sideways and tap Play. Choose the unlocked chapter to enter the next encounter. Try attacks, timed dodges/parries, victory/defeat, and restart. Also check Safari's toolbar, orientation changes, and returning from the background.
 
 For local testing instead of public hosting, install Python 3 on Windows, open a terminal in `Builds/Browser`, and run:
 
@@ -72,21 +72,21 @@ On **macOS**, switch the build profile to iOS and export an Xcode project. Open 
 
 ## Validation and current limits
 
-The engine-independent combat model passes 1,335 checks covering party turns, the three-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, and reset. To rerun in the prepared cloud machine:
+The engine-independent combat model passes 1,424 checks covering party turns, the three-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, save restoration, chapter progression, and reset. To rerun in the prepared cloud machine:
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/ProgressData.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
 Unity is not installed in the onboarding machine. Unity script compilation, scene rendering, touch input, Android builds, and iOS builds have **not** been verified. Open in Unity to perform these checks before calling this a playable device build.
 
-The existing Data.Layer project is separate and untouched. No backend or database is required. Exploration, character art/animation, audio, progression, save data, accessibility settings, and performance tuning are future work.
+The existing Data.Layer project is separate and untouched. No backend or database is required. Finished character art/animation, audio, cloud save sync, accessibility settings, and performance tuning are future work. The development direction uses chapters rather than exploration.
 
 ## Updating an existing local copy
 
-Stop Play mode. Copy **all** `.cs` files from this branch's `Assets/Scripts` into your local project's matching folder, including `CharacterClass.cs`, `HeroDefinition.cs`, `SkillDefinition.cs`, `Elements.cs`, and `PressAction.cs`. Preserve your scene and settings. Unity will import the changes. Alternatively, extract the updated GitHub ZIP into a separate directory and open that `MobileGame` folder.
+Stop Play mode. Copy **all** `.cs` files from this branch's `Assets/Scripts` into your local project's matching folder, including `CharacterClass.cs`, `HeroDefinition.cs`, `SkillDefinition.cs`, `Elements.cs`, `ChapterDefinition.cs`, `ProgressData.cs`, `ProgressStore.cs`, and `PressAction.cs`. Also copy the updated `Packages/manifest.json` so the JSON serialization module is enabled. Preserve your scene and settings. Unity will import the changes. Alternatively, extract the updated GitHub ZIP into a separate directory and open that `MobileGame` folder.
 
 ## Party, recruitment, and named heroes
 
@@ -96,7 +96,7 @@ All living heroes receive one action before the enemy responds. The enemy cycles
 
 The roster contains **30 named heroes**: five per class, across Common, Uncommon, Rare, Epic, and Legendary. Rarity scales base health, attack, skill damage, healing, and guard. This is a starting balance, not a final progression economy. See [HEROES.md](HEROES.md) for the complete roster and skill catalog.
 
-Recruitment is currently a battle-victory placeholder, not world exploration. Progress exists only during the current play session; persistent saves and story encounters are not implemented. Restart restores health and skill uses while retaining the current roster and equipped skills. Reserve hero loadouts are retained within the session.
+Recruitment currently uses deterministic chapter victory rewards. There is no exploration area. Chapter progress, recruited named heroes, party slots, and active/reserve skill loadouts persist locally. Restart restores health and skill uses while retaining the roster and loadouts. A mid-battle reload starts that encounter fresh; a saved victory is processed once on the chapter menu, so its reward is retained.
 
 ## Equip two of six skills
 
@@ -106,7 +106,7 @@ Select a party hero through its class/hero list before battle, then press **Skil
 
 Named hero affinities follow class themes: Knight Physical/Fire; Paladin Fire/Light; Sorceress Cold/Lightning/Fire; Rogue Physical/Poison; Ranger Physical/Cold; Cleric Light. Basic attacks and skills without an explicit override use hero affinity. All current class skills have explicit affinities, independent of the named hero's basic attack affinity: Flame Lance uses Fire, Frost Ward uses Cold, Arcane Burst and Starfall use Lightning, and Frost Drain uses Cold. Some weapon skills use Physical, which is neutral against the current enemies. Skill affinity is displayed in the loadout panel.
 
-Enemies show their weakness and resistance before you attack. Weakness multiplies damage by **1.5**; resistance by **0.5**; other damage is neutral. Damage is rounded, with at least one damage for a positive attack. Healing and guard are unaffected. The encounter cycles among Lantern Warden, Ember Sentinel, Storm Revenant, Blight Guardian, and Dusk Shade with increasing health (capped at 400). These enemy values remain provisional.
+Enemies show their weakness and resistance before you attack. Weakness multiplies damage by **1.5**; resistance by **0.5**; other damage is neutral. Damage is rounded, with at least one damage for a positive attack. Healing and guard are unaffected. Each chapter contains five uniquely named enemies with themed weaknesses/resistances; stage three reverses the usual matchup to encourage changing skill choices. Health increases through the campaign (capped at 400). Stage five is a larger placeholder boss. These balance values remain provisional.
 
 **Poison is currently an elemental damage type**, not a damage-over-time status. Burn, freeze, poison ticks, stun, cleanse, and revival are future mechanics. Explicit skill affinity overrides preserve their element across all rarity tiers.
 
@@ -114,13 +114,23 @@ Enemies show their weakness and resistance before you attack. Weakness multiplie
 
 The combat/roster model has been exercised outside Unity. The new UI, 3D party props, and builds remain unverified until opened in Unity. Check:
 
-- Start shows Rowan alone, with two equipped skills and locked unrecruited heroes.
-- Win, Continue, and recruit Lucan, then Elara; three characters appear together.
+- Start shows the chapter menu, with Chapter 1 unlocked and later chapters locked. Choose Chapter 1; Rowan starts alone with two equipped skills.
+- Win, Continue, and recruit Lucan, then Elara; three characters appear together. Completing five encounters unlocks Chapter 2.
 - Each living hero acts once before the enemy attack; the targeted ally is identified.
 - Skill selection rejects duplicates and cannot change during a fight.
 - Recruit a reserve, select an active party slot, then replace it without exceeding three heroes.
 - Named hero lists display rarity, affinity, scaled health/attack, and recruitment status.
 - Weakness/resistance feedback agrees with the skill's shown element.
 - Restart mid-attack cancels the old coroutine and preserves the roster/loadouts.
+
+## Chapters and local saves
+
+The six chapters are **The Lantern Road**, **The Frozen Pass**, **The Ember Citadel**, **The Storm Spire**, **The Blighted Garden**, and **The Eclipse Throne**. Each contains five distinct encounters. Only the current chapter is playable; previously cleared chapters show Completed and later chapters show Locked. After all 30 stages, the menu shows campaign completion. Chapter replay and New Game are not implemented yet. See [CHAPTERS.md](CHAPTERS.md) for the enemy list.
+
+Progress uses Unity `PlayerPrefs` with versioned JSON and a previous valid snapshot as backup. Saves happen after party/skill changes, victory, Continue, and on pause/focus loss/exit. Loading validates IDs, party size, unique members, recruited roster, skill choices, version, and stage bounds before applying anything. A valid backup is attempted if the primary save is unreadable. Each loaded encounter restores full health and skill uses. Unknown/incompatible snapshots are rejected rather than partially applied.
+
+On Windows, saves are local to Unity's company/product preferences. On Web builds, they use browser storage for that website; clearing site data removes saves, private browsing may not retain them, and changing hosts does not transfer saves. This is **local saving, not cloud sync**. Unity storage behavior and the updated chapter UI require local verification; only the engine-independent snapshot/progression logic has been tested here.
+
+Save keys are `Ashlight.Progress.v1` and `Ashlight.Progress.v1.backup`. For developers testing from a clean state, remove both keys in Unity deliberately; no automatic save deletion is performed during project updates.
 
 Characters still use procedural capsule bodies and simple class props rather than finished character art or rigged animation.

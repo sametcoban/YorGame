@@ -140,9 +140,9 @@ class BattleChecks {
    overrides.ContinueAfterVictory();
   }
   Check(overrides.SelectHero(2));
-  Check(overrides.UseAbility(0) && overrides.LastElement == Element.Lightning && overrides.LastElementMultiplier == .5f && overrides.LastDamage == 23);
+  Check(overrides.UseAbility(0) && overrides.LastElement == Element.Lightning && overrides.LastElementMultiplier == 1f && overrides.LastDamage == 45);
   overrides.Reset(); Check(overrides.SelectHero(2));
-  Check(overrides.Attack() && overrides.LastElement == Element.Cold && overrides.LastElementMultiplier == 1f && overrides.LastDamage == 30);
+  Check(overrides.Attack() && overrides.LastElement == Element.Cold && overrides.LastElementMultiplier == 1.5f && overrides.LastDamage == 45);
   foreach(var named in HeroDefinition.Catalog) {
    Check(named.Stats.Skills[1].Affinity == SkillDefinition.For(named.Class)[1].Affinity);
   }
@@ -159,6 +159,70 @@ class BattleChecks {
   }
   var shade = EnemyDefinition.Encounter(4);
   Check(shade.Damage(20,Element.Light)==30 && shade.Damage(20,Element.Fire)==10);
+  var progress = campaign.ExportProgress();
+  var resumed = new Battle(true);
+  Check(resumed.RestoreProgress(progress));
+  Check(resumed.Encounter == campaign.Encounter && resumed.Recruits.Count == 30 && resumed.Party.Count == 3);
+  for(int i=0;i<3;i++) {
+   Check(resumed.Party[i].Identity.Id==campaign.Party[i].Identity.Id);
+   Check(resumed.Party[i].SkillIndex(0)==campaign.Party[i].SkillIndex(0));
+   Check(resumed.Party[i].Health==resumed.Party[i].Definition.MaxHealth);
+  }
+  Check(resumed.SelectHero(2) && resumed.Party[2].SkillIndex(0)==4);
+  var invalidSave=campaign.ExportProgress(); invalidSave.version=99;
+  Check(!resumed.RestoreProgress(invalidSave) && resumed.Recruits.Count==30);
+  invalidSave=campaign.ExportProgress();invalidSave.party=new[]{"Knight_Common","Knight_Common"};
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.party=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common"};
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.loadouts[0].secondSkill=invalidSave.loadouts[0].firstSkill;
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.loadouts[0].firstSkill=6;
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.recruited[0]="missing";
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.loadouts=null;
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.encounter=-1;
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.encounter=ChapterDefinition.TotalStages+1;
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.activeIndex=3;
+  Check(!resumed.RestoreProgress(invalidSave));
+  invalidSave=campaign.ExportProgress();invalidSave.encounter=0;
+  Check(!resumed.RestoreProgress(invalidSave));
+  Check(!resumed.RestoreProgress(null));
+  // Reloading midway through a fight restores the pre-encounter loadout, not health/turn state.
+  var fresh=new Battle(true); fresh.EquipSkill(0,4); fresh.Attack(); fresh.BeginStrike(); fresh.FinishStrike();
+  var checkpoint=fresh.ExportProgress(); var reload=new Battle(true);
+  Check(reload.RestoreProgress(checkpoint) && reload.HeroHealth==100 && reload.Current==Phase.Player && reload.Party[0].SkillIndex(0)==4);
+  Check(ChapterDefinition.Catalog.Count==6 && ChapterDefinition.TotalStages==30);
+  var enemyNames=new System.Collections.Generic.HashSet<string>();
+  for(int chapter=0;chapter<6;chapter++) for(int stage=0;stage<5;stage++) {
+   var foe=ChapterDefinition.EnemyAt(chapter*5+stage);
+   Check(enemyNames.Add(foe.Name));
+   Check(foe.MaxHealth>0 && foe.Weakness!=foe.Resistance);
+  }
+  // Finish the final chapter and confirm completion is permanent across saves.
+  resumed.Reset();
+  while(resumed.Current!=Phase.Won) {
+   if(resumed.Current==Phase.Player) resumed.Attack();
+   else { resumed.BeginStrike();resumed.Defend(false,.1f);resumed.FinishStrike(); }
+  }
+  Check(resumed.ContinueAfterVictory() && resumed.CampaignComplete && resumed.Current==Phase.Complete);
+  Check(!resumed.Attack() && !resumed.UseAbility() && !resumed.ContinueAfterVictory());
+  var completed=new Battle(true);
+  Check(completed.RestoreProgress(resumed.ExportProgress()) && completed.CampaignComplete && completed.Encounter==30);
+  var winner=new Battle(true);
+  while(winner.Current!=Phase.Won) {
+   if(winner.Current==Phase.Player) winner.Attack();
+   else {winner.BeginStrike();winner.Defend(false,.1f);winner.FinishStrike();}
+  }
+  var wonSave=winner.ExportProgress();var wonReload=new Battle(true);
+  Check(wonSave.pendingVictory && wonReload.RestoreProgress(wonSave) && wonReload.Current==Phase.Won);
+  Check(wonReload.ContinueAfterVictory() && wonReload.Encounter==1 && wonReload.Recruits.Count==2);
+  Check(!wonReload.ContinueAfterVictory());
+  Check(!wonReload.ExportProgress().pendingVictory);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, and battle outcomes.");
  }
 }

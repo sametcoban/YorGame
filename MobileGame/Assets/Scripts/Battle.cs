@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 namespace Ashlight {
-    public enum Phase { Player, EnemyWindup, EnemyStrike, Won, Lost }
+    public enum Phase { Player, EnemyWindup, EnemyStrike, Won, Lost, Complete }
     public sealed class PartyHero {
         public HeroDefinition Identity { get; private set; }
         public ClassDefinition Definition { get { return Identity.Stats; } }
@@ -23,6 +23,10 @@ namespace Ashlight {
     public sealed class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
+        public bool CampaignComplete { get { return campaign && encounter >= ChapterDefinition.TotalStages; } }
+        public int ChapterIndex { get { return Math.Min(encounter / ChapterDefinition.StagesPerChapter, ChapterDefinition.Catalog.Count - 1); } }
+        public int StageIndex { get { return encounter % ChapterDefinition.StagesPerChapter; } }
+        public int Encounter { get { return encounter; } }
         readonly Dictionary<string, PartyHero> savedHeroes = new Dictionary<string, PartyHero>();
         readonly List<HeroDefinition> recruits = new List<HeroDefinition>();
         public IReadOnlyList<HeroDefinition> Recruits { get { return recruits.AsReadOnly(); } }
@@ -97,10 +101,52 @@ namespace Ashlight {
             if (campaign) encounter++;
             Reset(); return true;
         }
+        public ProgressData ExportProgress() {
+            var data = new ProgressData { encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+                recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
+            for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
+            for (int i = 0; i < recruits.Count; i++) {
+                data.recruited[i] = recruits[i].Id;
+                PartyHero member = null;
+                foreach (var ally in party) if (ally.Identity.Id == recruits[i].Id) member = ally;
+                if (member == null) savedHeroes.TryGetValue(recruits[i].Id, out member);
+                data.loadouts[i] = new HeroLoadoutData { id = recruits[i].Id, firstSkill = member == null ? 0 : member.SkillIndex(0), secondSkill = member == null ? 1 : member.SkillIndex(1) };
+            }
+            return data;
+        }
+        // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
+        public bool RestoreProgress(ProgressData data) {
+            if (!campaign || data == null || data.version != 1 || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+                data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count || data.recruited.Length > data.encounter + 1 ||
+                data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
+                data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
+                data.activeIndex < 0 || data.activeIndex >= data.party.Length) return false;
+            var restored = new Dictionary<string, PartyHero>();
+            for (int i = 0; i < data.recruited.Length; i++) {
+                if (data.recruited[i] != HeroDefinition.Catalog[i].Id || data.loadouts[i] == null || data.loadouts[i].id != data.recruited[i]) return false;
+                var loadout = data.loadouts[i];
+                if (loadout.firstSkill < 0 || loadout.firstSkill >= 6 || loadout.secondSkill < 0 || loadout.secondSkill >= 6 || loadout.firstSkill == loadout.secondSkill) return false;
+                var member = new PartyHero(HeroDefinition.Catalog[i]);
+                member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
+                restored.Add(member.Identity.Id, member);
+            }
+            var chosen = new HashSet<string>();
+            foreach (var id in data.party) if (id == null || !restored.ContainsKey(id) || !chosen.Add(id)) return false;
+            recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();
+            for (int i = 0; i < data.recruited.Length; i++) {
+                var identity = HeroDefinition.Catalog[i]; recruits.Add(identity);
+                if (!unlocked.Contains(identity.Class)) unlocked.Add(identity.Class);
+                savedHeroes.Add(identity.Id, restored[identity.Id]);
+            }
+            foreach (var id in data.party) party.Add(restored[id]);
+            encounter = data.encounter; Reset(); ActiveIndex = data.activeIndex;
+            if (data.pendingVictory) { Current = Phase.Won; EnemyHealth = 0; }
+            return true;
+        }
         public void Reset() {
             foreach (var member in party) member.Restore();
-            Enemy = campaign ? EnemyDefinition.Encounter(encounter) : new EnemyDefinition("Training Warden", 100);
-            ActiveIndex = 0; targetCursor = 0; EnemyHealth = Enemy.MaxHealth; LastDamage = 0; LastElementMultiplier = 1f; Current = Phase.Player; Defended = false;
+            Enemy = campaign ? ChapterDefinition.EnemyAt(Math.Min(encounter, ChapterDefinition.TotalStages - 1)) : new EnemyDefinition("Training Warden", 100);
+            ActiveIndex = 0; targetCursor = 0; EnemyHealth = Enemy.MaxHealth; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete ? Phase.Complete : Phase.Player; Defended = false;
         }
         public bool Attack() {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0) return false;
