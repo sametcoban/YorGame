@@ -13,6 +13,7 @@ namespace Ashlight {
         readonly System.Random summonRandom = new System.Random();
         Transform battleStage;
         Camera battleCamera;
+        CombatEffects effects;
         Button chaptersButton;
         ProgressData restored;
         string saveNotice = "";
@@ -66,6 +67,8 @@ namespace Ashlight {
             var cameraObject = new GameObject("Battle Camera");
             var camera = cameraObject.AddComponent<Camera>();
             battleCamera = camera;
+            effects = new GameObject("Combat Effects").AddComponent<CombatEffects>();
+            effects.transform.SetParent(battleStage, false); effects.Initialize(camera);
             cameraObject.AddComponent<AudioListener>();
             camera.transform.position = new Vector3(0, 5, -9);
             camera.transform.LookAt(new Vector3(0, 1, 0));
@@ -172,12 +175,16 @@ namespace Ashlight {
             int healthBefore = battle.Party[target].Health;
             battle.FinishStrike();
             lastHitDamage = healthBefore - battle.Party[target].Health;
+            if (lastHitDamage > 0) effects.Attack(enemy.position, allies[target].position, Element.Physical, lastHitDamage, 1);
+            else if (!battle.Defended) effects.Floating(allies[target].position, "BLOCKED", Element.Light);
             enemyRenderer.material.color = enemyColor;
             if (battle.Current == Phase.Player) message = battle.Defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
             enemyTurn = null;
         }
         void Defend(bool isParry) {
             if (battle.Defend(isParry, Time.time - strikeTime)) {
+                effects.Defense(allies[battle.ActiveIndex].position, isParry);
+                if (isParry) effects.Attack(allies[battle.ActiveIndex].position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
                 parried = isParry; feedbackUntil = Time.time + .7f;
                 message = isParry ? "Parried! Counter damage dealt." : "Dodged!";
                 if (battle.Current == Phase.Won) SaveProgress();
@@ -187,9 +194,20 @@ namespace Ashlight {
         void PerformAction(int skillSlot) {
             if (atChapters || selectionRoot.activeSelf) return;
             var actingHero = allies[battle.ActiveIndex];
+            var members = battle.Party;
+            int[] previousHealth = new int[members.Count];
+            for (int i = 0; i < members.Count; i++) previousHealth[i] = members[i].Health;
+            int actingIndex = battle.ActiveIndex;
+            int oldGuard = members[actingIndex].Guard;
             string actionName = skillSlot >= 0 ? battle.Party[battle.ActiveIndex].Skill(skillSlot).Name : "Attack";
             bool accepted = skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack();
             if (!accepted) return;
+            effects.Attack(actingHero.position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
+            for (int i = 0; i < members.Count; i++) {
+                int restoredHealth = members[i].Health - previousHealth[i];
+                if (restoredHealth > 0) effects.Heal(allies[i].position, restoredHealth);
+            }
+            if (members[actingIndex].Guard > oldGuard) effects.Guard(actingHero.position);
             attacker = actingHero; attackTime = Time.time;
             message = actionName + " — " + battle.LastDamage + " " + battle.LastElement + " damage" + (battle.LastElementMultiplier > 1 ? " (WEAKNESS)" : battle.LastElementMultiplier < 1 ? " (RESISTED)" : "") + ". " + (battle.Current == Phase.EnemyWindup ? "Enemy targets " + battle.Party[battle.ActiveIndex].Identity.Name + "." : "Choose the next hero's action.");
             if (battle.Current == Phase.EnemyWindup) enemyTurn = StartCoroutine(EnemyTurn());
@@ -349,6 +367,7 @@ namespace Ashlight {
         }
         void StartChapter(int index) {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
+            effects.Clear();
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true);
             battleCamera.transform.position=new Vector3(0,5,-9); battleCamera.transform.LookAt(new Vector3(0,1,0));
             enemyRenderer.material.color=enemyColor;
@@ -365,6 +384,7 @@ namespace Ashlight {
                 battle.ContinueAfterVictory(); RefreshAppearance();
                 if(battle.Recruits.Count>previous) reward=battle.Recruits[battle.Recruits.Count-1].Name+" recruited! ";
             } else if(!battle.CanChangeParty && !battle.CampaignComplete) battle.Reset();
+            effects.Clear();
             atChapters=true; attackTime=-10; feedbackUntil=0; parried=false;
             selectionRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
             SaveProgress();
@@ -380,6 +400,7 @@ namespace Ashlight {
         void Restart() {
             if(battle.Current==Phase.Won || battle.Current==Phase.Lost) { EnterChapters(); return; }
             if(enemyTurn!=null) StopCoroutine(enemyTurn);
+            effects.Clear();
             enemyTurn=null; battle.Reset(); attackTime=-10; feedbackUntil=0; parried=false;
             enemyRenderer.material.color=enemyColor; message="Stage restarted. Choose an action."; SaveProgress();
         }

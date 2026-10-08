@@ -9,6 +9,7 @@ public static class ProjectSetup {
     [MenuItem("Ashlight/Prepare Mobile Project")]
     public static void EnsureScene() {
         if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
+        EnsureEffectMaterial();
         const string path = "Assets/Scenes/Battle.unity";
         if (!File.Exists(path)) {
             // Never discard an unsaved editor scene.
@@ -24,5 +25,17 @@ public static class ProjectSetup {
         }
         if (EditorBuildSettings.scenes.Length == 0)
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(path, true) };
+    }
+    static void EnsureEffectMaterial() {
+        const string path = "Assets/Resources/CombatEffects.mat";
+        if (AssetDatabase.LoadAssetAtPath<Material>(path) != null) return;
+        var shader = Shader.Find("Unlit/Color");
+        if (shader == null) throw new System.InvalidOperationException("Unity's built-in Unlit/Color shader was not found.");
+        if (!Directory.Exists("Assets/Resources")) {
+            Directory.CreateDirectory("Assets/Resources"); AssetDatabase.Refresh();
+        }
+        // A Resources asset retains the shader in player builds; Shader.Find alone can be stripped.
+        AssetDatabase.CreateAsset(new Material(shader), path);
+        AssetDatabase.SaveAssets();
     }
 }
