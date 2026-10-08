@@ -231,14 +231,14 @@ namespace Ashlight {
                 int index = i; float left = i % 2 == 0 ? .05f : .52f; float bottom = .5f - (i / 2) * .18f;
                 choices[i] = MakeButton(selectionRoot.transform, "", left, left + .43f, () => Choose(index));
                 var r = choices[i].GetComponent<RectTransform>(); r.anchorMin = new Vector2(left, bottom); r.anchorMax = new Vector2(left + .43f, bottom + .16f);
-                choices[i].GetComponentInChildren<Text>().fontSize = 21;
+                choices[i].GetComponentInChildren<Text>(true).fontSize = 21;
             }
             var close = MakeButton(selectionRoot.transform, "DONE", .35f, .65f, CloseSelection);
             var cr = close.GetComponent<RectTransform>(); cr.anchorMin = new Vector2(.35f, .02f); cr.anchorMax = new Vector2(.65f, .12f);
             selectionRoot.SetActive(false);
         }
         void OpenSelection(bool skills, HeroClass kind) {
-            if (battle.Current != Phase.Player) return;
+            if (atChapters || !battle.CanChangeParty) return;
 
             selectingSkills = skills; browsingClass = kind; selectedSlot = 0;
             candidates.Clear();
@@ -267,7 +267,7 @@ namespace Ashlight {
             selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.Quality + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
             for (int i = 0; i < 2; i++) {
                 slots[i].gameObject.SetActive(selectingSkills);
-                slots[i].GetComponentInChildren<Text>().text = "SLOT " + (i + 1) + ": " + member.Skill(i).Name;
+                slots[i].GetComponentInChildren<Text>(true).text = "SLOT " + (i + 1) + ": " + member.Skill(i).Name;
                 slots[i].GetComponent<Image>().color = i == selectedSlot ? new Color(.25f,.4f,.55f) : new Color(.12f,.16f,.25f);
             }
             for (int i = 0; i < choices.Length; i++) {
@@ -275,12 +275,12 @@ namespace Ashlight {
                 if (selectingSkills) {
                     var skill = member.Definition.Skills[i];
                     bool equipped = member.SkillIndex(0) == i || member.SkillIndex(1) == i;
-                    choices[i].GetComponentInChildren<Text>().text = (equipped ? "EQUIPPED: " : "") + skill.Name + " / " + (skill.Affinity ?? member.Identity.Affinity) + "\n" + skill.Description;
+                    choices[i].GetComponentInChildren<Text>(true).text = (equipped ? "EQUIPPED: " : "") + skill.Name + " / " + (skill.Affinity ?? member.Identity.Affinity) + "\n" + skill.Description;
                     choices[i].interactable = battle.CanChangeParty && member.SkillIndex(1 - selectedSlot) != i;
                 } else if (i < candidates.Count) {
                     var candidate = candidates[i]; int inParty = -1;
                     for (int j = 0; j < battle.Party.Count; j++) if (battle.Party[j].Identity.Id == candidate.Id) inParty = j;
-                    choices[i].GetComponentInChildren<Text>().text = candidate.Name + " — " + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
+                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
             }
@@ -393,7 +393,7 @@ namespace Ashlight {
             for(int i=0;i<chapterChoices.Length;i++) {
                 var chapter=ChapterDefinition.Catalog[i];
                 string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5: "+battle.Enemy.Name;
-                chapterChoices[i].GetComponentInChildren<Text>().text="CHAPTER "+(i+1)+" — "+chapter.Name+"\n"+state;
+                chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+"\n"+state;
                 chapterChoices[i].interactable=!battle.CampaignComplete && i==battle.ChapterIndex;
             }
         }
@@ -417,32 +417,38 @@ namespace Ashlight {
             status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + battle.Enemy.Name + " " + battle.EnemyHealth + "/" + battle.Enemy.MaxHealth + "\nWeak: " + battle.Enemy.Weakness + " | Resists: " + battle.Enemy.Resistance + " | " + roster + " | " + battle.Hero.Name + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
-            reset.GetComponentInChildren<Text>().text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
+            bool preparing = !atChapters && battle.CanChangeParty;
+            bool finished = !atChapters && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
+            reset.gameObject.SetActive(finished);
+            loadout.gameObject.SetActive(preparing);
+            if (!preparing) selectionRoot.SetActive(false);
+            reset.GetComponentInChildren<Text>(true).text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
             attack.gameObject.SetActive(!atChapters); ability.gameObject.SetActive(!atChapters); abilityTwo.gameObject.SetActive(!atChapters);
             dodge.gameObject.SetActive(!atChapters); parry.gameObject.SetActive(!atChapters);
             heroHealth.transform.parent.gameObject.SetActive(!atChapters); enemyHealth.transform.parent.gameObject.SetActive(!atChapters);
-            chaptersButton.gameObject.SetActive(!atChapters);
+            chaptersButton.gameObject.SetActive(preparing || finished);
             chaptersButton.interactable = battle.CanChangeParty || battle.Current == Phase.Won || battle.Current == Phase.Lost;
             attack.interactable = battle.Current == Phase.Player;
             var active = party[battle.ActiveIndex];
             ability.interactable = battle.Current == Phase.Player && active.SkillCharges(0) > 0;
             abilityTwo.interactable = battle.Current == Phase.Player && active.SkillCharges(1) > 0;
-            ability.GetComponentInChildren<Text>().text = active.Skill(0).Name + "\n" + active.SkillCharges(0) + " uses";
-            abilityTwo.GetComponentInChildren<Text>().text = active.Skill(1).Name + "\n" + active.SkillCharges(1) + " uses";
-            ability.GetComponentInChildren<Text>().fontSize = abilityTwo.GetComponentInChildren<Text>().fontSize = 23;
+            ability.GetComponentInChildren<Text>(true).text = active.Skill(0).Name + "\n" + active.SkillCharges(0) + " uses";
+            abilityTwo.GetComponentInChildren<Text>(true).text = active.Skill(1).Name + "\n" + active.SkillCharges(1) + " uses";
+            ability.GetComponentInChildren<Text>(true).fontSize = abilityTwo.GetComponentInChildren<Text>(true).fontSize = 23;
             loadout.interactable = battle.CanChangeParty;
             for (int i = 0; i < classButtons.Length; i++) {
                 var kind = (HeroClass)i;
-                classButtons[i].interactable = battle.Current == Phase.Player;
-                classButtons[i].GetComponentInChildren<Text>().text = kind.ToString().ToUpperInvariant();
-                classButtons[i].GetComponentInChildren<Text>().fontSize = 22;
+                classButtons[i].gameObject.SetActive(preparing);
+                classButtons[i].interactable = preparing;
+                classButtons[i].GetComponentInChildren<Text>(true).text = kind.ToString().ToUpperInvariant();
+                classButtons[i].GetComponentInChildren<Text>(true).fontSize = 22;
                 classButtons[i].GetComponent<Image>().color = kind == battle.Hero.Kind ? new Color(.25f, .4f, .55f) : new Color(.12f, .16f, .25f);
             }
             bool defending = battle.Current == Phase.EnemyWindup || battle.Current == Phase.EnemyStrike;
             dodge.interactable = parry.interactable = defending && !battle.Defended;
             SetMeter(heroHealth, battle.HeroHealth / (float)battle.Hero.MaxHealth);
             SetMeter(enemyHealth, battle.EnemyHealth / (float)battle.Enemy.MaxHealth);
-            if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>().text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
+            if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
             float elapsed = Time.time - strikeTime;
             bool striking = battle.Current == Phase.EnemyStrike;
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);
