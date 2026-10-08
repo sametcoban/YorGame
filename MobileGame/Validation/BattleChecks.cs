@@ -277,6 +277,17 @@ class BattleChecks {
   Check(rewarded.ContinueAfterVictory() && rewarded.Crystals==beforeCurrency+50);
   Check(!rewarded.ContinueAfterVictory() && rewarded.Crystals==beforeCurrency+50);
   Check(rewarded.Attack() && !rewarded.CanSummon && rewarded.Summon(0,0)==null);
+  foreach(HeroClass kind in Enum.GetValues(typeof(HeroClass))) {
+   int women=0,men=0;
+   foreach(var named in HeroDefinition.Catalog) if(named.Class==kind) {
+    if(named.Gender==HeroGender.Woman) women++; else men++;
+    var expectedStats=ClassDefinition.For(kind).Scaled(HeroDefinition.Multiplier(named.Quality));
+    Check(named.Stats.MaxHealth==expectedStats.MaxHealth && named.Stats.AttackDamage==expectedStats.AttackDamage);
+   }
+   Check(women>0 && men>0);
+  }
+  foreach(var named in HeroDefinition.Catalog)
+   if(named.Class==HeroClass.Sorceress) Check(named.DisplayClass==(named.Gender==HeroGender.Woman?"Sorceress":"Sorcerer"));
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, and battle outcomes.");
  }
 }

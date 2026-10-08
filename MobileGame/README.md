@@ -72,7 +72,7 @@ On **macOS**, switch the build profile to iOS and export an Xcode project. Open 
 
 ## Validation and current limits
 
-The engine-independent combat model passes 1,472 checks covering party turns, the three-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, save restoration, chapter progression, and reset. To rerun in the prepared cloud machine:
+The engine-independent combat model passes 1,513 checks covering party turns, the three-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, save restoration, chapter progression, and reset. To rerun in the prepared cloud machine:
 
 ```bash
 source /workspace/.yorgame-tools/activate
@@ -165,7 +165,7 @@ Healing displays rising gold motes and the actual restored amount. Guard shows a
 
 The effect pool is capped at 48 reusable objects with six shared colored materials. Restarts and chapter transitions clear effects and camera offsets. Preparation generates `Assets/Resources/CombatEffects.mat` referencing the built-in shader so Web/Android builds retain it. To update an existing project, copy **all scripts**, including the new `CombatEffects.cs`, and the updated **`Assets/Editor/ProjectSetup.cs`**, then choose **Ashlight > Prepare Mobile Project** before building.
 
-The 1,472 engine-independent checks remain passing. Unity effect rendering has not been executed in this cloud environment. In local Play mode, verify each element, successful dodge/parry, healing, guard, restart while effects are active, and changing chapters. Phone/browser performance and shader inclusion still require a real build test.
+The 1,513 engine-independent checks remain passing. Unity effect rendering has not been executed in this cloud environment. In local Play mode, verify each element, successful dodge/parry, healing, guard, restart while effects are active, and changing chapters. Phone/browser performance and shader inclusion still require a real build test.
 
 ## Battle HUD visibility
 
@@ -182,4 +182,16 @@ The project includes **KayKit Adventurers**' CC0 Knight model, texture, rig, and
 
 The setup darkens the texture atlas and adds subdued metal shading and cooler battle lighting. The low-poly proportions remain stylized; this is a first dark fantasy art pass rather than photorealistic character art. Knight weapons are selected from the model's embedded accessories. Paladin, Sorceress, Ranger, Rogue, and Cleric remain placeholders until their asset integrations are added. If the generated prefab is absent, the Knight falls back to its capsule, and preparation can be rerun.
 
-**Verification:** vendored model/texture/license match the official checkout byte-for-byte; checksums are recorded. The 1,472 combat checks still pass. Unity import and animation/rendering behavior remain unverified here. In your Unity editor, check scale, floor contact, sword/shield attachment, facing direction, all seven animations, and returning to Idle. Then test the Web build on iPhone before judging mobile performance.
+**Verification:** vendored model/texture/license match the official checkout byte-for-byte; checksums are recorded. The 1,513 combat checks still pass. Unity import and animation/rendering behavior remain unverified here. In your Unity editor, check scale, floor contact, sword/shield attachment, facing direction, all seven animations, and returning to Idle. Then test the Web build on iPhone before judging mobile performance.
+
+## Mixed adult hero roster and revised art direction
+
+The 30 named heroes now have authored gender and age profiles: 18 women and 12 men, with women and men represented in every class. All are adults (ages 24–52). Examples include **Brenna and Seraphine** (Knights), **Mira, Aurelia, Solenne** (Paladins), **Sylva and Liora** (Rangers), and **Wren, Raven, Nyx** (Rogues). Gender has no effect on stats, rarity, skills, recruitment, or summon odds. Stable hero IDs preserve existing saves. Male members of the Sorceress class display as Sorcerer, and the class-selection button reads Sorcery.
+
+The cartoon KayKit Knight is no longer used automatically following the change in art direction. Its licensed source and optional build menu are retained, but gameplay now looks for a matching named model (`Resources/Heroes/Named/<hero-id>.prefab`) first, then a class/gender model (`Resources/Heroes/<class>_Woman.prefab` or `<class>_Man.prefab`). It uses neutral capsule placeholders when neither exists. This avoids assigning the same male-looking model to women. Preparation no longer regenerates the KayKit character automatically.
+
+**Female body meshes and realistic dark fantasy models are not yet included.** The roster and matching-model routing are implemented; character art is pending. The intended wardrobe uses adult human proportions, weathered materials, and class-appropriate outfits. More revealing outfit variants may include exposed shoulders, open backs, or split robes, subject to verified asset licenses.
+
+For an existing local project, copy the updated `HeroDefinition.cs`, `Prototype.cs`, and `Assets/Editor/ProjectSetup.cs`. Generated old `Resources/Heroes/Knight.prefab`, controller and material are unused; developers may remove those generated files deliberately to keep them out of Resources builds. User assets are never deleted automatically.
+
+Free outfit candidates for adult heroes are documented in [WARDROBE.md](WARDROBE.md): bodice/halter tops (CC0), and sleeveless goddess dresses (listed CC-BY). These are research candidates and require fitting, rigging, export, and license-metadata checks before Unity integration.

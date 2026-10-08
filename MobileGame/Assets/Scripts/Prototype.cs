@@ -268,7 +268,7 @@ namespace Ashlight {
         }
         void RefreshSelection() {
             var member = battle.Party[battle.ActiveIndex];
-            selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.Quality + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
+            selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.DisplayClass + " / " + member.Identity.Quality + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
             for (int i = 0; i < 2; i++) {
                 slots[i].gameObject.SetActive(selectingSkills);
                 slots[i].GetComponentInChildren<Text>(true).text = "SLOT " + (i + 1) + ": " + member.Skill(i).Name;
@@ -284,7 +284,7 @@ namespace Ashlight {
                 } else if (i < candidates.Count) {
                     var candidate = candidates[i]; int inParty = -1;
                     for (int j = 0; j < battle.Party.Count; j++) if (battle.Party[j].Identity.Id == candidate.Id) inParty = j;
-                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
+                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
             }
@@ -296,7 +296,10 @@ namespace Ashlight {
                 allies[i] = null;
                 if (i >= battle.Party.Count) continue;
                 var kind = battle.Party[i].Definition.Kind;
-                var prefab = kind == HeroClass.Knight ? Resources.Load<GameObject>("Heroes/Knight") : null;
+                var identity = battle.Party[i].Identity;
+                // Only use a matching authored model; a woman's hero never inherits a man's model.
+                var prefab = Resources.Load<GameObject>("Heroes/Named/" + identity.Id) ??
+                    Resources.Load<GameObject>("Heroes/" + kind + "_" + identity.Gender);
                 if (prefab != null) {
                     hero = Instantiate(prefab, homes[i], Quaternion.identity, battleStage).transform;
                     hero.name = battle.Party[i].Identity.Name;
@@ -373,7 +376,7 @@ namespace Ashlight {
             SaveProgress();
             var hero=result.Hero;
             chapterTitle.color=hero.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):hero.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):hero.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
-            chapterTitle.text="SUMMON: "+hero.Name+" — "+hero.Quality+" "+hero.Class+" / "+hero.Affinity+"\n"+
+            chapterTitle.text="SUMMON: "+hero.Name+" — "+hero.Quality+" "+hero.DisplayClass+" / "+hero.Affinity+"\n"+
                 (result.Duplicate?"Duplicate: +"+result.Refund+" crystals refunded.":"New hero added to reserves! Choose them before battle.")+"\n"+SummonWallet()+" | "+saveNotice;
         }
         void StartChapter(int index) {
@@ -425,7 +428,7 @@ namespace Ashlight {
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " " + party[i].Health + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + battle.Enemy.Name + " " + battle.EnemyHealth + "/" + battle.Enemy.MaxHealth + "\nWeak: " + battle.Enemy.Weakness + " | Resists: " + battle.Enemy.Resistance + " | " + roster + " | " + battle.Hero.Name + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
+            status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + battle.Enemy.Name + " " + battle.EnemyHealth + "/" + battle.Enemy.MaxHealth + "\nWeak: " + battle.Enemy.Weakness + " | Resists: " + battle.Enemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             bool preparing = !atChapters && battle.CanChangeParty;
@@ -451,7 +454,7 @@ namespace Ashlight {
                 var kind = (HeroClass)i;
                 classButtons[i].gameObject.SetActive(preparing);
                 classButtons[i].interactable = preparing;
-                classButtons[i].GetComponentInChildren<Text>(true).text = kind.ToString().ToUpperInvariant();
+                classButtons[i].GetComponentInChildren<Text>(true).text = (kind == HeroClass.Sorceress ? "SORCERY" : kind.ToString().ToUpperInvariant());
                 classButtons[i].GetComponentInChildren<Text>(true).fontSize = 22;
                 classButtons[i].GetComponent<Image>().color = kind == battle.Hero.Kind ? new Color(.25f, .4f, .55f) : new Color(.12f, .16f, .25f);
             }

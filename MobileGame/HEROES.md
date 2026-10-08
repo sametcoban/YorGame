@@ -4,38 +4,38 @@ Prototype balancing values; all heroes and effects are original. Hero rarity sca
 
 ## Named heroes
 
-| Name | Class | Quality | Affinity | Health | Attack |
-| --- | --- | --- | --- | ---: | ---: |
-| Rowan | Knight | Common | Fire | 100 | 25 |
-| Lucan | Paladin | Common | Light | 120 | 20 |
-| Elara | Sorceress | Common | Cold | 80 | 30 |
-| Finn | Ranger | Common | Physical | 90 | 28 |
-| Wren | Rogue | Common | Physical | 85 | 32 |
-| Tessa | Cleric | Common | Light | 95 | 18 |
-| Aldric | Knight | Uncommon | Physical | 110 | 28 |
-| Mira | Paladin | Uncommon | Fire | 132 | 22 |
-| Nyra | Sorceress | Uncommon | Lightning | 88 | 33 |
-| Sylva | Ranger | Uncommon | Cold | 99 | 31 |
-| Kestrel | Rogue | Uncommon | Poison | 94 | 35 |
-| Jonas | Cleric | Uncommon | Light | 104 | 20 |
-| Brenna | Knight | Rare | Fire | 125 | 31 |
-| Garrick | Paladin | Rare | Light | 150 | 25 |
-| Selene | Sorceress | Rare | Fire | 100 | 38 |
-| Tarin | Ranger | Rare | Physical | 112 | 35 |
-| Silas | Rogue | Rare | Physical | 106 | 40 |
-| Amara | Cleric | Rare | Light | 119 | 22 |
-| Kaelan | Knight | Epic | Physical | 145 | 36 |
-| Aurelia | Paladin | Epic | Fire | 174 | 29 |
-| Vesper | Sorceress | Epic | Cold | 116 | 44 |
-| Liora | Ranger | Epic | Cold | 130 | 41 |
-| Raven | Rogue | Epic | Poison | 123 | 46 |
-| Elyse | Cleric | Epic | Light | 138 | 26 |
-| Seraphine | Knight | Legendary | Fire | 170 | 42 |
-| Solenne | Paladin | Legendary | Light | 204 | 34 |
-| Astra | Sorceress | Legendary | Lightning | 136 | 51 |
-| Cael | Ranger | Legendary | Physical | 153 | 48 |
-| Nyx | Rogue | Legendary | Physical | 144 | 54 |
-| Ilyra | Cleric | Legendary | Light | 162 | 31 |
+| Name | Gender | Age | Class | Quality | Affinity | Health | Attack |
+| --- | --- | ---: | --- | --- | --- | ---: | ---: |
+| Rowan | Man | 28 | Knight | Common | Fire | 100 | 25 |
+| Lucan | Man | 33 | Paladin | Common | Light | 120 | 20 |
+| Elara | Woman | 27 | Sorceress | Common | Cold | 80 | 30 |
+| Finn | Man | 25 | Ranger | Common | Physical | 90 | 28 |
+| Wren | Woman | 26 | Rogue | Common | Physical | 85 | 32 |
+| Tessa | Woman | 24 | Cleric | Common | Light | 95 | 18 |
+| Aldric | Man | 42 | Knight | Uncommon | Physical | 110 | 28 |
+| Mira | Woman | 29 | Paladin | Uncommon | Fire | 132 | 22 |
+| Nyra | Woman | 34 | Sorceress | Uncommon | Lightning | 88 | 33 |
+| Sylva | Woman | 32 | Ranger | Uncommon | Cold | 99 | 31 |
+| Kestrel | Man | 31 | Rogue | Uncommon | Poison | 94 | 35 |
+| Jonas | Man | 43 | Cleric | Uncommon | Light | 104 | 20 |
+| Brenna | Woman | 31 | Knight | Rare | Fire | 125 | 31 |
+| Garrick | Man | 46 | Paladin | Rare | Light | 150 | 25 |
+| Selene | Woman | 41 | Sorceress | Rare | Fire | 100 | 38 |
+| Tarin | Man | 37 | Ranger | Rare | Physical | 112 | 35 |
+| Silas | Man | 36 | Rogue | Rare | Physical | 106 | 40 |
+| Amara | Woman | 35 | Cleric | Rare | Light | 119 | 22 |
+| Kaelan | Man | 35 | Knight | Epic | Physical | 145 | 36 |
+| Aurelia | Woman | 38 | Paladin | Epic | Fire | 174 | 29 |
+| Vesper | Man | 39 | Sorcerer | Epic | Cold | 116 | 44 |
+| Liora | Woman | 30 | Ranger | Epic | Cold | 130 | 41 |
+| Raven | Woman | 40 | Rogue | Epic | Poison | 123 | 46 |
+| Elyse | Woman | 47 | Cleric | Epic | Light | 138 | 26 |
+| Seraphine | Woman | 44 | Knight | Legendary | Fire | 170 | 42 |
+| Solenne | Woman | 51 | Paladin | Legendary | Light | 204 | 34 |
+| Astra | Woman | 52 | Sorceress | Legendary | Lightning | 136 | 51 |
+| Cael | Man | 45 | Ranger | Legendary | Physical | 153 | 48 |
+| Nyx | Woman | 29 | Rogue | Legendary | Physical | 144 | 54 |
+| Ilyra | Woman | 50 | Cleric | Legendary | Light | 162 | 31 |
 
 ## Six skills per class
 

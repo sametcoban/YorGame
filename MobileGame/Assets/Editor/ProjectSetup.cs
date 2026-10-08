@@ -10,7 +10,6 @@ public static class ProjectSetup {
     public static void EnsureScene() {
         if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
         EnsureEffectMaterial();
-        FreeKnightSetup.Ensure();
         const string path = "Assets/Scenes/Battle.unity";
         if (!File.Exists(path)) {
             // Never discard an unsaved editor scene.
