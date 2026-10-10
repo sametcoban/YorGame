@@ -21,7 +21,10 @@ namespace Ashlight {
         bool presentingAction;
         Coroutine actionPresentation;
         ActionMotion actionMotion;
-        int actionTarget, actionHealthBefore, shownActionDamage;
+        int actionTarget, actionHero, actionEnergy;
+        readonly int[] actionEnemyBefore = new int[2], shownEnemyDamage = new int[2];
+        readonly Image[] energyBars = new Image[Battle.MaxPartySize];
+        readonly Text[] energyLabels = new Text[Battle.MaxPartySize];
         readonly float[] dodgeAt = { -10, -10, -10 };
         readonly float[] foeAttackAt = { -10, -10 };
         readonly Vector3[] foeAttackTarget = new Vector3[2];
@@ -105,6 +108,11 @@ namespace Ashlight {
             Panel(safe, new Vector2(.025f,.795f), new Vector2(.975f,.798f), new Color(.40f,.31f,.17f,.8f));
             status = Label(safe, "", new Vector2(.035f, .825f), new Vector2(.965f, .98f), 22);
             status.alignment = TextAnchor.UpperLeft;
+            for(int i=0;i<energyBars.Length;i++) {
+                float left=.035f+i*.315f;
+                energyLabels[i]=Label(safe,"",new Vector2(left,.195f),new Vector2(left+.29f,.235f),17);
+                energyBars[i]=Bar(safe,new Vector2(left,.175f),new Vector2(left+.29f,.188f),new Color(.25f,.65f,.9f));
+            }
             heroHealth = Bar(safe, new Vector2(.035f, .805f), new Vector2(.43f, .818f), new Color(.65f, .27f, .18f));
             enemyHealth = Bar(safe, new Vector2(.57f, .805f), new Vector2(.965f, .818f), new Color(.58f,.43f,.19f));
             secondEnemyHealth = Bar(safe,new Vector2(.775f,.805f),new Vector2(.965f,.818f),new Color(.58f,.43f,.19f));
@@ -280,7 +288,7 @@ namespace Ashlight {
             else message = "Mistimed defense. React after FLASH.";
         }
         int VisibleEnemyHealth(int index) {
-            return presentingAction && index == actionTarget ? Mathf.Max(0,actionHealthBefore-shownActionDamage) : battle.Enemies[index].Health;
+            return presentingAction ? Mathf.Max(0,actionEnemyBefore[index]-shownEnemyDamage[index]) : battle.Enemies[index].Health;
         }
         void CancelActionPresentation() {
             if (actionPresentation != null) StopCoroutine(actionPresentation);
@@ -289,7 +297,7 @@ namespace Ashlight {
             for (int i = 0; i < foeAttackAt.Length; i++) foeAttackAt[i] = -10;
         }
         void HeroImpact(Transform acting, int target, int damage, Element element, float multiplier, bool pause) {
-            shownActionDamage += damage;
+            shownEnemyDamage[target] += damage;
             effects.Attack(acting.position,foes[target].position,element,damage,multiplier);
             if (damage <= 0) return;
             sounds.PlayElement(element,.85f);
@@ -301,16 +309,18 @@ namespace Ashlight {
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
-            int oldGuard = members[actingIndex].Guard, before = battle.Enemies[target].Health;
+            int oldGuard = members[actingIndex].Guard;
+            for(int i=0;i<battle.Enemies.Count;i++) { actionEnemyBefore[i]=battle.Enemies[i].Health; shownEnemyDamage[i]=0; }
+            actionHero=actingIndex; actionEnergy=Mathf.Min(PartyHero.MaxEnergy,members[actingIndex].Energy+PartyHero.ActionEnergy);
             string name = skillSlot >= 0 ? members[actingIndex].Skill(skillSlot).Name : "Attack";
             if (!(skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack())) return;
-            for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health-healing[i];
+            for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health-healing[i]-battle.LastUltimateHealing[i];
             bool casting = CombatMotion.UsesCast(members[actingIndex].Identity.Class,skillSlot >= 0 && battle.LastElement != Element.Physical);
             actionMotion = CombatMotion.For(members[actingIndex].Identity.Class,casting);
-            presentingAction = true; actionTarget = target; actionHealthBefore = before; shownActionDamage = 0;
+            presentingAction = true; actionTarget = target;
             attacker = allies[actingIndex]; attackTime = Time.time;
             var visual = attacker.GetComponent<HeroVisual>(); if (visual != null) visual.Play(casting ? "Cast" : "Attack");
-            actionPresentation = StartCoroutine(PresentAction(actingIndex,target,casting,healing,members[actingIndex].Guard-oldGuard,name));
+            actionPresentation = StartCoroutine(PresentAction(actingIndex,target,casting,healing,members[actingIndex].Guard-oldGuard-battle.LastUltimateGuard[actingIndex],name));
         }
         IEnumerator PresentAction(int actingIndex, int target, bool casting, int[] healing, int guard, string name) {
             var kind = battle.Party[actingIndex].Identity.Class;
@@ -337,11 +347,35 @@ namespace Ashlight {
                 HeroImpact(actor,target,damage-firstDamage,element,multiplier,true);
             }
             while (Time.time < attackTime+motion.Duration+.04f) yield return null;
+            var ultimate=battle.LastUltimate;
+            if(ultimate!=null) {
+                message=battle.Party[actingIndex].Identity.Name+" — ULTIMATE: "+ultimate.Name+"!";
+                effects.Floating(actor.position,"ULTIMATE · "+ultimate.Name,ultimate.Affinity);
+                effects.Ring(actor.position,ultimate.Affinity,.15f); sounds.Play("Charge");
+                bool ultimateCast=CombatMotion.UsesCast(kind,ultimate.Affinity!=Element.Physical);
+                var ultimateMotion=CombatMotion.For(kind,ultimateCast); float ultimateAt=Time.time;
+                actionMotion=ultimateMotion; attackTime=ultimateAt; actionTarget=battle.UltimateTarget;
+                var actorVisual=actor.GetComponent<HeroVisual>(); if(actorVisual!=null) actorVisual.Play(ultimateCast?"Cast":"Attack");
+                while(Time.time<ultimateAt+ultimateMotion.Impact) yield return null;
+                for(int i=0;i<battle.Enemies.Count;i++) if(battle.LastUltimateDamage[i]>0) {
+                    float mult=battle.Enemies[i].Definition.Multiplier(ultimate.Affinity);
+                    HeroImpact(actor,i,battle.LastUltimateDamage[i],ultimate.Affinity,mult,!ultimateCast);
+                    effects.Ring(foes[i].position,ultimate.Affinity,.15f);
+                }
+                actionEnergy=battle.Party[actingIndex].Energy;
+                for(int i=0;i<battle.Party.Count;i++) {
+                    if(battle.LastUltimateHealing[i]>0) effects.Heal(allies[i].position,battle.LastUltimateHealing[i]);
+                    if(battle.LastUltimateGuard[i]>0) effects.Guard(allies[i].position);
+                }
+                if(ultimate.Healing>0) sounds.Play("Heal"); if(ultimate.Guard>0) sounds.Play("Guard");
+                while(Time.time<ultimateAt+ultimateMotion.Duration+.04f) yield return null;
+            }
             presentingAction = false; actionPresentation = null;
-            message = name+" — "+damage+" "+element+" damage"+(multiplier>1?" (WEAKNESS)":multiplier<1?" (RESISTED)":"")+". Choose the next hero's action.";
+            message = (ultimate==null?name:ultimate.Name+" (ULTIMATE)")+" — "+(ultimate==null?damage:SumUltimateDamage())+" "+(ultimate==null?element:ultimate.Affinity)+" damage"+(ultimate!=null?"":multiplier>1?" (WEAKNESS)":multiplier<1?" (RESISTED)":"")+". Choose the next hero's action.";
             if (battle.Current == Phase.EnemyWindup) enemyTurn = StartCoroutine(EnemyTurn());
             if (battle.Current == Phase.Won) SaveProgress();
         }
+        int SumUltimateDamage() { int total=0; foreach(int amount in battle.LastUltimateDamage) total+=amount; return total; }
         void SelectClass(HeroClass kind) { OpenSelection(false, kind); }
         void CreateSelectionPanel() {
             selectionRoot = new GameObject("Hero and Skill Selection", typeof(RectTransform), typeof(Image));
@@ -409,7 +443,7 @@ namespace Ashlight {
                 } else if (i < candidates.Count) {
                     var candidate = candidates[i]; int inParty = -1;
                     for (int j = 0; j < battle.Party.Count; j++) if (battle.Party[j].Identity.Id == candidate.Id) inParty = j;
-                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
+                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\nULT: " + candidate.Ultimate.Description + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
             }
@@ -545,6 +579,15 @@ namespace Ashlight {
             status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
+            for(int i=0;i<energyBars.Length;i++) {
+                bool visible=!atChapters && i<party.Count;
+                energyBars[i].transform.parent.gameObject.SetActive(visible); energyLabels[i].gameObject.SetActive(visible);
+                if(!visible) continue;
+                int energy=presentingAction && i==actionHero?actionEnergy:party[i].Energy;
+                SetMeter(energyBars[i],energy/(float)PartyHero.MaxEnergy);
+                energyBars[i].color=energy==PartyHero.MaxEnergy?new Color(1,.75f,.2f):new Color(.25f,.65f,.9f);
+                energyLabels[i].text=party[i].Identity.Name+" · "+energy+"/100"+(energy==100?" · ULTIMATE":"");
+            }
             bool preparing = !atChapters && battle.CanChangeParty;
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
             reset.gameObject.SetActive(finished);

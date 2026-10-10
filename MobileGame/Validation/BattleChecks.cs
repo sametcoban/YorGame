@@ -476,6 +476,60 @@ class BattleChecks {
   var shockGuard=new Battle(); shockGuard.Party[0].Status=Debuff.Shock; shockGuard.Party[0].StatusRounds=2;
   shockGuard.Party[0].Guard=10; Check(shockGuard.Attack()); shockGuard.BeginStrike(); shockGuard.FinishStrike();
   Check(shockGuard.HeroHealth==70 && shockGuard.Party[0].Guard==0 && shockGuard.Party[0].StatusRounds==1);
+  var ultimateNames=new System.Collections.Generic.HashSet<string>();
+  foreach(var identity in HeroDefinition.Catalog) {
+   Check(ultimateNames.Add(identity.Ultimate.Name));
+   Check(identity.Ultimate.Affinity==identity.Affinity && identity.Ultimate.Damage>identity.Stats.AttackDamage);
+   var ultimateBattle=new Battle(true); var ultimateSave=ultimateBattle.ExportProgress(); ultimateSave.encounter=14;
+   ultimateSave.recruited=identity.Id=="Knight_Common"?new[]{identity.Id}:new[]{"Knight_Common",identity.Id};
+   ultimateSave.party=new[]{identity.Id}; ultimateSave.loadouts=new HeroLoadoutData[ultimateSave.recruited.Length];
+   for(int i=0;i<ultimateSave.recruited.Length;i++) ultimateSave.loadouts[i]=new HeroLoadoutData{id=ultimateSave.recruited[i],firstSkill=0,secondSkill=1};
+   Check(ultimateBattle.RestoreProgress(ultimateSave) && ultimateBattle.SelectEnemy(1));
+   var member=ultimateBattle.Party[0]; member.Energy=75; member.Health=identity.Stats.MaxHealth/2;
+   int hp=member.Health;
+   int primary=ultimateBattle.Enemies[0].Health,partner=ultimateBattle.Enemies[1].Health;
+   int regular=ultimateBattle.Enemies[1].Definition.Damage(identity.Stats.AttackDamage,identity.Affinity);
+   Check(ultimateBattle.Attack());
+   Check(ultimateBattle.LastUltimate==identity.Ultimate && member.Energy==0 && member.SkillCharges(0)==2);
+   Check(ultimateBattle.LastDamage==regular && ultimateBattle.UltimateTarget==1);
+   int first=identity.Ultimate.AreaDamage?Math.Min(primary,ultimateBattle.Enemies[0].Definition.Damage(identity.Ultimate.Damage,identity.Affinity)):0;
+   int second=Math.Min(partner-regular,ultimateBattle.Enemies[1].Definition.Damage(identity.Ultimate.Damage,identity.Affinity));
+   Check(ultimateBattle.LastUltimateDamage[0]==first && ultimateBattle.LastUltimateDamage[1]==second);
+   Check(ultimateBattle.Enemies[0].Health==primary-first && ultimateBattle.Enemies[1].Health==partner-regular-second);
+   Check(member.Health==Math.Min(identity.Stats.MaxHealth,hp+identity.Ultimate.Healing));
+   Check(member.Guard==identity.Ultimate.Guard);
+   ultimateBattle.Reset(); Check(member.Energy==0 && ultimateBattle.LastUltimate==null && ultimateBattle.LastUltimateDamage[0]==0);
+  }
+  foreach(HeroQuality quality in Enum.GetValues(typeof(HeroQuality))) {
+   int maxArea=0,minSingle=int.MaxValue;
+   foreach(var identity in HeroDefinition.Catalog) if(identity.Quality==quality) {
+    if(identity.Ultimate.AreaDamage) maxArea=Math.Max(maxArea,identity.Ultimate.Damage);
+    else minSingle=Math.Min(minSingle,identity.Ultimate.Damage);
+   }
+   Check(minSingle>maxArea && maxArea>0);
+  }
+  var charging=new Battle(HeroClass.Cleric);
+  for(int turn=1;turn<=4;turn++) {
+   Check(charging.Attack());
+   Check(turn<4?charging.Party[0].Energy==turn*25 && charging.LastUltimate==null:charging.Party[0].Energy==0 && charging.LastUltimate!=null);
+   if(charging.Current==Phase.EnemyWindup) { charging.BeginStrike(); Check(charging.Defend(false,.1f)); charging.FinishStrike(); }
+  }
+  charging.Reset(); Check(charging.UseAbility() && charging.Party[0].Energy==25);
+  Check(!charging.UseAbility() && charging.Party[0].Energy==25);
+  charging.BeginStrike(); charging.Defend(true,.1f); charging.FinishStrike(); Check(charging.Party[0].Energy==25);
+  var fallback=new Battle(true); var fallbackSave=fallback.ExportProgress(); fallbackSave.encounter=14;
+  Check(fallback.RestoreProgress(fallbackSave)); fallback.Party[0].Energy=75; fallback.Enemies[0].Health=1;
+  Check(fallback.Attack() && fallback.UltimateTarget==1 && fallback.LastUltimateDamage[0]==0 && fallback.LastUltimateDamage[1]>0);
+  var energyParty=new Battle(true); Check(energyParty.RestoreProgress(groupSave));
+  energyParty.Party[0].Energy=75; energyParty.Party[1].Energy=50; energyParty.Party[2].Energy=25;
+  Check(energyParty.Attack() && energyParty.LastUltimate!=null);
+  Check(energyParty.Party[0].Energy==0 && energyParty.Party[1].Energy==50 && energyParty.Party[2].Energy==25);
+  Check(energyParty.SelectHero(1)); energyParty.Party[1].Energy=75;
+  int autoSkill=AutoBattlePlanner.ChooseSkill(energyParty);
+  Check(autoSkill<0?energyParty.Attack():energyParty.UseAbility(autoSkill));
+  Check(energyParty.LastUltimate==energyParty.Party[1].Identity.Ultimate && energyParty.Party[1].Energy==0);
+  var energyReload=new Battle(true); Check(energyReload.RestoreProgress(energyParty.ExportProgress()));
+  foreach(var member in energyReload.Party) Check(member.Energy==0);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

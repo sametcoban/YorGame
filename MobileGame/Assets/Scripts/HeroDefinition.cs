@@ -12,6 +12,7 @@ namespace Ashlight {
         public string DisplayClass { get { return Class == HeroClass.Sorceress && Gender == HeroGender.Man ? "Sorcerer" : Stats.Name; } }
         public readonly Element Affinity;
         public readonly ClassDefinition Stats;
+        public readonly UltimateDefinition Ultimate;
         HeroDefinition(string id, string name, HeroClass kind, HeroQuality quality, HeroGender gender) {
             var affinities = ClassElements.For(kind);
             Affinity = affinities[(int)quality % affinities.Count];
@@ -19,6 +20,7 @@ namespace Ashlight {
             Gender = gender;
             Id = id; Name = name; Class = kind; Quality = quality;
             Stats = ClassDefinition.For(kind).Scaled(Multiplier(quality));
+            Ultimate = UltimateDefinition.For(this);
         }
         public static float Multiplier(HeroQuality quality) {
             switch (quality) {

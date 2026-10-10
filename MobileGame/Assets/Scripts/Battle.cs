@@ -9,6 +9,8 @@ namespace Ashlight {
         readonly int[] equipped = { 0, 1 };
         readonly int[] charges = { 2, 2 };
         public int Guard { get; internal set; }
+        public const int MaxEnergy=100, ActionEnergy=25;
+        public int Energy { get; internal set; }
         public Debuff Status { get; internal set; }
         public int StatusRounds { get; internal set; }
         public int AbilityCharges { get { return charges[0]; } }
@@ -20,7 +22,7 @@ namespace Ashlight {
         public bool Acted { get; internal set; }
         public PartyHero(HeroClass kind) : this(HeroDefinition.Common(kind)) { }
         public PartyHero(HeroDefinition identity) { Identity = identity; Restore(); }
-        internal void Restore() { Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Status = Debuff.None; StatusRounds = 0; Acted = false; }
+        internal void Restore() { Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Energy = 0; Status = Debuff.None; StatusRounds = 0; Acted = false; }
     }
     public sealed class BattleEnemy {
         public EnemyDefinition Definition { get; private set; }
@@ -56,6 +58,10 @@ namespace Ashlight {
             SelectedEnemyIndex = index; return true;
         }
         public int LastDamage { get; private set; }
+        public UltimateDefinition LastUltimate { get; private set; }
+        public int UltimateTarget { get; private set; }
+        public readonly int[] LastUltimateDamage = new int[2];
+        public readonly int[] LastUltimateHealing = new int[MaxPartySize], LastUltimateGuard = new int[MaxPartySize];
         public float LastElementMultiplier { get; private set; }
         public Element LastElement { get; private set; }
         public IReadOnlyList<PartyHero> Party { get { return party.AsReadOnly(); } }
@@ -206,7 +212,8 @@ namespace Ashlight {
         }
         public void Reset() {
             foreach (var member in party) member.Restore();
-            Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null;
+            Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null; LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
+            Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
             enemies.Clear();
             if (campaign) foreach (var definition in ChapterDefinition.EnemiesAt(Math.Min(encounter, ChapterDefinition.TotalStages - 1))) enemies.Add(new BattleEnemy(definition));
             else enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden", 100)));
@@ -243,6 +250,25 @@ namespace Ashlight {
                 for (int i = 0; i < enemies.Count; i++) if (enemies[i].Health > 0) { SelectedEnemyIndex = i; break; }
         }
         void CompleteAction() {
+            LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
+            Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
+            Active.Energy=Math.Min(PartyHero.MaxEnergy,Active.Energy+PartyHero.ActionEnergy);
+            if(Active.Energy==PartyHero.MaxEnergy && !AllEnemiesDefeated) {
+                LastUltimate=Active.Identity.Ultimate; UltimateTarget=SelectedEnemyIndex;
+                int normalDamage=LastDamage; Element normalElement=LastElement; float normalMultiplier=LastElementMultiplier;
+                for(int i=0;i<enemies.Count;i++) {
+                    if(enemies[i].Health==0 || (!LastUltimate.AreaDamage && i!=UltimateTarget)) continue;
+                    DealDamage(LastUltimate.Damage,LastUltimate.Affinity,i); LastUltimateDamage[i]=LastDamage;
+                }
+                for(int i=0;i<party.Count;i++) if(party[i].Health>0) {
+                    var member=party[i]; int hp=member.Health,guard=member.Guard;
+                    member.Health=Math.Min(member.Definition.MaxHealth,member.Health+LastUltimate.Healing);
+                    member.Guard=Math.Max(member.Guard,LastUltimate.Guard);
+                    LastUltimateHealing[i]=member.Health-hp; LastUltimateGuard[i]=member.Guard-guard;
+                }
+                Active.Energy=0;
+                LastDamage=normalDamage; LastElement=normalElement; LastElementMultiplier=normalMultiplier;
+            }
             Active.Acted = true; Defended = false;
             if (AllEnemiesDefeated) { Current = Phase.Won; return; }
             for (int i = 0; i < party.Count; i++) {

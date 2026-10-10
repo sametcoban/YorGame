@@ -129,7 +129,7 @@ The engine-independent combat model passes 1,513 checks covering party turns, th
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -298,3 +298,14 @@ Debuffs occupy one slot per hero, refresh/replace on a new application, and expi
 Copy updated `Assets/Scripts` into Unity and wait for compilation. Test the second and third enemy attacks, a boss's party-wide attack, affinity resistance, each debuff, two bosses and Auto Play. Unity compilation/playback remain unverified in the cloud environment.
 
 Validated here: **2,297 engine-independent checks**, including all five debuffs, affinity resistance, independent party defense, guards, two-boss round timing, reset and lethal damage over time.
+
+
+## Hero energy and unique ultimates
+
+Every party hero has a labeled energy bar above the action buttons. A successful attack or equipped skill grants **25 energy**, up to **100**. Invalid actions, enemy attacks and parry counters do not generate energy. At full energy, the hero automatically follows their normal action with their unique ultimate, then resets to zero. This works in both manual and Auto Play modes and costs no skill charge or extra turn. If the normal action wins the battle, no ultimate is needed. Energy resets for a new encounter, restart or loaded encounter.
+
+All 30 named heroes have authored ultimate names and target patterns in `UltimateDefinition.cs`. Single-target base damage is 100–119; area base damage is 60–74 **per living enemy**, before rarity scaling, elemental weakness/resistance and damage debuffs. At every rarity, each single-target ultimate deals more base damage per enemy than any area ultimate. Area attacks can deal more combined damage against two enemies. Ultimates use the hero's affinity. A single-target ultimate follows the selected enemy, falling back to a living target if the normal action killed it.
+
+Examples: Rowan’s **Last Ember** hits one enemy; Brenna’s **Cinderfall** hits all enemies; Wren’s **Widow’s Kiss** hits one enemy; Kestrel’s **Viper Dance** hits all enemies. Cleric ultimates also heal all living allies; Paladin ultimates grant guard to all living allies. Ultimate details appear in hero selection. During the follow-up animation, the bar turns gold at full energy and drains on impact; the skill name and elemental effects identify the ultimate. Existing class attack/cast clips are reused for the follow-up.
+
+Update `Assets/Scripts` in Unity, wait for compilation and press Play. Test filling a hero's bar through attacks and skills, manual and Auto Play triggers, area damage against two bosses, target fallback, support effects and resets. **2,363 engine-independent checks passed**, including execution of all 30 ultimates, unique names, damage ordering at every rarity, charge accounting, target fallback and energy reset. Unity compilation, layout and playback still require local testing.
