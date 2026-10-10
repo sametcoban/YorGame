@@ -384,6 +384,36 @@ class BattleChecks {
   }
   foreach(var foe in ChapterDefinition.EnemiesAt(14)) Check(EnemyVisualDefinition.For(foe.Name)!=null);
   Check(EnemyVisualDefinition.For("Training Warden")==null);
+  foreach (HeroClass kind in Enum.GetValues(typeof(HeroClass))) {
+   double dodge,parry; AutoBattlePlanner.DefenseChances(kind,out dodge,out parry);
+   Check(dodge>0 && parry>0 && dodge+parry<1);
+   Check(AutoBattlePlanner.RollDefense(kind,0)==DefenseOutcome.Parry);
+   Check(AutoBattlePlanner.RollDefense(kind,parry)==DefenseOutcome.Dodge);
+   Check(AutoBattlePlanner.RollDefense(kind,parry+dodge)==DefenseOutcome.Miss);
+   var motion=CombatMotion.For(kind,false);
+   Check(motion.Impact>0 && motion.Duration>motion.Impact);
+   Check(CombatMotion.Advance(0,motion.Impact,motion.Duration)==0);
+   Check(CombatMotion.Advance(motion.Impact,motion.Impact,motion.Duration)==1);
+   Check(CombatMotion.Advance(motion.Duration,motion.Impact,motion.Duration)==0);
+   var automated=new Battle(kind); var rng=new Random(71+(int)kind);
+   int safety=0;
+   while (automated.Current!=Phase.Won && automated.Current!=Phase.Lost && safety++<100) {
+    if (automated.Current==Phase.Player) {
+     Check(automated.SelectEnemy(AutoBattlePlanner.ChooseTarget(automated)));
+     int slot=AutoBattlePlanner.ChooseSkill(automated);
+     Check(slot<0?automated.Attack():automated.UseAbility(slot));
+    } else {
+     automated.BeginStrike();
+     var outcome=AutoBattlePlanner.RollDefense(automated.Hero.Kind,rng.NextDouble());
+     if(outcome!=DefenseOutcome.Miss) Check(automated.Defend(outcome==DefenseOutcome.Parry,.1f));
+     automated.FinishStrike();
+    }
+   }
+   Check(safety<100 && (automated.Current==Phase.Won || automated.Current==Phase.Lost));
+   Check(automated.Crystals==0);
+  }
+  Check(CombatMotion.For(HeroClass.Rogue,false).SecondImpact>CombatMotion.For(HeroClass.Rogue,false).Impact);
+  Check(!CombatMotion.UsesCast(HeroClass.Knight,true) && CombatMotion.UsesCast(HeroClass.Sorceress,false));
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

@@ -1,0 +1,149 @@
+[
+  {
+    "name": "SwordSwing",
+    "duration": 0.26,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "a73e39077bed13fd41e6dfde540a71a00ffce66093ca1300fe9ed5a431077e1d"
+  },
+  {
+    "name": "HeavySwing",
+    "duration": 0.34,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "d90b1e0c173a73924591c4aefcdd6a64dd981d648ce41fcc97924132a030a9cd"
+  },
+  {
+    "name": "DaggerSwipe",
+    "duration": 0.18,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "3e3bdc11364aeec87e4dc23647440cce2ce86e1e3e6babdf3aabd02cfe9d33da"
+  },
+  {
+    "name": "BowDraw",
+    "duration": 0.36,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "e8027ba963a9a1bbfe2e998d91806b5dda4f591071fdd52f537068cce6d06800"
+  },
+  {
+    "name": "BowRelease",
+    "duration": 0.28,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "4e81313f4c2597642dca45329e654e1627f6d73401985bdfe2f38593b7237ab4"
+  },
+  {
+    "name": "Fire",
+    "duration": 0.46,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "18be9ffcc4181c2037d0d687d8b8fd9c7cbc8cf78e8732c1eb2c27a901945bef"
+  },
+  {
+    "name": "Cold",
+    "duration": 0.48,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "9142408856064446ed954cc967f3555d139f50eaf3557cbdbb88377d735cca77"
+  },
+  {
+    "name": "Poison",
+    "duration": 0.4,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "c9f73a3adb642a9635b55fc365a73ae6d131cf9c281a08dd8703e914827aab3f"
+  },
+  {
+    "name": "Lightning",
+    "duration": 0.32,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "3eaede5ffb690a58ba642491dcb97226f8e093a24f6b16c2eaa6c01abe71189b"
+  },
+  {
+    "name": "Light",
+    "duration": 0.48,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "f7860fe6c9ac5b0dd91013ef88362180d935c4fef9196832bcb45698482ddd2c"
+  },
+  {
+    "name": "Charge",
+    "duration": 0.34,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "05ba4580e829310ec924f226f1404f1b60981a517d227f79d3e1a10091406e96"
+  },
+  {
+    "name": "Parry",
+    "duration": 0.44,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "f58d338dd7cc04fe766f81d691596d926113b1f948c95a2e55b9e39bb3e8e970"
+  },
+  {
+    "name": "Dodge",
+    "duration": 0.22,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "95656563281bb75792a469ec385b38be9a74ed1bef6842e2a14a2b3f4f962d08"
+  },
+  {
+    "name": "Hit",
+    "duration": 0.24,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "089cc46e531d8996614339f3ebed6d0e2a6d2bfdd762c060faa3f2a4efc6abfb"
+  },
+  {
+    "name": "Guard",
+    "duration": 0.3,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "3c753b03be2409311e14968d20087b986a098ec1c2638165322551de72b7b248"
+  },
+  {
+    "name": "BossSlam",
+    "duration": 0.68,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "54f7e15230e57bf16151ad04ebb45fe0da800d461066df44eb5ae6b6841bb78d"
+  },
+  {
+    "name": "HoundGrowl",
+    "duration": 0.62,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "15468fafc7ef509882b5feb72a0555805a5156df30ba71e6056fd8edb05d7417"
+  },
+  {
+    "name": "HoundBite",
+    "duration": 0.24997732426303854,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "da2d51c5451de63ed52e1fa0695b02d350042e373ba06d5b08b4c23c6d047e30"
+  },
+  {
+    "name": "Heal",
+    "duration": 0.44997732426303855,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "9759e3da8a5868ea8d7a26ed8e8677e4565c15f145658ac29fd3ec7f5381287e"
+  },
+  {
+    "name": "Victory",
+    "duration": 0.8499773242630385,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "d9bfd240e2fddeb6a240ea954dec86c87c8bfcac656fc7a5d8484f44157e2e24"
+  },
+  {
+    "name": "Defeat",
+    "duration": 0.6499773242630386,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "ffc4f54a54963e2b9ec15dd0b92d4391ae0e59614de8b39f28308d01cdab0f6c"
+  }
+]

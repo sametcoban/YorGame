@@ -45,3 +45,7 @@ blender -b --factory-startup --python-exit-code 1 --python Tools/validate_chapte
 Copy the six FBX outputs to Models (the updated LanternWarden replaces the earlier reference export). Copy the original reference textures into the temporary enemy output directory, then render the lineup with `Tools/render_dark_fantasy.py`, passing that directory, a PNG path and `Enemies` as the final argument. The newer ENEMY_REPORT.json supersedes the earlier Warden animation report; the shipped MODEL_REPORT.json includes its new Windup state.
 
 Independent import/evaluated-pose checks passed for all six models: 3,362–17,992 triangles, at most seven material slots, weighted skeleton, UVs, Idle/Attack/Cast/Dodge/Parry/Hit/Death/Windup clips. The original Hound has 14 bones; humanoids retain 53. The five-enemy Blender lineup was visually inspected. These checks do not verify Unity import or actual battle playback.
+
+## Combat animation revision
+
+Original multi-phase class and enemy keyframes are authored by `Tools/polish_combat_motion.py` after generating the geometry above. These animations are CC0 1.0. All 19 source FBXs were updated; `MOTION_REPORT.json` records contact frames and lengths at 30 fps, and `SHA256SUMS.txt` contains the updated 22 model/texture hashes.

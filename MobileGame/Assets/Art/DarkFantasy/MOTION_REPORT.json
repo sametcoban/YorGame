@@ -1,0 +1,352 @@
+[
+  {
+    "model": "Rowan",
+    "enemy": false,
+    "contact_frames": [
+      8
+    ],
+    "attack_final_frame": 25,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Cleric_Man",
+    "enemy": false,
+    "contact_frames": [
+      11
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Cleric_Woman",
+    "enemy": false,
+    "contact_frames": [
+      11
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Knight_Man",
+    "enemy": false,
+    "contact_frames": [
+      8
+    ],
+    "attack_final_frame": 25,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Knight_Woman",
+    "enemy": false,
+    "contact_frames": [
+      8
+    ],
+    "attack_final_frame": 25,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Paladin_Man",
+    "enemy": false,
+    "contact_frames": [
+      10
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Paladin_Woman",
+    "enemy": false,
+    "contact_frames": [
+      10
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Ranger_Man",
+    "enemy": false,
+    "contact_frames": [
+      9
+    ],
+    "attack_final_frame": 27,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Ranger_Woman",
+    "enemy": false,
+    "contact_frames": [
+      9
+    ],
+    "attack_final_frame": 27,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Rogue_Man",
+    "enemy": false,
+    "contact_frames": [
+      7,
+      12
+    ],
+    "attack_final_frame": 26,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Rogue_Woman",
+    "enemy": false,
+    "contact_frames": [
+      7,
+      12
+    ],
+    "attack_final_frame": 26,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Sorceress_Man",
+    "enemy": false,
+    "contact_frames": [
+      11
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Sorceress_Woman",
+    "enemy": false,
+    "contact_frames": [
+      11
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "AshHound",
+    "enemy": true,
+    "contact_frames": [
+      14
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry",
+      "Windup"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "CinderScout",
+    "enemy": true,
+    "contact_frames": [
+      14
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry",
+      "Windup"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "HollowMatron",
+    "enemy": true,
+    "contact_frames": [
+      14
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry",
+      "Windup"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "IronWatcher",
+    "enemy": true,
+    "contact_frames": [
+      14
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry",
+      "Windup"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "LanternWarden",
+    "enemy": true,
+    "contact_frames": [
+      14
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry",
+      "Windup"
+    ],
+    "fps": 30
+  },
+  {
+    "model": "Roadkeeper",
+    "enemy": true,
+    "contact_frames": [
+      14
+    ],
+    "attack_final_frame": 31,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry",
+      "Windup"
+    ],
+    "fps": 30
+  }
+]
