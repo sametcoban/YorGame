@@ -139,6 +139,12 @@ namespace Ashlight {
             }
             RefreshAppearance();
             autoButton = MakeButton(safe, "AUTO PLAY: OFF", .59f, .95f, () => { autoPlay = !autoPlay; nextAutoAction = Time.time+.3f; });
+            // Keep battle actions below the energy row (.175 to .235).
+            foreach (var actionButton in new[] { attack, ability, abilityTwo, autoButton }) {
+                var actionRect = actionButton.GetComponent<RectTransform>();
+                actionRect.anchorMin = new Vector2(actionRect.anchorMin.x, .025f);
+                actionRect.anchorMax = new Vector2(actionRect.anchorMax.x, .155f);
+            }
             reset = MakeButton(safe, "RESTART", .78f, .95f, Restart);
             var rect = reset.GetComponent<RectTransform>();
             rect.anchorMin = new Vector2(.78f, .52f); rect.anchorMax = new Vector2(.95f, .62f);
