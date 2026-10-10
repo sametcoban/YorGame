@@ -58,7 +58,7 @@ class BattleChecks {
    }
    Check(campaign.Current == Phase.Won);
    Check(campaign.ContinueAfterVictory());
-   Check(campaign.Party.Count == Math.Min(3, encounter + 2));
+   Check(campaign.Party.Count == Math.Min(3, (encounter+1)/5+1));
    Check(campaign.Recruits.Count == encounter + 2);
   }
   Check(campaign.Recruits.Count == 30 && campaign.Party.Count == 3);
@@ -135,7 +135,7 @@ class BattleChecks {
   var elemental = new Battle(true);
   Check(elemental.Attack() && elemental.LastDamage == 38 && elemental.LastElementMultiplier == 1.5f);
   var overrides = new Battle(true);
-  for(int encounter=0;encounter<2;encounter++) {
+  for(int encounter=0;encounter<10;encounter++) {
    while(overrides.Current != Phase.Won) {
     if(overrides.Current == Phase.Player) overrides.Attack();
     else { overrides.BeginStrike(); overrides.Defend(false,.1f); overrides.FinishStrike(); }
@@ -223,7 +223,7 @@ class BattleChecks {
   Check(completed.RestartCampaign() && !completed.CampaignComplete && completed.Encounter==0 && completed.Current==Phase.Player && completed.CanChangeParty);
   var replaySave=completed.ExportProgress();
   Check(replaySave.crystals==retained.crystals && replaySave.rareMisses==retained.rareMisses && replaySave.legendaryMisses==retained.legendaryMisses);
-  Check(string.Join(",",replaySave.recruited)==string.Join(",",retained.recruited) && string.Join(",",replaySave.party)==string.Join(",",retained.party));
+  Check(string.Join(",",replaySave.recruited)==string.Join(",",retained.recruited) && replaySave.party.Length==1 && replaySave.party[0]==retained.party[0]);
   for(int i=0;i<retained.loadouts.Length;i++) Check(replaySave.loadouts[i].id==retained.loadouts[i].id && replaySave.loadouts[i].firstSkill==retained.loadouts[i].firstSkill && replaySave.loadouts[i].secondSkill==retained.loadouts[i].secondSkill);
   foreach(var ally in completed.Party) Check(ally.Health==ally.Definition.MaxHealth && ally.SkillCharges(0)==2 && ally.SkillCharges(1)==2 && !ally.Acted);
   Check(!completed.RestartCampaign() && completed.Encounter==0);
@@ -291,7 +291,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==4);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==5);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -436,7 +436,7 @@ class BattleChecks {
   Check(skillBattle.LastStatusDamage[0]==8 && skillBattle.Party[0].StatusRounds==1);
   skillBattle.Reset(); Check(skillBattle.Party[0].Status==Debuff.None && skillBattle.Enemies[0].CompletedStrikes==0);
   // Party-wide skills defend each living hero independently and consume guard only on a hit.
-  var sweepBattle=new Battle(true); var groupSave=sweepBattle.ExportProgress(); groupSave.encounter=9;
+  var sweepBattle=new Battle(true); var groupSave=sweepBattle.ExportProgress(); groupSave.encounter=19;
   groupSave.recruited=new[]{"Knight_Common","Rogue_Common","Sorceress_Common"};
   groupSave.party=(string[])groupSave.recruited.Clone();
   groupSave.loadouts=new[]{new HeroLoadoutData{id="Knight_Common",firstSkill=0,secondSkill=1},new HeroLoadoutData{id="Rogue_Common",firstSkill=0,secondSkill=1},new HeroLoadoutData{id="Sorceress_Common",firstSkill=0,secondSkill=1}};
@@ -451,11 +451,12 @@ class BattleChecks {
   Check(!sweepBattle.DefendHero(1,false,float.NaN));
   sweepBattle.FinishStrike();
   Check(sweepBattle.Party[0].Health==knight && sweepBattle.Party[1].Health==rogue-22);
-  Check(sweepBattle.Party[1].Status==Debuff.Chill && sweepBattle.Party[1].StatusRounds==1);
+  Check(sweepBattle.Party[1].Status==Debuff.Shock && sweepBattle.Party[1].StatusRounds==2);
   Check(sweepBattle.Party[2].Status==Debuff.None && sweepBattle.Party[2].Guard==0);
+  sweepBattle.BeginStrike(); sweepBattle.Defend(false,.1f); sweepBattle.FinishStrike();
   int sweepHealthBefore=sweepBattle.EnemyHealth;
   Check(sweepBattle.SelectHero(1) && sweepBattle.Attack());
-  Check(sweepHealthBefore-sweepBattle.EnemyHealth==(int)Math.Ceiling(sweepBattle.Party[1].Definition.AttackDamage*.75f));
+  Check(sweepHealthBefore-sweepBattle.EnemyHealth==sweepBattle.Party[1].Definition.AttackDamage);
   for(int chapter=1;chapter<6;chapter++) {
    var statusBattle=new Battle(true); var statusSave=statusBattle.ExportProgress(); statusSave.encounter=chapter*5;
    Check(statusBattle.RestoreProgress(statusSave)); statusBattle.Enemies[0].CompletedStrikes=1;
@@ -498,6 +499,7 @@ class BattleChecks {
    Check(ultimateBattle.Enemies[0].Health==primary-first && ultimateBattle.Enemies[1].Health==partner-regular-second);
    Check(member.Health==Math.Min(identity.Stats.MaxHealth,hp+identity.Ultimate.Healing));
    Check(member.Guard==identity.Ultimate.Guard);
+   Check(member.EncounterDamage==regular+first+second && member.EncounterHealing==Math.Min(identity.Stats.MaxHealth-hp,identity.Ultimate.Healing));
    ultimateBattle.Reset(); Check(member.Energy==0 && ultimateBattle.LastUltimate==null && ultimateBattle.LastUltimateDamage[0]==0);
   }
   foreach(HeroQuality quality in Enum.GetValues(typeof(HeroQuality))) {
@@ -615,6 +617,40 @@ class BattleChecks {
   var gearReplay=gearLoaded.ExportProgress(); gearReplay.encounter=30; gearReplay.pendingVictory=false;
   Check(gearLoaded.RestoreProgress(gearReplay) && gearLoaded.RestartCampaign());
   Check(gearLoaded.GearCount(weaponId)==1 && gearLoaded.HeroProgress("Paladin_Common").Gear(GearSlot.Weapon).Id==weaponId);
+  // Results count actual damage/healing, preview levels without granting rewards, and survive reload.
+  var resultBattle=new Battle(true); resultBattle.Party[0].GainExperience(90);
+  resultBattle.Enemies[0].Health=1; Check(resultBattle.Attack());
+  var preview=resultBattle.Results; Check(preview!=null && preview.Heroes.Count==1 && preview.Heroes[0].Damage==1 && preview.Experience==40);
+  Check(preview.Heroes[0].LevelBefore==1 && preview.Heroes[0].LevelAfter==2 && preview.Heroes[0].ExperienceAfter==30);
+  Check(resultBattle.Party[0].Level==1 && resultBattle.Crystals==300 && resultBattle.GearCount(preview.Loot.Id)==0);
+  var resultReload=new Battle(true); Check(resultReload.RestoreProgress(resultBattle.ExportProgress()));
+  Check(resultReload.Results.Loot.Id==preview.Loot.Id && resultReload.Results.Heroes[0].Damage==1);
+  Check(resultReload.ContinueAfterVictory() && resultReload.LastLoot.Id==preview.Loot.Id && resultReload.GearCount(preview.Loot.Id)==1);
+  Check(resultReload.Party[0].Level==preview.Heroes[0].LevelAfter && resultReload.Party[0].Experience==preview.Heroes[0].ExperienceAfter);
+  Check(!resultReload.ContinueAfterVictory() && resultReload.Crystals==350 && resultReload.Results==null);
+  var badResult=resultBattle.ExportProgress(); badResult.results.damage[0]=-1;
+  Check(!resultReload.RestoreProgress(badResult) && resultReload.Encounter==1);
+  var healStats=new Battle(HeroClass.Cleric); healStats.Party[0].Health=90;
+  Check(healStats.UseAbility() && healStats.Party[0].EncounterHealing==5);
+  healStats.BeginStrike(); healStats.Defend(true,.1f); healStats.FinishStrike();
+  Check(healStats.Party[0].EncounterDamage==20);
+  healStats.Reset(); Check(healStats.Party[0].EncounterDamage==0 && healStats.Party[0].EncounterHealing==0);
+  var limits=new Battle(true);
+  for(int encounter=0;encounter<10;encounter++) {
+   Check(limits.PartyLimit==(encounter<5?1:2) && limits.Party.Count==limits.PartyLimit);
+   // Finish via public attacks with every affected hero defending successfully.
+   while(limits.Current!=Phase.Won) {
+    if(limits.Current==Phase.Player) limits.Attack();
+    else { limits.BeginStrike(); for(int heroIndex=0;heroIndex<limits.Party.Count;heroIndex++) limits.DefendHero(heroIndex,false,.1f); limits.FinishStrike(); }
+   }
+   Check(limits.ContinueAfterVictory());
+  }
+  Check(limits.PartyLimit==3 && limits.Party.Count==3 && limits.Recruits.Count==11);
+  var limitedSave=limits.ExportProgress(); limitedSave.encounter=0;
+  Check(!new Battle(true).RestoreProgress(limitedSave));
+  limitedSave.version=4; var legacyLimits=new Battle(true);
+  Check(legacyLimits.RestoreProgress(limitedSave) && legacyLimits.Party.Count==1 && legacyLimits.Recruits.Count==11);
+  Check(legacyLimits.HeroProgress(limitedSave.party[1]).Identity.Id==limitedSave.party[1]);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

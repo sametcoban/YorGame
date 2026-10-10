@@ -66,6 +66,9 @@ namespace Ashlight {
         Text selectionTitle;
         Button[] choices, slots;
         Button upgradeButton, gearButton, gearPrevious, gearNext;
+        GameObject resultsRoot;
+        Text resultsTitle,resultsRewards,resultsLoot;
+        readonly Text[] resultsHeroes=new Text[3];
         GameObject equipmentRoot;
         Text equipmentTitle;
         readonly Button[] gearHeroes=new Button[3],gearSlots=new Button[3],gearChoices=new Button[6];
@@ -165,7 +168,8 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.635f); gearRect.anchorMax=new Vector2(.95f,.735f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            EnterChapters();
+            CreateResultsPanel();
+            if(battle.Current==Phase.Won) { atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
         }
         void CreateEnemy() {
             for (int i = 0; i < foes.Length; i++) {
@@ -470,6 +474,33 @@ namespace Ashlight {
                 }
             }
         }
+        void CreateResultsPanel() {
+            resultsRoot=new GameObject("Battle Results",typeof(RectTransform),typeof(Image)); resultsRoot.transform.SetParent(safe,false);
+            var rect=resultsRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
+            resultsRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            resultsTitle=Label(resultsRoot.transform,"VICTORY",new Vector2(.06f,.82f),new Vector2(.94f,.97f),38);
+            resultsRewards=Label(resultsRoot.transform,"",new Vector2(.06f,.64f),new Vector2(.94f,.81f),24);
+            resultsLoot=Label(resultsRoot.transform,"",new Vector2(.06f,.49f),new Vector2(.94f,.63f),24);
+            Label(resultsRoot.transform,"HERO CONTRIBUTIONS · DAMAGE / HEALING",new Vector2(.06f,.43f),new Vector2(.94f,.48f),19);
+            for(int i=0;i<resultsHeroes.Length;i++) resultsHeroes[i]=Label(resultsRoot.transform,"",new Vector2(.06f,.34f-i*.08f),new Vector2(.94f,.415f-i*.08f),22);
+            var claim=MakeButton(resultsRoot.transform,"CONTINUE · CLAIM REWARDS",.2f,.8f,EnterChapters); PlaceGearControl(claim,.2f,.04f,.8f,.145f);
+            resultsRoot.SetActive(false);
+        }
+        void ShowResults() {
+            var result=battle.Results; if(result==null) return;
+            autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false);
+            resultsTitle.text="VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
+            resultsRewards.text="+"+result.Experience+" XP per participating hero · +"+result.Crystals+" crystals"+(result.RecruitName==null?"":"\nNew recruit: "+result.RecruitName)+"\nPress Continue to claim these rewards.";
+            resultsLoot.text=result.Loot==null?"No loot":"GEAR DROP\n"+result.Loot.Description;
+            resultsLoot.color=result.Loot==null?Color.white:result.Loot.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):result.Loot.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):result.Loot.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
+            for(int i=0;i<resultsHeroes.Length;i++) {
+                resultsHeroes[i].gameObject.SetActive(i<result.Heroes.Count); if(i>=result.Heroes.Count) continue;
+                var row=result.Heroes[i];
+                resultsHeroes[i].text=row.Name+" · Damage "+row.Damage+" · Healing "+row.Healing+"\n"+(row.LevelAfter>row.LevelBefore?"LEVEL UP! "+row.LevelBefore+" → "+row.LevelAfter:"Level "+row.LevelAfter)+" · "+(row.LevelAfter==PartyHero.MaxLevel?"MAX LEVEL":"XP "+row.ExperienceAfter+"/"+(100+(row.LevelAfter-1)*25));
+                resultsHeroes[i].color=row.LevelAfter>row.LevelBefore?new Color(1,.8f,.25f):Color.white;
+            }
+            resultsRoot.transform.SetAsLastSibling(); resultsRoot.SetActive(true); SaveProgress();
+        }
         void PlaceGearControl(Button button,float left,float bottom,float right,float top) {
             var rect=button.GetComponent<RectTransform>(); rect.anchorMin=new Vector2(left,bottom); rect.anchorMax=new Vector2(right,top);
         }
@@ -606,6 +637,7 @@ namespace Ashlight {
             message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";
         }
         void EnterChapters() {
+            resultsRoot.SetActive(false);
             CancelActionPresentation();
             if(enemyTurn!=null) StopCoroutine(enemyTurn);
             enemyTurn=null;
@@ -628,7 +660,7 @@ namespace Ashlight {
                 chapterChoices[i].gameObject.SetActive(!battle.CampaignComplete);
                 var chapter=ChapterDefinition.Catalog[i];
                 string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5: "+battle.Enemies[0].Definition.Name+(battle.Enemies.Count==2?" + "+battle.Enemies[1].Definition.Name:"");
-                chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+"\n"+state;
+                chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+" · "+Mathf.Min(3,i+1)+" hero slots\n"+state;
                 chapterChoices[i].interactable=!battle.CampaignComplete && i==battle.ChapterIndex;
             }
         }
@@ -652,7 +684,7 @@ namespace Ashlight {
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].Level + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
+            status.text = "ASHLIGHT — Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
@@ -666,7 +698,7 @@ namespace Ashlight {
             }
             bool preparing = !atChapters && battle.CanChangeParty;
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
-            reset.gameObject.SetActive(finished);
+            reset.gameObject.SetActive(finished && battle.Current!=Phase.Won);
             loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing);
             if(!preparing) equipmentRoot.SetActive(false);
             if (!preparing) selectionRoot.SetActive(false);
@@ -674,10 +706,11 @@ namespace Ashlight {
             attack.gameObject.SetActive(!atChapters); ability.gameObject.SetActive(!atChapters); abilityTwo.gameObject.SetActive(!atChapters);
             autoButton.gameObject.SetActive(!atChapters);
             if (finished || atChapters) autoPlay = false;
+            if(finished && battle.Current==Phase.Won && enemyTurn==null && !resultsRoot.activeSelf) ShowResults();
             autoButton.interactable = !finished;
             autoButton.GetComponentInChildren<Text>().text = autoPlay ? "AUTO PLAY: ON" : "AUTO PLAY: OFF";
             heroHealth.transform.parent.gameObject.SetActive(!atChapters); enemyHealth.transform.parent.gameObject.SetActive(!atChapters);
-            chaptersButton.gameObject.SetActive(preparing || finished);
+            chaptersButton.gameObject.SetActive(preparing || (finished && battle.Current!=Phase.Won));
             chaptersButton.interactable = battle.CanChangeParty || battle.Current == Phase.Won || battle.Current == Phase.Lost;
             attack.interactable = battle.Current == Phase.Player && !presentingAction;
             var active = party[battle.ActiveIndex];

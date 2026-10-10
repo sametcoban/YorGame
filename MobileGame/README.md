@@ -129,7 +129,7 @@ The engine-independent combat model passes 1,513 checks covering party turns, th
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -335,3 +335,16 @@ Press Continue after victory to claim **one gear item per encounter**, along wit
 The 90 gear definitions stack in shared inventory. Every equipped copy is reserved for one named hero, including heroes in reserve; unequipping releases it. Loot, inventory and equipment survive reloads, party swaps and campaign replay. Save version 4 migrates versions 1–3 while preserving existing hero growth and adds an empty equipment inventory. Invalid item IDs, wrong slots, invalid stack counts and equipping more copies than owned are rejected before changing live progress.
 
 Copy the updated `Assets/Scripts` into Unity. Win a battle, press Continue, enter the next chapter and open Equipment to equip your drop. **2,406 engine-independent checks passed**, including loot rewards, boss rarity floors, stat/element bonuses, equipment ownership, combat locks and save migration. Unity compilation, UI layout and playback still require local testing.
+
+
+## Battle results and chapter party limits
+
+After victory and the final action animation, a results panel displays XP per participating hero, crystals, the exact gear drop with rarity/stats, the next recruit, and each hero's **actual damage dealt and healing restored**. Damage includes normal actions, ultimates and parry counters; healing excludes overhealing. Each hero row previews the resulting level and XP, highlighting level-ups. **Continue · Claim Rewards** grants the displayed rewards once and returns to chapters. Auto Play stops on the results screen.
+
+Rewards are prepared at victory and saved before claiming. Version 5 saves preserve the pending loot and contribution totals, so restarting Unity resumes the same results screen. It does not automatically claim rewards or reroll the drop. Existing version 1–4 saves migrate; older pending victories receive a new reward preview because those versions did not save result statistics.
+
+Party capacity is **1 hero in chapter 1, 2 in chapter 2 and 3 in chapters 3–6**. Story recruits remain in reserve until a slot opens. Entering a new chapter automatically fills the new slot from available recruits, and you can change those heroes before attacking. Summoning does not bypass the cap. Campaign replay starts again with one active hero; all other heroes, progression and equipped gear remain in reserve. Older saves with excess active heroes move those heroes to reserve; new saves enforce the chapter cap. Party HUD and chapter cards show the capacity.
+
+Copy updated `Assets/Scripts` into Unity and press Play. Check results after a normal attack, ultimate and counter; Continue claiming; restarting Unity with rewards unclaimed; and party expansion at chapters 2 and 3. Unity compilation, screen layout and playback still require local validation.
+
+Validated here: **2,453 engine-independent checks**, including reward previews/claims, pending-result reloads, damage/healing attribution across all 30 ultimates, chapter party caps, chapter transitions and legacy roster migration.
