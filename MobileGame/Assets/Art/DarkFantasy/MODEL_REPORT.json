@@ -1,0 +1,47 @@
+[
+  {
+    "model": "Rowan.fbx",
+    "triangles": 17558,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Ember",
+      "Iron",
+      "Leather",
+      "Recess",
+      "Wool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ]
+  },
+  {
+    "model": "LanternWarden.fbx",
+    "triangles": 17750,
+    "bones": 53,
+    "materials": [
+      "Brass",
+      "Ember",
+      "Iron",
+      "Leather",
+      "Recess",
+      "Wool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ]
+  }
+]

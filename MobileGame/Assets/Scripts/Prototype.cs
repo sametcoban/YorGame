@@ -22,7 +22,7 @@ namespace Ashlight {
         Text status, cue;
         Image heroHealth, enemyHealth, timing;
         RectTransform safe;
-        readonly Vector3[] homes = { new Vector3(-2, 1, -1.8f), new Vector3(-2, 1, 0), new Vector3(-2, 1, 1.8f) };
+        readonly Vector3[] homes = { new Vector3(-3, 1, -1.6f), new Vector3(-2.2f, 1, 0), new Vector3(-1.4f, 1, 1.6f) };
         readonly Transform[] allies = new Transform[Battle.MaxPartySize];
         Transform attacker;
         Button reset;
@@ -51,7 +51,7 @@ namespace Ashlight {
         readonly System.Collections.Generic.List<HeroDefinition> candidates = new System.Collections.Generic.List<HeroDefinition>();
         Button[] classButtons;
         Transform hero, enemy;
-        Renderer enemyRenderer;
+        EnemyPresentation enemyPresentation;
         float strikeTime;
         string message = "Your turn. Attack the Lantern Warden.";
         Coroutine enemyTurn;
@@ -70,16 +70,8 @@ namespace Ashlight {
             effects = new GameObject("Combat Effects").AddComponent<CombatEffects>();
             effects.transform.SetParent(battleStage, false); effects.Initialize(camera);
             cameraObject.AddComponent<AudioListener>();
-            camera.transform.position = new Vector3(0, 5, -9);
-            camera.transform.LookAt(new Vector3(0, 1, 0));
-            camera.backgroundColor = new Color(.07f, .08f, .14f);
-            var light = new GameObject("Moonlight").AddComponent<Light>();
-            light.type = LightType.Directional; light.intensity = 1.15f; light.color = new Color(.75f,.8f,.95f);
-            light.transform.rotation = Quaternion.Euler(40, -30, 0);
-            MakeShape("Arena", PrimitiveType.Cube, new Vector3(0, -.2f, 0), new Vector3(12, .4f, 8), new Color(.13f, .14f, .18f)).transform.SetParent(battleStage);
-            enemy = MakeShape("Enemy", PrimitiveType.Capsule, new Vector3(2, 1.3f, 0), new Vector3(1.3f, 1.3f, 1.3f), enemyColor).transform;
-            enemy.SetParent(battleStage);
-            enemyRenderer = enemy.GetComponent<Renderer>();
+            DarkFantasyStage.Create(battleStage, camera);
+            CreateEnemy();
             var canvas = new GameObject("Touch HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
             var scaler = canvas.GetComponent<CanvasScaler>();
@@ -91,9 +83,13 @@ namespace Ashlight {
             safe.anchorMin = new Vector2(safeArea.xMin / Screen.width, safeArea.yMin / Screen.height);
             safe.anchorMax = new Vector2(safeArea.xMax / Screen.width, safeArea.yMax / Screen.height);
             safe.offsetMin = safe.offsetMax = Vector2.zero;
-            status = Label(safe, "", new Vector2(.05f, .68f), new Vector2(.95f, .98f), 30);
-            heroHealth = Bar(safe, new Vector2(.05f, .64f), new Vector2(.43f, .67f), new Color(.2f, .7f, .85f));
-            enemyHealth = Bar(safe, new Vector2(.57f, .64f), new Vector2(.95f, .67f), enemyColor);
+            Panel(safe, new Vector2(0,.79f), Vector2.one, new Color(.025f,.03f,.045f,.90f));
+            Panel(safe, Vector2.zero, new Vector2(1,.24f), new Color(.025f,.03f,.045f,.94f));
+            Panel(safe, new Vector2(.025f,.795f), new Vector2(.975f,.798f), new Color(.40f,.31f,.17f,.8f));
+            status = Label(safe, "", new Vector2(.035f, .825f), new Vector2(.965f, .98f), 22);
+            status.alignment = TextAnchor.UpperLeft;
+            heroHealth = Bar(safe, new Vector2(.035f, .805f), new Vector2(.43f, .818f), new Color(.65f, .27f, .18f));
+            enemyHealth = Bar(safe, new Vector2(.57f, .805f), new Vector2(.965f, .818f), new Color(.58f,.43f,.19f));
             timing = Bar(safe, new Vector2(.3f, .255f), new Vector2(.7f, .28f), Color.yellow);
             cue = Label(safe, "", new Vector2(.2f, .29f), new Vector2(.8f, .39f), 32);
             attack = MakeButton(safe, "ATTACK", .02f, .19f, () => PerformAction(-1));
@@ -123,6 +119,24 @@ namespace Ashlight {
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
             EnterChapters();
         }
+        void CreateEnemy() {
+            if (enemy != null) { enemy.gameObject.SetActive(false); Destroy(enemy.gameObject); }
+            var prefab = battle.Enemy.Name == "Lantern Warden" ? Resources.Load<GameObject>("Enemies/LanternWarden") : null;
+            if (prefab != null) enemy = Instantiate(prefab, enemyHome, Quaternion.identity, battleStage).transform;
+            else {
+                enemy = MakeShape(battle.Enemy.Name, PrimitiveType.Capsule, enemyHome, Vector3.one*(battle.StageIndex==4?1.7f:1.15f), enemyColor).transform;
+                enemy.SetParent(battleStage);
+                var material = enemy.GetComponent<Renderer>().material;
+                material.EnableKeyword("_EMISSION"); material.SetColor("_EmissionColor",Color.black);
+            }
+            enemy.name = battle.Enemy.Name;
+            enemyPresentation = enemy.GetComponent<EnemyPresentation>() ?? enemy.gameObject.AddComponent<EnemyPresentation>();
+        }
+        static void Panel(Transform parent, Vector2 min, Vector2 max, Color color) {
+            var panel = new GameObject("HUD backdrop",typeof(RectTransform),typeof(Image)); panel.transform.SetParent(parent,false);
+            var rect = panel.GetComponent<RectTransform>(); rect.anchorMin = min; rect.anchorMax = max; rect.offsetMin = rect.offsetMax = Vector2.zero;
+            var image = panel.GetComponent<Image>(); image.color = color; image.raycastTarget = false;
+        }
         static GameObject MakeShape(string name, PrimitiveType shape, Vector3 position, Vector3 scale, Color color) {
             var obj = GameObject.CreatePrimitive(shape); obj.name = name;
             obj.transform.position = position; obj.transform.localScale = scale;
@@ -134,15 +148,17 @@ namespace Ashlight {
             var rect = obj.GetComponent<RectTransform>(); rect.anchorMin = min; rect.anchorMax = max; rect.offsetMin = rect.offsetMax = Vector2.zero;
             var label = obj.GetComponent<Text>(); label.text = text; label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             label.resizeTextForBestFit = true; label.resizeTextMinSize = 14; label.resizeTextMaxSize = size;
-            label.fontSize = size; label.alignment = TextAnchor.MiddleCenter; label.color = Color.white; label.raycastTarget = false;
+            label.fontSize = size; label.alignment = TextAnchor.MiddleCenter; label.color = new Color(.9f,.86f,.77f); label.raycastTarget = false;
             return label;
         }
         internal static Button MakeButton(Transform parent, string text, float min, float max, UnityEngine.Events.UnityAction action, bool onPress = false) {
             var obj = new GameObject(text, typeof(RectTransform), typeof(Image), typeof(Button)); obj.transform.SetParent(parent, false);
             var rect = obj.GetComponent<RectTransform>(); rect.anchorMin = new Vector2(min, .05f); rect.anchorMax = new Vector2(max, .22f); rect.offsetMin = rect.offsetMax = Vector2.zero;
-            obj.GetComponent<Image>().color = new Color(.12f, .16f, .25f, .95f);
+            obj.GetComponent<Image>().color = new Color(.075f, .085f, .105f, .97f);
             Label(obj.transform, text, Vector2.zero, Vector2.one, 28);
+            var border = obj.AddComponent<Outline>(); border.effectColor = new Color(.39f,.30f,.17f,.8f); border.effectDistance = new Vector2(1,-1);
             var button = obj.GetComponent<Button>();
+            var colors = button.colors; colors.highlightedColor = new Color(1,.88f,.66f); colors.pressedColor = new Color(.74f,.58f,.35f); button.colors = colors;
             if (onPress) obj.AddComponent<PressAction>().Action = action;
             else button.onClick.AddListener(action);
             return button;
@@ -168,7 +184,9 @@ namespace Ashlight {
             yield return new WaitForSeconds(1.2f);
             if (!battle.BeginStrike()) yield break;
             strikeTime = Time.time; message = "FLASH! " + battle.Party[battle.ActiveIndex].Identity.Name + " must dodge or parry!";
-            enemyRenderer.material.color = Color.yellow;
+            enemyPresentation.Warning(true);
+            var enemyVisual = enemy.GetComponent<HeroVisual>();
+            if (enemyVisual != null) enemyVisual.Play("Attack");
             yield return new WaitForSeconds(.45f);
             if (!battle.Defended) { feedbackUntil = Time.time + .7f; parried = false; }
             int target = battle.ActiveIndex;
@@ -178,7 +196,7 @@ namespace Ashlight {
             if (lastHitDamage > 0) { var visual = allies[target].GetComponent<HeroVisual>(); if (visual != null) visual.Play("Hit"); }
             if (lastHitDamage > 0) effects.Attack(enemy.position, allies[target].position, Element.Physical, lastHitDamage, 1);
             else if (!battle.Defended) effects.Floating(allies[target].position, "BLOCKED", Element.Light);
-            enemyRenderer.material.color = enemyColor;
+            enemyPresentation.Warning(false);
             if (battle.Current == Phase.Player) message = battle.Defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
             enemyTurn = null;
         }
@@ -186,7 +204,10 @@ namespace Ashlight {
             if (battle.Defend(isParry, Time.time - strikeTime)) {
                 var visual = allies[battle.ActiveIndex].GetComponent<HeroVisual>(); if (visual != null) visual.Play(isParry ? "Parry" : "Dodge");
                 effects.Defense(allies[battle.ActiveIndex].position, isParry);
-                if (isParry) effects.Attack(allies[battle.ActiveIndex].position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
+                if (isParry) {
+                    effects.Attack(allies[battle.ActiveIndex].position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
+                    var foeVisual = enemy.GetComponent<HeroVisual>(); if (foeVisual != null) foeVisual.Play("Hit");
+                }
                 parried = isParry; feedbackUntil = Time.time + .7f;
                 message = isParry ? "Parried! Counter damage dealt." : "Dodged!";
                 if (battle.Current == Phase.Won) SaveProgress();
@@ -207,6 +228,8 @@ namespace Ashlight {
             var visual = actingHero.GetComponent<HeroVisual>();
             if (visual != null) visual.Play(skillSlot >= 0 && battle.LastElement != Element.Physical ? "Cast" : "Attack");
             effects.Attack(actingHero.position, enemy.position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
+            var foeVisual = enemy.GetComponent<HeroVisual>();
+            if (foeVisual != null && battle.LastDamage > 0) foeVisual.Play("Hit");
             for (int i = 0; i < members.Count; i++) {
                 int restoredHealth = members[i].Health - previousHealth[i];
                 if (restoredHealth > 0) effects.Heal(allies[i].position, restoredHealth);
@@ -365,10 +388,8 @@ namespace Ashlight {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
             effects.Clear();
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true);
-            battleCamera.transform.position=new Vector3(0,5,-9); battleCamera.transform.LookAt(new Vector3(0,1,0));
-            enemyRenderer.material.color=enemyColor;
-            enemy.localScale=Vector3.one*(battle.StageIndex==4?1.7f:1.15f);
-            enemy.name=battle.Enemy.Name;
+            DarkFantasyStage.Frame(battleCamera);
+            CreateEnemy();
             message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";
         }
         void EnterChapters() {
@@ -400,7 +421,7 @@ namespace Ashlight {
             if(enemyTurn!=null) StopCoroutine(enemyTurn);
             effects.Clear();
             enemyTurn=null; battle.Reset(); attackTime=-10; feedbackUntil=0; parried=false;
-            enemyRenderer.material.color=enemyColor; message="Stage restarted. Choose an action."; SaveProgress();
+            enemyPresentation.Warning(false); message="Stage restarted. Choose an action."; SaveProgress();
         }
         void Update() {
             if (status == null) return;
@@ -440,7 +461,7 @@ namespace Ashlight {
                 classButtons[i].interactable = preparing;
                 classButtons[i].GetComponentInChildren<Text>(true).text = (kind == HeroClass.Sorceress ? "SORCERY" : kind.ToString().ToUpperInvariant());
                 classButtons[i].GetComponentInChildren<Text>(true).fontSize = 22;
-                classButtons[i].GetComponent<Image>().color = kind == battle.Hero.Kind ? new Color(.25f, .4f, .55f) : new Color(.12f, .16f, .25f);
+                classButtons[i].GetComponent<Image>().color = kind == battle.Hero.Kind ? new Color(.31f, .25f, .15f) : new Color(.075f, .085f, .105f);
             }
             bool defending = battle.Current == Phase.EnemyWindup || battle.Current == Phase.EnemyStrike;
             dodge.interactable = parry.interactable = defending && !battle.Defended;
@@ -469,7 +490,9 @@ namespace Ashlight {
             hero.localScale = hero.GetComponent<HeroVisual>() == null && striking && battle.Defended && !parried ? new Vector3(1, .6f, 1) : Vector3.one;
             float lunge = striking ? Mathf.Sin(Mathf.Clamp01(elapsed / .45f) * Mathf.PI) : 0;
             enemy.position = Vector3.Lerp(enemyHome, hero.position + Vector3.right, lunge);
-            enemy.localRotation = battle.Current == Phase.EnemyWindup ? Quaternion.Euler(0, 0, -12) : Quaternion.identity;
+            var foeVisual = enemy.GetComponent<HeroVisual>();
+            if (foeVisual != null) { foeVisual.SetDefeated(battle.EnemyHealth == 0); enemy.localRotation = Quaternion.identity; }
+            else enemy.localRotation = battle.Current == Phase.Won ? Quaternion.Euler(0,0,-75) : battle.Current == Phase.EnemyWindup ? Quaternion.Euler(0, 0, -12) : Quaternion.identity;
             if (Time.time < feedbackUntil && parried) enemy.position += Vector3.right * .3f;
         }
     }

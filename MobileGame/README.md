@@ -1,6 +1,6 @@
 # Ashlight: mobile 3D combat starter
 
-An original combat prototype inspired by reactive turn-based RPGs. Uses simple capsule characters and a generated arena; this is a foundation, not a finished game. No Clair Obscur assets, names, music, or story are included.
+An original combat prototype inspired by reactive turn-based RPGs. The first visual reference uses stylized dark fantasy armor and a generated ruined courtyard; the remaining roster is still prototype art. No Clair Obscur assets, names, music, or story are included.
 
 ## Open and play
 
@@ -9,9 +9,26 @@ An original combat prototype inspired by reactive turn-based RPGs. Uses simple c
 3. The editor helper creates `Assets/Scenes/Battle.unity` and registers it for builds. If necessary select **Ashlight > Prepare Mobile Project**. Open that scene, then press Play.
 4. The game opens on the **Chapters** menu. Select the unlocked chapter, then use **Attack**, then watch **GET READY** followed by **PARRY OR DODGE!**. The shrinking defense meter is yellow during the 180 ms parry window, then blue for the remaining dodge window (400 ms total). Defense registers on button press, not release. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
 
-The combat presentation includes health bars, attack lunges, enemy windup, dodge motion, and parry/counter feedback. These procedural movements use placeholder capsule characters. Safe-area bounds update when the window or phone orientation changes. New presentation and touch-down behavior require Unity/device validation.
+The combat presentation includes health bars, attack lunges, enemy windup, dodge motion, and parry/counter feedback. Rowan and the Lantern Warden now use armored models with basic combat animation; other enemies still use placeholder capsules. Safe-area bounds update when the window or phone orientation changes. New presentation and touch-down behavior require Unity/device validation.
 
 The scene starts empty intentionally: `Prototype` generates the camera, lighting, arena, characters, event system, and HUD at runtime. Use the built-in rendering pipeline. The UI uses the legacy input module; keep Active Input Handling set to **Input Manager (Old)** or **Both**. Landscape orientation and safe-area bounds are configured for the prototype. Device cutouts, aspect ratios, timing feel, and actual rendering need device testing.
+
+## Stylized dark fantasy reference
+
+Rowan (Common Knight) and the first enemy, Lantern Warden, wear original angular armor, closed helmets, tattered capes, and muted metal. The Warden carries a halberd and glowing lantern. A torchlit ruined courtyard, lower camera, staggered party positions, charcoal HUD and compact health bars establish the new direction. Other heroes and enemies have not yet received this art pass. The built-in rendering pipeline is retained.
+
+To update an existing Unity project:
+
+1. Copy **Assets/Art**, the updated **Assets/Editor** and **Assets/Scripts** from this version. Keep your existing project settings and saves.
+2. Wait for importing, then run **Ashlight > Prepare Mobile Project**.
+3. Run **Ashlight > Art > Build Dark Fantasy Reference**. This refreshes only the Rowan and Lantern Warden reference prefabs; automatic preparation preserves existing prefabs.
+4. Open the Battle scene and press Play. Select Rowan in your party and start the first chapter. If you already completed the campaign, use **Restart Campaign** to replay it while preserving your collection and currency.
+
+![Blender character art preview](ArtPreview/DarkFantasyReference.png)
+
+This is a Blender character art preview, not a Unity screenshot; it does not show the courtyard or HUD. The free CC0 source and original asset details are in [DarkFantasy/CREDITS.md](Assets/Art/DarkFantasy/CREDITS.md).
+
+Validation: **1,555 combat checks passed**. Both FBX files independently reimported with weighted meshes, UVs and seven animation states; each is below 18,000 triangles. All three textures are 512×512 and their checksums match. Unity is unavailable in this environment, so Unity compilation, import, Play mode, clipping, camera framing and mobile performance require local verification.
 
 ## iPhone browser testing from Windows
 
@@ -180,7 +197,7 @@ The project includes two adult human base models derived from MakeHuman/MPFB's C
 3. Open the battle scene and press Play. Rowan should now have an actual human mesh. Recruit/select a woman to see the female model. All genders use the same stats, skills, rarity rules, and progression.
 4. **When updating from the earlier human models, choose Ashlight > Characters > Build Realistic Humans after the FBX import.** This refreshes the generated material slots, including facial hair. If a human prefab is missing, choose **Ashlight > Characters > Build Realistic Humans**. This explicitly rebuilds class/gender prefabs; automatic preparation preserves existing prefabs. A missing model shows a neutral capsule and a Console warning rather than the old outfit figures.
 
-Models have faces, fingers, natural proportions, a 53-bone skeleton, opaque mesh clothing, and seven basic states: Idle, Attack, Cast, Dodge, Parry, Hit, Death. Root motion is disabled. A named prefab at `Resources/Heroes/Named/<hero-id>.prefab` still takes priority over a class/gender prefab. The 30 named heroes currently share these two base faces/bodies; unique faces, detailed skin/hair textures, polished animation and weapon meshes remain future art work. These are simple human models, not film-quality or photorealistic characters.
+Models have faces, fingers, natural proportions, a 53-bone skeleton, opaque mesh clothing, and seven basic states: Idle, Attack, Cast, Dodge, Parry, Hit, Death. Root motion is disabled. A named prefab at `Resources/Heroes/Named/<hero-id>.prefab` still takes priority over a class/gender prefab. Except for Rowan’s new armored named prefab, named heroes share these two base faces/bodies; unique faces, detailed skin/hair textures, polished animation and weapon meshes remain future art work. These are simple human models, not film-quality or photorealistic characters.
 
 The 30 authored hero profiles include 18 women and 12 men, all adults ages 24–52. Stable IDs and gameplay are unchanged. Men in the Sorceress class display as Sorcerer; its class-selection button reads Sorcery.
 

@@ -11,6 +11,7 @@ public static class ProjectSetup {
         if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isCompiling) return;
         EnsureEffectMaterial();
         RealisticHeroSetup.Ensure();
+        DarkFantasySetup.Ensure();
         const string path = "Assets/Scenes/Battle.unity";
         if (!File.Exists(path)) {
             // Never discard an unsaved editor scene.
