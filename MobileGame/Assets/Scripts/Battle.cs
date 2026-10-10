@@ -14,8 +14,16 @@ namespace Ashlight {
         public int NextLevelXP { get { return 100+(Level-1)*25; } }
         public int UpgradeCost { get { return 20*(UpgradeRank+1); } }
         public float Growth { get { return 1f+(Level-1)*.05f+UpgradeRank*.10f; } }
-        public UltimateDefinition Ultimate { get { return Identity.Ultimate.Scaled(Growth); } }
-        internal void RefreshStats() { stats=Identity.Stats.Scaled(Growth); }
+        readonly GearDefinition[] gear=new GearDefinition[3];
+        public GearDefinition Gear(GearSlot slot) { return gear[(int)slot]; }
+        internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; RefreshStats(); }
+        public int Protection { get { var armor=Gear(GearSlot.Armor); return armor==null?0:armor.Protection; } }
+        public float DamageBoost(Element element) { var accessory=Gear(GearSlot.Accessory); return accessory!=null && accessory.Element==element?1+accessory.ElementBoost:1; }
+        public UltimateDefinition Ultimate { get { var weapon=Gear(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithDamageBonus(weapon==null?0:weapon.SkillDamage); } }
+        internal void RefreshStats() {
+            var weapon=Gear(GearSlot.Weapon); var armor=Gear(GearSlot.Armor);
+            stats=Identity.Stats.Scaled(Growth).WithEquipment(armor==null?0:armor.Health,weapon==null?0:weapon.Attack,weapon==null?0:weapon.SkillDamage);
+        }
         internal void GainExperience(int amount) {
             if(Level==MaxLevel) return;
             Experience+=amount;
@@ -140,9 +148,16 @@ namespace Ashlight {
             ActiveIndex = index; return true;
         }
         // Prototype story checkpoints: victory unlocks an ally for the next encounter.
-        public bool ContinueAfterVictory() {
-            if (Current != Phase.Won) return false;
+        readonly Random lootRandom=new Random();
+        readonly Dictionary<string,int> inventory=new Dictionary<string,int>();
+        public GearDefinition LastLoot { get; private set; }
+        public int GearCount(string id) { int count; return inventory.TryGetValue(id,out count)?count:0; }
+        public bool ContinueAfterVictory() { return ContinueAfterVictory(lootRandom.NextDouble(),lootRandom.Next(18)); }
+        public bool ContinueAfterVictory(double lootRoll,int variant) {
+            if (Current != Phase.Won || double.IsNaN(lootRoll) || lootRoll<0 || lootRoll>=1 || variant<0 || variant>=18) return false;
             if (campaign) {
+                LastLoot=GearDefinition.Drop(enemies[0].Definition.IsBoss,lootRoll,variant);
+                inventory[LastLoot.Id]=Math.Min(1000000,GearCount(LastLoot.Id)+1);
                 int xp=40+ChapterIndex*10+(enemies[0].Definition.IsBoss?20:0);
                 foreach(var member in party) member.GainExperience(xp);
                 foreach(var candidate in HeroDefinition.Catalog) {
@@ -195,27 +210,48 @@ namespace Ashlight {
             if(member==null || member.UpgradeRank>=PartyHero.MaxUpgradeRank || member.Shards<member.UpgradeCost) return false;
             member.Shards-=member.UpgradeCost; member.UpgradeRank++; member.RefreshStats(); member.Restore(); return true;
         }
+        public bool EquipGear(string heroId,GearSlot slot,string itemId) {
+            if(!campaign || (!CanChangeParty && !CampaignComplete) || (int)slot<0 || (int)slot>2) return false;
+            var member=HeroProgress(heroId); var item=itemId==null?null:GearDefinition.Find(itemId);
+            if(member==null || (itemId!=null && (item==null || item.Slot!=slot))) return false;
+            if(member.Gear(slot)==item) return false;
+            if(item!=null) {
+                int used=0; foreach(var hero in recruits) { var owner=HeroProgress(hero.Id); if(owner!=null && owner.Gear(slot)==item) used++; }
+                if(used>=GearCount(item.Id)) return false;
+            }
+            member.SetGear(slot,item); member.Restore(); return true;
+        }
         public ProgressData ExportProgress() {
             var data = new ProgressData { crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
+            data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
             for (int i = 0; i < recruits.Count; i++) {
                 data.recruited[i] = recruits[i].Id;
                 PartyHero member = null;
                 foreach (var ally in party) if (ally.Identity.Id == recruits[i].Id) member = ally;
                 if (member == null) savedHeroes.TryGetValue(recruits[i].Id, out member);
-                data.loadouts[i] = new HeroLoadoutData { id = recruits[i].Id, firstSkill = member == null ? 0 : member.SkillIndex(0), secondSkill = member == null ? 1 : member.SkillIndex(1), level=member==null?1:member.Level, experience=member==null?0:member.Experience, upgradeRank=member==null?0:member.UpgradeRank, shards=member==null?0:member.Shards };
+                data.loadouts[i] = new HeroLoadoutData { id = recruits[i].Id, firstSkill = member == null ? 0 : member.SkillIndex(0), secondSkill = member == null ? 1 : member.SkillIndex(1), level=member==null?1:member.Level, experience=member==null?0:member.Experience, upgradeRank=member==null?0:member.UpgradeRank, shards=member==null?0:member.Shards, gear=new[]{member==null || member.Gear(GearSlot.Weapon)==null?null:member.Gear(GearSlot.Weapon).Id,member==null || member.Gear(GearSlot.Armor)==null?null:member.Gear(GearSlot.Armor).Id,member==null || member.Gear(GearSlot.Accessory)==null?null:member.Gear(GearSlot.Accessory).Id} };
             }
             return data;
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
                 data.activeIndex < 0 || data.activeIndex >= data.party.Length) return false;
             if(data.version>=2 && (data.crystals<0 || data.crystals>1000000 || data.rareMisses<0 || data.rareMisses>=Summoning.RareGuarantee || data.legendaryMisses<0 || data.legendaryMisses>=Summoning.LegendaryGuarantee)) return false;
+            var restoredInventory=new Dictionary<string,int>();
+            if(data.version==4) {
+                if(data.inventory==null || data.inventory.Length>GearDefinition.Catalog.Count) return false;
+                foreach(var item in data.inventory) {
+                    if(item==null || GearDefinition.Find(item.id)==null || item.count<1 || item.count>1000000 || restoredInventory.ContainsKey(item.id)) return false;
+                    restoredInventory.Add(item.id,item.count);
+                }
+            }
+            var equippedCounts=new Dictionary<string,int>();
             var restored = new Dictionary<string, PartyHero>();
             for (int i = 0; i < data.recruited.Length; i++) {
                 HeroDefinition identity=null;
@@ -225,15 +261,25 @@ namespace Ashlight {
                 var loadout = data.loadouts[i];
                 if (loadout.firstSkill < 0 || loadout.firstSkill >= 6 || loadout.secondSkill < 0 || loadout.secondSkill >= 6 || loadout.firstSkill == loadout.secondSkill) return false;
                 var member = new PartyHero(identity);
-                if(data.version==3) {
+                if(data.version>=3) {
                     if(loadout.level<1 || loadout.level>PartyHero.MaxLevel || loadout.upgradeRank<0 || loadout.upgradeRank>PartyHero.MaxUpgradeRank || loadout.shards<0 || loadout.shards>1000000 || loadout.experience<0 || loadout.experience>=100+(loadout.level-1)*25 || (loadout.level==PartyHero.MaxLevel && loadout.experience!=0)) return false;
                     member.Level=loadout.level; member.Experience=loadout.experience; member.UpgradeRank=loadout.upgradeRank; member.Shards=loadout.shards; member.RefreshStats();
+                }
+                if(data.version==4 && loadout.gear!=null) {
+                    if(loadout.gear.Length!=3) return false;
+                    for(int slot=0;slot<3;slot++) if(loadout.gear[slot]!=null) {
+                        var item=GearDefinition.Find(loadout.gear[slot]); int owned,used;
+                        if(item==null || (int)item.Slot!=slot || !restoredInventory.TryGetValue(item.Id,out owned)) return false;
+                        equippedCounts.TryGetValue(item.Id,out used); if(used>=owned) return false;
+                        equippedCounts[item.Id]=used+1; member.SetGear((GearSlot)slot,item);
+                    }
                 }
                 member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
                 restored.Add(member.Identity.Id, member);
             }
             var chosen = new HashSet<string>();
             foreach (var id in data.party) if (id == null || !restored.ContainsKey(id) || !chosen.Add(id)) return false;
+            inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();
             for (int i = 0; i < data.recruited.Length; i++) {
                 var identity = restored[data.recruited[i]].Identity; recruits.Add(identity);
@@ -280,6 +326,7 @@ namespace Ashlight {
             LastElement = skillElement ?? Active.Identity.Affinity;
             LastElementMultiplier = amount > 0 ? definition.Multiplier(LastElement) : 1f;
             int damage = definition.Damage(amount, LastElement);
+            damage=(int)Math.Ceiling(damage*Active.DamageBoost(LastElement));
             if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
             LastDamage = Math.Min(foe.Health, damage);
             foe.Health = Math.Max(0, foe.Health - damage);
@@ -352,7 +399,7 @@ namespace Ashlight {
                 int damage=IncomingSkill.Damage+(member.Status==Debuff.Shock?5:0);
                 bool resistant=IncomingSkill.Element!=Element.Physical && member.Identity.Affinity==IncomingSkill.Element;
                 if(resistant) damage=(int)Math.Ceiling(damage*.75f);
-                damage=Math.Max(0,damage-member.Guard); member.Guard=0;
+                damage=Math.Max(0,damage-member.Guard-member.Protection); member.Guard=0;
                 LastIncomingDamage[i]=Math.Min(member.Health,damage);
                 member.Health=Math.Max(0,member.Health-damage);
                 if(damage>0 && member.Health>0 && !resistant && IncomingSkill.Status!=Debuff.None) {

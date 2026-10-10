@@ -27,11 +27,13 @@ namespace Ashlight {
             var hero=battle.Party[battle.ActiveIndex];
             bool weakened=hero.Status==Debuff.Chill || hero.Status==Debuff.Weaken;
             int choice=-1; float best=battle.Enemy.Damage(hero.Definition.AttackDamage,hero.Identity.Affinity);
+            best=(float)System.Math.Ceiling(best*hero.DamageBoost(hero.Identity.Affinity));
             if(weakened) best=(float)System.Math.Ceiling(best*.75f);
             for (int slot=0;slot<2;slot++) {
                 if (hero.SkillCharges(slot)==0) continue;
                 var skill=hero.Skill(slot);
                 float score=battle.Enemy.Damage(skill.Damage,skill.Affinity ?? hero.Identity.Affinity);
+                score=(float)System.Math.Ceiling(score*hero.DamageBoost(skill.Affinity ?? hero.Identity.Affinity));
                 if(weakened) score=(float)System.Math.Ceiling(score*.75f);
                 if (skill.PartyHealing) {
                     foreach (var ally in battle.Party) if (ally.Health>0) score+=System.Math.Min(skill.Healing,ally.Definition.MaxHealth-ally.Health);

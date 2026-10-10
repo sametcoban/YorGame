@@ -16,6 +16,12 @@ namespace Ashlight {
             for (int i = 0; i < skills.Length; i++) skills[i] = Skills[i].Scaled(multiplier);
             return new ClassDefinition(Kind, Name, AbilityName, Description, (int)Math.Round(MaxHealth * multiplier), (int)Math.Round(AttackDamage * multiplier), (int)Math.Round(AbilityDamage * multiplier), (int)Math.Round(AbilityHealing * multiplier), Array.AsReadOnly(skills));
         }
+        public ClassDefinition WithEquipment(int health,int attack,int damage) {
+            if(health==0 && attack==0 && damage==0) return this;
+            var skills=new SkillDefinition[Skills.Count];
+            for(int i=0;i<skills.Length;i++) { var s=Skills[i]; skills[i]=new SkillDefinition(s.Name,s.Damage>0?s.Damage+damage:0,s.Healing,s.Guard,s.PartyHealing,s.Affinity); }
+            return new ClassDefinition(Kind,Name,AbilityName,Description,MaxHealth+health,AttackDamage+attack,AbilityDamage>0?AbilityDamage+damage:0,AbilityHealing,Array.AsReadOnly(skills));
+        }
         public static ClassDefinition For(HeroClass kind) {
             switch (kind) {
                 case HeroClass.Knight: return new ClassDefinition(kind, "Knight", "POWER STRIKE", "Balanced sword fighter", 100, 25, 40, 0);

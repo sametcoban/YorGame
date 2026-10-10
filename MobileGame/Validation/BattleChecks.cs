@@ -291,7 +291,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==3);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==4);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -579,6 +579,42 @@ class BattleChecks {
   Check(bossXP.RestoreProgress(bossXPsave)); bossXP.Enemies[0].Health=bossXP.Enemies[1].Health=1;
   bossXP.Attack(); bossXP.BeginStrike(); Check(bossXP.Defend(true,.1f) && bossXP.Current==Phase.Won);
   Check(bossXP.ContinueAfterVictory() && bossXP.HeroProgress("Knight_Common").Experience==80);
+  Check(GearDefinition.Catalog.Count==90);
+  Check(GearDefinition.Drop(true,0,0).Quality==HeroQuality.Rare && GearDefinition.Drop(true,.99,17).Quality==HeroQuality.Legendary);
+  Check(GearDefinition.Drop(false,.54,0).Quality==HeroQuality.Common && GearDefinition.Drop(false,.995,0).Quality==HeroQuality.Legendary);
+  var gearBattle=new Battle(true); gearBattle.Enemies[0].Health=1; gearBattle.Attack();
+  Check(!gearBattle.ContinueAfterVictory(double.NaN,0));
+  Check(gearBattle.ContinueAfterVictory(.1,0));
+  string weaponId="Weapon_Common_Physical",armorId="Armor_Common_Physical",sigilId="Accessory_Common_Fire";
+  Check(gearBattle.LastLoot.Id==weaponId && gearBattle.GearCount(weaponId)==1);
+  Check(!gearBattle.ContinueAfterVictory(.1,0) && gearBattle.GearCount(weaponId)==1);
+  Check(gearBattle.EquipGear("Knight_Common",GearSlot.Weapon,weaponId));
+  Check(gearBattle.Party[0].Definition.AttackDamage==31 && gearBattle.Party[0].Skill(0).Damage==43 && gearBattle.Party[0].Ultimate.Damage==103);
+  Check(!gearBattle.EquipGear("Paladin_Common",GearSlot.Weapon,weaponId));
+  Check(!gearBattle.EquipGear("Knight_Common",GearSlot.Armor,weaponId));
+  var gearSave=gearBattle.ExportProgress(); gearSave.inventory=new[]{new GearStackData{id=weaponId,count=1},new GearStackData{id=armorId,count=1},new GearStackData{id=sigilId,count=1}};
+  Check(gearBattle.RestoreProgress(gearSave));
+  Check(gearBattle.EquipGear("Knight_Common",GearSlot.Armor,armorId) && gearBattle.EquipGear("Knight_Common",GearSlot.Accessory,sigilId));
+  Check(gearBattle.Party[0].Health==120 && gearBattle.Party[0].Protection==2 && Math.Abs(gearBattle.Party[0].DamageBoost(Element.Fire)-1.06f)<.001f);
+  Check(gearBattle.Party[0].DamageBoost(Element.Cold)==1);
+  int gearEnemyBefore=gearBattle.EnemyHealth; Check(gearBattle.Attack());
+  Check(gearEnemyBefore-gearBattle.EnemyHealth==(int)Math.Ceiling(gearBattle.Enemy.Damage(31,Element.Fire)*1.06f));
+  Check(!gearBattle.EquipGear("Knight_Common",GearSlot.Weapon,null));
+  gearBattle.Attack(); gearBattle.BeginStrike(); gearBattle.FinishStrike();
+  Check(gearBattle.LastIncomingDamage[0]==33);
+  var gearLoaded=new Battle(true); Check(gearLoaded.RestoreProgress(gearBattle.ExportProgress()));
+  Check(gearLoaded.Party[0].Gear(GearSlot.Armor).Id==armorId && gearLoaded.GearCount(weaponId)==1);
+  Check(gearLoaded.EquipGear("Knight_Common",GearSlot.Weapon,null) && gearLoaded.Party[0].Definition.AttackDamage==25);
+  Check(gearLoaded.EquipGear("Paladin_Common",GearSlot.Weapon,weaponId));
+  var invalidGear=gearLoaded.ExportProgress(); invalidGear.loadouts[0].gear[0]=weaponId;
+  Check(!gearLoaded.RestoreProgress(invalidGear) && gearLoaded.Party[0].Gear(GearSlot.Weapon)==null);
+  invalidGear=gearLoaded.ExportProgress(); invalidGear.inventory[0].count=0; Check(!gearLoaded.RestoreProgress(invalidGear));
+  var oldGearSave=gearLoaded.ExportProgress(); oldGearSave.version=3;
+  var oldGearReload=new Battle(true); Check(oldGearReload.RestoreProgress(oldGearSave) && oldGearReload.GearCount(weaponId)==0 && oldGearReload.Party[0].Gear(GearSlot.Armor)==null);
+  Check(bossXP.LastLoot!=null && bossXP.LastLoot.Quality>=HeroQuality.Rare && bossXP.GearCount(bossXP.LastLoot.Id)==1);
+  var gearReplay=gearLoaded.ExportProgress(); gearReplay.encounter=30; gearReplay.pendingVictory=false;
+  Check(gearLoaded.RestoreProgress(gearReplay) && gearLoaded.RestartCampaign());
+  Check(gearLoaded.GearCount(weaponId)==1 && gearLoaded.HeroProgress("Paladin_Common").Gear(GearSlot.Weapon).Id==weaponId);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

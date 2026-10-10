@@ -65,7 +65,13 @@ namespace Ashlight {
         GameObject selectionRoot;
         Text selectionTitle;
         Button[] choices, slots;
-        Button upgradeButton;
+        Button upgradeButton, gearButton, gearPrevious, gearNext;
+        GameObject equipmentRoot;
+        Text equipmentTitle;
+        readonly Button[] gearHeroes=new Button[3],gearSlots=new Button[3],gearChoices=new Button[6];
+        readonly System.Collections.Generic.List<GearDefinition> gearCandidates=new System.Collections.Generic.List<GearDefinition>();
+        GearSlot browsingSlot;
+        int gearPage;
         bool selectingSkills;
         int selectedSlot, lastHitDamage;
         HeroClass browsingClass;
@@ -155,7 +161,9 @@ namespace Ashlight {
             chaptersButton = MakeButton(safe, "CHAPTERS", .78f, .95f, EnterChapters);
             var chapterRect = chaptersButton.GetComponent<RectTransform>(); chapterRect.anchorMin = new Vector2(.81f,.29f); chapterRect.anchorMax = new Vector2(.97f,.39f);
             CreateChapterMenu();
-            CreateSelectionPanel();
+            CreateSelectionPanel(); CreateEquipmentPanel();
+            gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
+            var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.635f); gearRect.anchorMax=new Vector2(.95f,.735f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
             EnterChapters();
         }
@@ -312,7 +320,7 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if (atChapters || selectionRoot.activeSelf || presentingAction) return;
+            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
@@ -412,10 +420,11 @@ namespace Ashlight {
         void OpenSelection(bool skills, HeroClass kind) {
             if (atChapters || !battle.CanChangeParty) return;
 
+            equipmentRoot.SetActive(false);
             selectingSkills = skills; browsingClass = kind; selectedSlot = 0;
             candidates.Clear();
             foreach (var candidate in HeroDefinition.Catalog) if (candidate.Class == kind) candidates.Add(candidate);
-            selectionRoot.SetActive(true); RefreshSelection();
+            selectionRoot.transform.SetAsLastSibling(); selectionRoot.SetActive(true); RefreshSelection();
         }
         bool Recruited(string id) {
             foreach (var known in battle.Recruits) if (known.Id == id) return true;
@@ -460,6 +469,58 @@ namespace Ashlight {
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
             }
+        }
+        void PlaceGearControl(Button button,float left,float bottom,float right,float top) {
+            var rect=button.GetComponent<RectTransform>(); rect.anchorMin=new Vector2(left,bottom); rect.anchorMax=new Vector2(right,top);
+        }
+        void CreateEquipmentPanel() {
+            equipmentRoot=new GameObject("Equipment",typeof(RectTransform),typeof(Image)); equipmentRoot.transform.SetParent(safe,false);
+            var rootRect=equipmentRoot.GetComponent<RectTransform>(); rootRect.anchorMin=Vector2.zero; rootRect.anchorMax=Vector2.one; rootRect.offsetMin=rootRect.offsetMax=Vector2.zero;
+            equipmentRoot.GetComponent<Image>().color=new Color(.06f,.08f,.13f,.98f);
+            equipmentTitle=Label(equipmentRoot.transform,"",new Vector2(.03f,.84f),new Vector2(.97f,.99f),22);
+            for(int i=0;i<3;i++) {
+                int index=i; float left=.04f+i*.32f;
+                gearHeroes[i]=MakeButton(equipmentRoot.transform,"",left,left+.28f,()=> { if(battle.SelectHero(index)) RefreshEquipment(); });
+                PlaceGearControl(gearHeroes[i],left,.755f,left+.28f,.825f);
+                gearSlots[i]=MakeButton(equipmentRoot.transform,"",left,left+.28f,()=> { browsingSlot=(GearSlot)index; gearPage=0; RefreshEquipment(); });
+                PlaceGearControl(gearSlots[i],left,.66f,left+.28f,.74f);
+            }
+            for(int i=0;i<6;i++) {
+                int index=i; float left=i%2==0?.04f:.52f; float bottom=.475f-i/2*.16f;
+                gearChoices[i]=MakeButton(equipmentRoot.transform,"",left,left+.44f,()=> { int entry=gearPage*6+index; if(entry<gearCandidates.Count && battle.EquipGear(battle.Party[battle.ActiveIndex].Identity.Id,browsingSlot,gearCandidates[entry].Id)) { SaveProgress(); RefreshEquipment(); } });
+                PlaceGearControl(gearChoices[i],left,bottom,left+.44f,bottom+.14f);
+            }
+            gearPrevious=MakeButton(equipmentRoot.transform,"PREVIOUS",.04f,.25f,()=> { gearPage--; RefreshEquipment(); }); PlaceGearControl(gearPrevious,.04f,.035f,.25f,.12f);
+            var unequip=MakeButton(equipmentRoot.transform,"UNEQUIP",.27f,.49f,()=> { if(battle.EquipGear(battle.Party[battle.ActiveIndex].Identity.Id,browsingSlot,null)) { SaveProgress(); RefreshEquipment(); } }); PlaceGearControl(unequip,.27f,.035f,.49f,.12f);
+            gearNext=MakeButton(equipmentRoot.transform,"NEXT",.51f,.73f,()=> { gearPage++; RefreshEquipment(); }); PlaceGearControl(gearNext,.51f,.035f,.73f,.12f);
+            var done=MakeButton(equipmentRoot.transform,"DONE",.75f,.96f,()=>equipmentRoot.SetActive(false)); PlaceGearControl(done,.75f,.035f,.96f,.12f);
+            equipmentRoot.SetActive(false);
+        }
+        void OpenEquipment() {
+            if(atChapters || !battle.CanChangeParty) return;
+            selectionRoot.SetActive(false); gearPage=0; equipmentRoot.transform.SetAsLastSibling(); equipmentRoot.SetActive(true); RefreshEquipment();
+        }
+        void RefreshEquipment() {
+            var member=battle.Party[battle.ActiveIndex]; gearCandidates.Clear();
+            foreach(var item in GearDefinition.Catalog) if(item.Slot==browsingSlot && battle.GearCount(item.Id)>0) gearCandidates.Add(item);
+            gearPage=Mathf.Clamp(gearPage,0,Mathf.Max(0,(gearCandidates.Count-1)/6));
+            var equipped=member.Gear(browsingSlot);
+            equipmentTitle.text=member.Identity.Name+" · EQUIPMENT · HP "+member.Definition.MaxHealth+" · Attack "+member.Definition.AttackDamage+"\n"+browsingSlot+": "+(equipped==null?"Empty":equipped.Description)+"\n"+(gearCandidates.Count==0?"Win battles and press Continue to collect gear.":"Page "+(gearPage+1)+" · Each owned copy can equip one hero, including reserves.");
+            for(int i=0;i<3;i++) {
+                gearHeroes[i].gameObject.SetActive(i<battle.Party.Count);
+                if(i<battle.Party.Count) gearHeroes[i].GetComponentInChildren<Text>().text=(i==battle.ActiveIndex?"▶ ":"")+battle.Party[i].Identity.Name;
+                var slot=(GearSlot)i; var item=member.Gear(slot);
+                gearSlots[i].GetComponentInChildren<Text>().text=(slot==browsingSlot?"▶ ":"")+slot+"\n"+(item==null?"Empty":item.Quality+" "+item.Name);
+            }
+            for(int i=0;i<6;i++) {
+                int entry=gearPage*6+i; gearChoices[i].gameObject.SetActive(entry<gearCandidates.Count);
+                if(entry>=gearCandidates.Count) continue;
+                var item=gearCandidates[entry]; int used=0;
+                foreach(var hero in battle.Recruits) if(battle.HeroProgress(hero.Id).Gear(browsingSlot)==item) used++;
+                gearChoices[i].GetComponentInChildren<Text>().text=item.Description+"\n"+(item==equipped?"EQUIPPED · ":"")+"Available "+(battle.GearCount(item.Id)-used)+" / Owned "+battle.GearCount(item.Id);
+                gearChoices[i].interactable=item!=equipped && used<battle.GearCount(item.Id);
+            }
+            gearPrevious.interactable=gearPage>0; gearNext.interactable=(gearPage+1)*6<gearCandidates.Count;
         }
         void RefreshAppearance() {
             attacker = null; attackTime = -10;
@@ -553,6 +614,7 @@ namespace Ashlight {
                 reward="Party gained "+(40+battle.ChapterIndex*10+(battle.Enemies[0].Definition.IsBoss?20:0))+" XP each! ";
                 int previous=battle.Recruits.Count;
                 battle.ContinueAfterVictory(); RefreshAppearance();
+                if(battle.LastLoot!=null) reward+="Loot: "+battle.LastLoot.Description+". ";
                 if(battle.Recruits.Count>previous) reward+=battle.Recruits[battle.Recruits.Count-1].Name+" recruited! ";
             } else if(!battle.CanChangeParty && !battle.CampaignComplete) battle.Reset();
             effects.Clear();
@@ -605,7 +667,8 @@ namespace Ashlight {
             bool preparing = !atChapters && battle.CanChangeParty;
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
             reset.gameObject.SetActive(finished);
-            loadout.gameObject.SetActive(preparing);
+            loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing);
+            if(!preparing) equipmentRoot.SetActive(false);
             if (!preparing) selectionRoot.SetActive(false);
             reset.GetComponentInChildren<Text>(true).text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
             attack.gameObject.SetActive(!atChapters); ability.gameObject.SetActive(!atChapters); abilityTwo.gameObject.SetActive(!atChapters);
@@ -655,7 +718,7 @@ namespace Ashlight {
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
-            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
+            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
                 nextAutoAction = Time.time+1.3f;

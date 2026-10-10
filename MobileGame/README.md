@@ -129,7 +129,7 @@ The engine-independent combat model passes 1,513 checks covering party turns, th
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -322,3 +322,16 @@ Before battle, open hero selection or Skills and select **Upgrade [active hero]*
 Progress now uses save version 3. Existing version 1/2 saves migrate with heroes at level 1, rank 0 and zero XP/shards, preserving roster, loadouts, chapters and the existing economy. Levels and shards survive reserve swaps, reloads and campaign replay. Invalid progression data is rejected before modifying live progress. Copy updated `Assets/Scripts` into Unity and test Continue rewards, leveling, duplicates, the Upgrade button and reload. Unity compilation/UI playback still require local validation.
 
 Validated here: **2,377 engine-independent checks**, including XP caps, duplicate shards, upgrade costs/caps, combat locks, save migration, invalid save rejection, reserve persistence, campaign replay and one-time boss/victory rewards.
+
+
+## Equipment and victory loot
+
+Each named hero has **Weapon, Armor and Accessory** slots. Before attacking, open **Equipment**, choose a party hero, then a slot and an owned item. Use Previous/Next to browse or Unequip to release the item. Equipment controls disappear during combat. To remove gear from a reserve, put that hero in the party before battle and open Equipment.
+
+Weapons add `6 × rarity tier` attack and `3 × tier` damage to damaging skills and ultimates. Armor adds `20 × tier` health and `2 × tier` protection against direct incoming hits; protection does not reduce damage over time. Accessories add `6% × tier` damage to their matching element, including attacks, skills, ultimates and counters. Gear bonuses apply on top of level/upgrade stats; Auto Play evaluates the equipped damage bonuses. Common through Legendary tiers are 1–5. All classes can equip all gear.
+
+Press Continue after victory to claim **one gear item per encounter**, along with XP and crystals. A two-boss battle drops one item after both bosses die. Ordinary drop rarity odds: Common 55%, Uncommon 30%, Rare 12%, Epic 2.5%, Legendary 0.5%. Boss drops guarantee Rare or better: Rare 55%, Epic 35%, Legendary 10%. The three slots and six elemental themes have equal odds. No drops are awarded for defeat or restart.
+
+The 90 gear definitions stack in shared inventory. Every equipped copy is reserved for one named hero, including heroes in reserve; unequipping releases it. Loot, inventory and equipment survive reloads, party swaps and campaign replay. Save version 4 migrates versions 1–3 while preserving existing hero growth and adds an empty equipment inventory. Invalid item IDs, wrong slots, invalid stack counts and equipping more copies than owned are rejected before changing live progress.
+
+Copy the updated `Assets/Scripts` into Unity. Win a battle, press Continue, enter the next chapter and open Equipment to equip your drop. **2,406 engine-independent checks passed**, including loot rewards, boss rarity floors, stat/element bonuses, equipment ownership, combat locks and save migration. Unity compilation, UI layout and playback still require local testing.
