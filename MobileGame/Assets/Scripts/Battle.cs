@@ -9,6 +9,8 @@ namespace Ashlight {
         readonly int[] equipped = { 0, 1 };
         readonly int[] charges = { 2, 2 };
         public int Guard { get; internal set; }
+        public Debuff Status { get; internal set; }
+        public int StatusRounds { get; internal set; }
         public int AbilityCharges { get { return charges[0]; } }
         public SkillDefinition Skill(int slot) { return Definition.Skills[equipped[slot]]; }
         public int SkillIndex(int slot) { return equipped[slot]; }
@@ -18,10 +20,11 @@ namespace Ashlight {
         public bool Acted { get; internal set; }
         public PartyHero(HeroClass kind) : this(HeroDefinition.Common(kind)) { }
         public PartyHero(HeroDefinition identity) { Identity = identity; Restore(); }
-        internal void Restore() { Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Acted = false; }
+        internal void Restore() { Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Status = Debuff.None; StatusRounds = 0; Acted = false; }
     }
     public sealed class BattleEnemy {
         public EnemyDefinition Definition { get; private set; }
+        public int CompletedStrikes { get; internal set; }
         public int Health { get; internal set; }
         public BattleEnemy(EnemyDefinition definition) { Definition = definition; Health = definition.MaxHealth; }
     }
@@ -64,6 +67,11 @@ namespace Ashlight {
         public int EnemyHealth { get { return enemies[SelectedEnemyIndex].Health; } }
         public Phase Current { get; private set; }
         public bool Defended { get; private set; }
+        readonly bool[] defendedHeroes = new bool[MaxPartySize];
+        public EnemySkill IncomingSkill { get; private set; }
+        public readonly int[] LastIncomingDamage = new int[MaxPartySize];
+        public readonly int[] LastStatusDamage = new int[MaxPartySize];
+        public bool HeroDefended(int index) { return defendedHeroes[index]; }
         public Battle() : this(HeroClass.Knight) { }
         public Battle(HeroClass kind) { unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset(); }
         public Battle(bool recruitmentCampaign) { campaign = recruitmentCampaign; Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
@@ -198,6 +206,7 @@ namespace Ashlight {
         }
         public void Reset() {
             foreach (var member in party) member.Restore();
+            Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null;
             enemies.Clear();
             if (campaign) foreach (var definition in ChapterDefinition.EnemiesAt(Math.Min(encounter, ChapterDefinition.TotalStages - 1))) enemies.Add(new BattleEnemy(definition));
             else enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden", 100)));
@@ -227,6 +236,7 @@ namespace Ashlight {
             LastElement = skillElement ?? Active.Identity.Affinity;
             LastElementMultiplier = amount > 0 ? definition.Multiplier(LastElement) : 1f;
             int damage = definition.Damage(amount, LastElement);
+            if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
             LastDamage = Math.Min(foe.Health, damage);
             foe.Health = Math.Max(0, foe.Health - damage);
             if (enemies[SelectedEnemyIndex].Health == 0)
@@ -242,7 +252,8 @@ namespace Ashlight {
             PrepareEnemyStrike();
         }
         void PrepareEnemyStrike() {
-            Defended = false;
+            Defended = false; Array.Clear(defendedHeroes,0,defendedHeroes.Length);
+            IncomingSkill = campaign ? EnemySkills.For(encounter,enemies[AttackingEnemyIndex].Definition.IsBoss,enemies[AttackingEnemyIndex].CompletedStrikes) : new EnemySkill("Quick Strike",35,Element.Physical);
             // Cycle targets across living allies for each surviving enemy's strike.
             for (int offset = 0; offset < party.Count; offset++) {
                 int index = (targetCursor + offset) % party.Count;
@@ -252,26 +263,53 @@ namespace Ashlight {
         }
         public bool BeginStrike() {
             if (Current != Phase.EnemyWindup) return false;
+            Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
             Current = Phase.EnemyStrike; return true;
         }
-        public bool Defend(bool parry, float elapsed) {
-            if (Current != Phase.EnemyStrike || Defended || elapsed < 0 || elapsed > (parry ? .18f : .4f)) return false;
-            Defended = true;
-            if (parry) DealDamage(10, null, AttackingEnemyIndex);
+        public bool Defend(bool parry, float elapsed) { return DefendHero(ActiveIndex,parry,elapsed); }
+        public bool DefendHero(int index, bool parry, float elapsed) {
+            if (Current != Phase.EnemyStrike || index<0 || index>=party.Count || party[index].Health==0 ||
+                (!IncomingSkill.PartyWide && index!=ActiveIndex) || defendedHeroes[index] || float.IsNaN(elapsed) || elapsed < 0 || elapsed > (parry ? .18f : .4f)) return false;
+            defendedHeroes[index] = true;
+            if(index==ActiveIndex) Defended=true;
+            if (parry) {
+                int previous=ActiveIndex; ActiveIndex=index;
+                DealDamage(10,null,AttackingEnemyIndex); ActiveIndex=previous;
+            }
             if (AllEnemiesDefeated) Current = Phase.Won;
             return true;
         }
         public void FinishStrike() {
             if (Current != Phase.EnemyStrike) return;
-            if (!Defended) {
-                Active.Health = Math.Max(0, Active.Health - Math.Max(0, 35 - Active.Guard));
-                Active.Guard = 0;
+            Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length);
+            Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
+            for(int i=0;i<party.Count;i++) {
+                var member=party[i];
+                if(member.Health==0 || (!IncomingSkill.PartyWide && i!=ActiveIndex) || defendedHeroes[i]) continue;
+                int damage=IncomingSkill.Damage+(member.Status==Debuff.Shock?5:0);
+                bool resistant=IncomingSkill.Element!=Element.Physical && member.Identity.Affinity==IncomingSkill.Element;
+                if(resistant) damage=(int)Math.Ceiling(damage*.75f);
+                damage=Math.Max(0,damage-member.Guard); member.Guard=0;
+                LastIncomingDamage[i]=Math.Min(member.Health,damage);
+                member.Health=Math.Max(0,member.Health-damage);
+                if(damage>0 && member.Health>0 && !resistant && IncomingSkill.Status!=Debuff.None) {
+                    member.Status=IncomingSkill.Status; member.StatusRounds=2;
+                }
             }
+            enemies[AttackingEnemyIndex].CompletedStrikes++;
             bool survivor = false;
             foreach (var member in party) if (member.Health > 0) survivor = true;
             if (!survivor) { Current = Phase.Lost; return; }
             for (int i = AttackingEnemyIndex + 1; i < enemies.Count; i++) if (enemies[i].Health > 0) {
                 AttackingEnemyIndex = i; PrepareEnemyStrike(); return;
+            }
+            foreach(var member in party) {
+                if(member.Health>0 && member.StatusRounds>0) {
+                    int tick=member.Status==Debuff.Burn?6:member.Status==Debuff.Poison?8:0;
+                    int index=party.IndexOf(member); LastStatusDamage[index]=Math.Min(member.Health,tick);
+                    member.Health=Math.Max(0,member.Health-tick);
+                    if(--member.StatusRounds==0) member.Status=Debuff.None;
+                }
             }
             Current = Phase.Lost;
             for (int i = 0; i < party.Count; i++) {

@@ -414,6 +414,68 @@ class BattleChecks {
   }
   Check(CombatMotion.For(HeroClass.Rogue,false).SecondImpact>CombatMotion.For(HeroClass.Rogue,false).Impact);
   Check(!CombatMotion.UsesCast(HeroClass.Knight,true) && CombatMotion.UsesCast(HeroClass.Sorceress,false));
+  for(int chapter=0;chapter<6;chapter++) {
+   var normal=EnemySkills.For(chapter*5,true,0);
+   var special=EnemySkills.For(chapter*5,true,1);
+   var sweep=EnemySkills.For(chapter*5,true,2);
+   Check(normal.Damage==35 && !normal.PartyWide && normal.Status==Debuff.None);
+   Check(sweep.PartyWide && sweep.Damage==22);
+   Check(EnemySkills.For(chapter*5,false,2).Damage==45);
+   Check(chapter==0 ? special.Status==Debuff.None : special.Status!=Debuff.None);
+  }
+  var skillBattle=new Battle(true);
+  var skillSave=skillBattle.ExportProgress(); skillSave.encounter=24;
+  Check(skillBattle.RestoreProgress(skillSave));
+  Check(skillBattle.Attack()); skillBattle.BeginStrike();
+  Check(skillBattle.Defend(false,.1f)); skillBattle.FinishStrike();
+  skillBattle.BeginStrike(); Check(skillBattle.Defend(false,.1f)); skillBattle.FinishStrike();
+  Check(skillBattle.Attack()); Check(skillBattle.IncomingSkill.Status==Debuff.Poison);
+  skillBattle.BeginStrike(); skillBattle.FinishStrike();
+  Check(skillBattle.Party[0].Status==Debuff.Poison && skillBattle.Party[0].StatusRounds==2);
+  skillBattle.BeginStrike(); Check(skillBattle.Defend(false,.1f)); skillBattle.FinishStrike();
+  Check(skillBattle.LastStatusDamage[0]==8 && skillBattle.Party[0].StatusRounds==1);
+  skillBattle.Reset(); Check(skillBattle.Party[0].Status==Debuff.None && skillBattle.Enemies[0].CompletedStrikes==0);
+  // Party-wide skills defend each living hero independently and consume guard only on a hit.
+  var sweepBattle=new Battle(true); var groupSave=sweepBattle.ExportProgress(); groupSave.encounter=9;
+  groupSave.recruited=new[]{"Knight_Common","Rogue_Common","Sorceress_Common"};
+  groupSave.party=(string[])groupSave.recruited.Clone();
+  groupSave.loadouts=new[]{new HeroLoadoutData{id="Knight_Common",firstSkill=0,secondSkill=1},new HeroLoadoutData{id="Rogue_Common",firstSkill=0,secondSkill=1},new HeroLoadoutData{id="Sorceress_Common",firstSkill=0,secondSkill=1}};
+  Check(sweepBattle.RestoreProgress(groupSave));
+  sweepBattle.Enemies[0].CompletedStrikes=2;
+  for(int i=0;i<3;i++) Check(sweepBattle.Attack());
+  Check(sweepBattle.IncomingSkill.PartyWide); sweepBattle.BeginStrike();
+  int knight=sweepBattle.Party[0].Health,rogue=sweepBattle.Party[1].Health;
+  sweepBattle.Party[2].Guard=35;
+  Check(sweepBattle.DefendHero(0,false,.1f));
+  Check(!sweepBattle.DefendHero(0,true,.1f));
+  Check(!sweepBattle.DefendHero(1,false,float.NaN));
+  sweepBattle.FinishStrike();
+  Check(sweepBattle.Party[0].Health==knight && sweepBattle.Party[1].Health==rogue-22);
+  Check(sweepBattle.Party[1].Status==Debuff.Chill && sweepBattle.Party[1].StatusRounds==1);
+  Check(sweepBattle.Party[2].Status==Debuff.None && sweepBattle.Party[2].Guard==0);
+  int sweepHealthBefore=sweepBattle.EnemyHealth;
+  Check(sweepBattle.SelectHero(1) && sweepBattle.Attack());
+  Check(sweepHealthBefore-sweepBattle.EnemyHealth==(int)Math.Ceiling(sweepBattle.Party[1].Definition.AttackDamage*.75f));
+  for(int chapter=1;chapter<6;chapter++) {
+   var statusBattle=new Battle(true); var statusSave=statusBattle.ExportProgress(); statusSave.encounter=chapter*5;
+   Check(statusBattle.RestoreProgress(statusSave)); statusBattle.Enemies[0].CompletedStrikes=1;
+   Check(statusBattle.Attack()); statusBattle.BeginStrike();
+   var incoming=statusBattle.IncomingSkill;
+   statusBattle.FinishStrike();
+   bool resist=statusBattle.Party[0].Identity.Affinity==incoming.Element;
+   int dot=incoming.Status==Debuff.Burn?6:incoming.Status==Debuff.Poison?8:0;
+   Check(statusBattle.HeroHealth==100-(resist?18:24+dot));
+   Check(statusBattle.Party[0].Status==(resist?Debuff.None:incoming.Status));
+   Check(statusBattle.Attack()); statusBattle.BeginStrike(); Check(statusBattle.Defend(false,.1f)); statusBattle.FinishStrike();
+   Check(statusBattle.Party[0].Status==Debuff.None && statusBattle.Party[0].StatusRounds==0);
+  }
+  var dotDeath=new Battle(); dotDeath.Party[0].Health=1;
+  dotDeath.Party[0].Status=Debuff.Poison; dotDeath.Party[0].StatusRounds=1;
+  Check(dotDeath.Attack()); dotDeath.BeginStrike(); Check(dotDeath.Defend(false,.1f)); dotDeath.FinishStrike();
+  Check(dotDeath.Current==Phase.Lost && dotDeath.HeroHealth==0 && dotDeath.LastStatusDamage[0]==1);
+  var shockGuard=new Battle(); shockGuard.Party[0].Status=Debuff.Shock; shockGuard.Party[0].StatusRounds=2;
+  shockGuard.Party[0].Guard=10; Check(shockGuard.Attack()); shockGuard.BeginStrike(); shockGuard.FinishStrike();
+  Check(shockGuard.HeroHealth==70 && shockGuard.Party[0].Guard==0 && shockGuard.Party[0].StatusRounds==1);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

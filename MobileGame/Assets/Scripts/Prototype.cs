@@ -21,8 +21,8 @@ namespace Ashlight {
         bool presentingAction;
         Coroutine actionPresentation;
         ActionMotion actionMotion;
-        int actionTarget, actionHealthBefore, shownActionDamage, defenseHero;
-        float defenseAt = -10;
+        int actionTarget, actionHealthBefore, shownActionDamage;
+        readonly float[] dodgeAt = { -10, -10, -10 };
         readonly float[] foeAttackAt = { -10, -10 };
         readonly Vector3[] foeAttackTarget = new Vector3[2];
         Button chaptersButton;
@@ -215,6 +215,7 @@ namespace Ashlight {
             // Both bosses remain on the field; each living boss attacks once per enemy round.
             while (battle.Current == Phase.EnemyWindup) {
                 int foeIndex = battle.AttackingEnemyIndex;
+                var skill = battle.IncomingSkill;
                 var actor = foes[foeIndex];
                 var art = EnemyVisualDefinition.For(battle.Enemies[foeIndex].Definition.Name);
                 var presentation = actor.GetComponent<EnemyPresentation>();
@@ -222,46 +223,54 @@ namespace Ashlight {
                 if (visual != null) visual.Play("Windup");
                 if (art != null && art.SourceModel == "AshHound") sounds.Play("HoundGrowl",.7f);
                 else if (art != null && art.IsRanged) sounds.Play("Charge",.6f);
-                message = actor.name + " prepares " + (art == null ? "an attack" : art.AttackLabel) + " on " + battle.Party[battle.ActiveIndex].Identity.Name + ".";
+                message = actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + ".";
                 yield return new WaitForSeconds(1.2f);
                 if (!battle.BeginStrike()) break;
-                strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " attacks " + battle.Party[battle.ActiveIndex].Identity.Name + "!";
+                strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " uses " + skill.Name + " on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + "!";
                 presentation.Warning(true);
                 if (visual != null) visual.Play("Attack");
-                if (art != null && art.IsRanged) effects.Ring(actor.position,art.EffectElement);
-                var defense = AutoBattlePlanner.RollDefense(battle.Hero.Kind,combatRandom.NextDouble());
-                float defenseDelay = defense == DefenseOutcome.Parry ? .12f : .26f;
-                while (Time.time < strikeTime+defenseDelay) yield return null;
-                if (defense != DefenseOutcome.Miss) Defend(defense == DefenseOutcome.Parry,defenseDelay);
+                if (skill.Element != Element.Physical || skill.PartyWide) effects.Ring(actor.position,skill.Element);
+                var defenses = new DefenseOutcome[battle.Party.Count];
+                for(int i=0;i<defenses.Length;i++) defenses[i] = battle.Party[i].Health>0 && (skill.PartyWide || i==battle.ActiveIndex) ? AutoBattlePlanner.RollDefense(battle.Party[i].Identity.Class,combatRandom.NextDouble()) : DefenseOutcome.Miss;
+                while (Time.time < strikeTime+.12f) yield return null;
+                for(int i=0;i<defenses.Length;i++) if(defenses[i]==DefenseOutcome.Parry) Defend(true,.12f,i);
+                while (Time.time < strikeTime+.26f) yield return null;
+                for(int i=0;i<defenses.Length;i++) if(defenses[i]==DefenseOutcome.Dodge) Defend(false,.26f,i);
                 while (Time.time < strikeTime+.30f) yield return null;
                 if (battle.Enemies[foeIndex].Health > 0)
-                    sounds.Play(art != null && art.IsRanged ? art.EffectElement.ToString() : art != null && art.SourceModel == "AshHound" ? "HoundBite" : art != null && art.IsBoss ? "HeavySwing" : "SwordSwing");
+                    sounds.Play(skill.Element != Element.Physical ? skill.Element.ToString() : art != null && art.SourceModel == "AshHound" ? "HoundBite" : art != null && art.IsBoss ? "HeavySwing" : "SwordSwing");
                 while (Time.time < strikeTime+.45f) yield return null;
                 bool defended = battle.Defended;
                 if (!defended) { feedbackUntil = Time.time+.7f; parried = false; }
                 int target = battle.ActiveIndex;
-                int healthBefore = battle.Party[target].Health;
+                bool[] strikeDefended = new bool[battle.Party.Count];
+                for(int i=0;i<strikeDefended.Length;i++) strikeDefended[i]=battle.HeroDefended(i);
                 battle.FinishStrike();
-                lastHitDamage = healthBefore-battle.Party[target].Health;
-                if (lastHitDamage > 0) {
-                    var targetVisual = allies[target].GetComponent<HeroVisual>(); if (targetVisual != null) targetVisual.Play("Hit");
-                    effects.Attack(actor.position,allies[target].position,art == null ? Element.Physical : art.EffectElement,lastHitDamage,1);
-                    sounds.Play("Hit"); if (visual != null) visual.ContactPause();
-                } else if (!defended) { effects.Floating(allies[target].position,"BLOCKED",Element.Light); sounds.Play("Guard"); }
-                if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { effects.BossImpact(allies[target].position,art.EffectElement); sounds.Play("BossSlam",.75f); }
+                lastHitDamage = battle.LastIncomingDamage[target];
+                for(int i=0;i<battle.Party.Count;i++) {
+                    int damage=battle.LastIncomingDamage[i];
+                    if(damage>0) {
+                        var targetVisual=allies[i].GetComponent<HeroVisual>(); if(targetVisual!=null) targetVisual.Play("Hit");
+                        effects.Attack(actor.position,allies[i].position,skill.Element,damage,1); sounds.PlayElement(skill.Element);
+                        if(visual!=null) visual.ContactPause();
+                        if(battle.Party[i].Status!=Debuff.None) effects.Floating(allies[i].position,battle.Party[i].Status.ToString().ToUpperInvariant(),skill.Element);
+                    } else if((skill.PartyWide || i==target) && !strikeDefended[i] && battle.Party[i].Health>0) { effects.Floating(allies[i].position,"BLOCKED",Element.Light); sounds.Play("Guard"); }
+                    if(battle.LastStatusDamage[i]>0) effects.Floating(allies[i].position,"DEBUFF −"+battle.LastStatusDamage[i],skill.Element);
+                }
+                if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { effects.BossImpact(allies[target].position,skill.Element); sounds.Play("BossSlam",.75f); }
                 presentation.Warning(false);
                 if (battle.Current == Phase.Player) message = defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
             }
             enemyTurn = null;
         }
-        void Defend(bool isParry, float resolvedElapsed) {
+        void Defend(bool isParry, float resolvedElapsed, int heroIndex) {
             if (presentingAction || atChapters) return;
-            if (battle.Defend(isParry, resolvedElapsed)) {
-                var visual = allies[battle.ActiveIndex].GetComponent<HeroVisual>(); if (visual != null) visual.Play(isParry ? "Parry" : "Dodge");
-                effects.Defense(allies[battle.ActiveIndex].position, isParry);
-                defenseAt = Time.time; defenseHero = battle.ActiveIndex; sounds.Play(isParry ? "Parry" : "Dodge");
+            if (battle.DefendHero(heroIndex,isParry, resolvedElapsed)) {
+                var visual = allies[heroIndex].GetComponent<HeroVisual>(); if (visual != null) visual.Play(isParry ? "Parry" : "Dodge");
+                effects.Defense(allies[heroIndex].position, isParry);
+                dodgeAt[heroIndex] = isParry ? -10 : Time.time; sounds.Play(isParry ? "Parry" : "Dodge");
                 if (isParry) {
-                    effects.Attack(allies[battle.ActiveIndex].position, foes[battle.AttackingEnemyIndex].position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
+                    effects.Attack(allies[heroIndex].position, foes[battle.AttackingEnemyIndex].position, battle.LastElement, battle.LastDamage, battle.LastElementMultiplier);
                     var foeVisual = foes[battle.AttackingEnemyIndex].GetComponent<HeroVisual>(); if (foeVisual != null) foeVisual.Play("Hit");
                 }
                 parried = isParry; feedbackUntil = Time.time + .7f;
@@ -275,7 +284,8 @@ namespace Ashlight {
         }
         void CancelActionPresentation() {
             if (actionPresentation != null) StopCoroutine(actionPresentation);
-            actionPresentation = null; presentingAction = false; attacker = null; defenseAt = -10;
+            actionPresentation = null; presentingAction = false; attacker = null;
+            for(int i=0;i<dodgeAt.Length;i++) dodgeAt[i]=-10;
             for (int i = 0; i < foeAttackAt.Length; i++) foeAttackAt[i] = -10;
         }
         void HeroImpact(Transform acting, int target, int damage, Element element, float multiplier, bool pause) {
@@ -531,7 +541,7 @@ namespace Ashlight {
             var visibleEnemy = battle.Enemies[visibleTarget].Definition;
             string roster = "";
             for (int i = 0; i < party.Count; i++)
-                roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " " + party[i].Health + (i == battle.ActiveIndex ? "] " : " ");
+                roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
             status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
@@ -598,7 +608,7 @@ namespace Ashlight {
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);
             SetMeter(timing, 1 - elapsed / .4f);
             timing.color = elapsed <= .18f ? Color.yellow : new Color(.2f, .7f, .85f);
-            cue.text = presentingAction ? "" : battle.Current == Phase.EnemyWindup ? "GET READY — " + battle.Enemies[battle.AttackingEnemyIndex].Definition.Name :
+            cue.text = presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.PartyWide ? " — ALL HEROES" : " — " + battle.Party[battle.ActiveIndex].Identity.Name) :
                 striking && !battle.Defended ? (elapsed <= .18f ? "RESOLVING DEFENSE" : elapsed <= .4f ? "RESOLVING DEFENSE" : "DEFENSE MISSED") :
                 Time.time < feedbackUntil ? (battle.Defended ? (parried ? "PARRY + COUNTER" : "DODGED") : "HIT −" + lastHitDamage) : "";
             cue.color = Time.time < feedbackUntil && battle.Defended ? Color.cyan : Color.yellow;
@@ -614,7 +624,7 @@ namespace Ashlight {
                 var direction = foes[actionTarget].position-attacker.position; direction.y=0;
                 attacker.position += direction.normalized*advance;
             }
-            if (!parried && defenseHero < party.Count && party[defenseHero].Health > 0) allies[defenseHero].position += Vector3.back*.8f*CombatMotion.Dodge(Time.time-defenseAt);
+            for(int i=0;i<party.Count;i++) if(party[i].Health>0) allies[i].position += Vector3.back*.8f*CombatMotion.Dodge(Time.time-dodgeAt[i]);
             hero.localScale = hero.GetComponent<HeroVisual>() == null && striking && battle.Defended && !parried ? new Vector3(1, .6f, 1) : Vector3.one;
 
             for (int i = 0; i < battle.Enemies.Count; i++) {
