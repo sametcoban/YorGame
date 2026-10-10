@@ -8,6 +8,7 @@ namespace Ashlight {
         UltimateDefinition(string name,int damage,bool area,Element affinity,int healing,int guard) {
             Name=name; Damage=damage; AreaDamage=area; Affinity=affinity; Healing=healing; Guard=guard;
         }
+        public UltimateDefinition Scaled(float multiplier) { return multiplier==1f?this:new UltimateDefinition(Name,(int)Math.Round(Damage*multiplier),AreaDamage,Affinity,(int)Math.Round(Healing*multiplier),(int)Math.Round(Guard*multiplier)); }
         public string Description { get { return Name+" · "+Damage+" "+Affinity+" damage "+(AreaDamage?"to all enemies":"to one enemy")+(Healing>0?" · Party heal "+Healing:"")+(Guard>0?" · Party guard "+Guard:""); } }
         static readonly string[,] Names = {
             {"Last Ember","Iron Reckoning","Cinderfall","Siegebreaker","Crown of Ash"},

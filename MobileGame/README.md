@@ -309,3 +309,16 @@ All 30 named heroes have authored ultimate names and target patterns in `Ultimat
 Examples: Rowan’s **Last Ember** hits one enemy; Brenna’s **Cinderfall** hits all enemies; Wren’s **Widow’s Kiss** hits one enemy; Kestrel’s **Viper Dance** hits all enemies. Cleric ultimates also heal all living allies; Paladin ultimates grant guard to all living allies. Ultimate details appear in hero selection. During the follow-up animation, the bar turns gold at full energy and drains on impact; the skill name and elemental effects identify the ultimate. Existing class attack/cast clips are reused for the follow-up.
 
 Update `Assets/Scripts` in Unity, wait for compilation and press Play. Test filling a hero's bar through attacks and skills, manual and Auto Play triggers, area damage against two bosses, target fallback, support effects and resets. **2,363 engine-independent checks passed**, including execution of all 30 ultimates, unique names, damage ordering at every rarity, charge accounting, target fallback and energy reset. Unity compilation, layout and playback still require local testing.
+
+
+## Hero levels and shard upgrades
+
+Victory awards each participating party hero **40 + 10 × chapter index XP**, plus **20 XP** for a boss encounter. Both bosses count as one encounter/reward. Claim XP by pressing Continue after victory; newly recruited heroes and reserves receive no XP for that fight. Defeated participating heroes still receive XP. The pending-victory save resumes the same one-time reward claim; losses and restarts grant no XP.
+
+Heroes start at level 1 and cap at **level 20**. The next level costs `100 + 25 × (level − 1)` XP; excess XP carries over, and XP stops accumulating at the cap. Each level adds 5% of base stats. Duplicate summons retain the existing crystal refund and add **10/15/20/25/30 named-hero shards** for Common/Uncommon/Rare/Epic/Legendary duplicates.
+
+Before battle, open hero selection or Skills and select **Upgrade [active hero]**. Ranks cap at **+5**, cost **20/40/60/80/100 shards**, and each rank adds 10% of base stats. Shards are specific to that named hero. Levels and upgrade ranks increase health, attack, equipped skills' damage/healing/guard, and ultimate damage/support. This growth is applied on top of rarity stats. Hero cards and battle labels show levels; selection shows XP, rank, shards and upgrade cost. Upgrades lock during combat.
+
+Progress now uses save version 3. Existing version 1/2 saves migrate with heroes at level 1, rank 0 and zero XP/shards, preserving roster, loadouts, chapters and the existing economy. Levels and shards survive reserve swaps, reloads and campaign replay. Invalid progression data is rejected before modifying live progress. Copy updated `Assets/Scripts` into Unity and test Continue rewards, leveling, duplicates, the Upgrade button and reload. Unity compilation/UI playback still require local validation.
+
+Validated here: **2,377 engine-independent checks**, including XP caps, duplicate shards, upgrade costs/caps, combat locks, save migration, invalid save rejection, reserve persistence, campaign replay and one-time boss/victory rewards.

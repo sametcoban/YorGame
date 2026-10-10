@@ -65,6 +65,7 @@ namespace Ashlight {
         GameObject selectionRoot;
         Text selectionTitle;
         Button[] choices, slots;
+        Button upgradeButton;
         bool selectingSkills;
         int selectedSlot, lastHitDamage;
         HeroClass browsingClass;
@@ -402,8 +403,10 @@ namespace Ashlight {
                 var r = choices[i].GetComponent<RectTransform>(); r.anchorMin = new Vector2(left, bottom); r.anchorMax = new Vector2(left + .43f, bottom + .16f);
                 choices[i].GetComponentInChildren<Text>(true).fontSize = 21;
             }
-            var close = MakeButton(selectionRoot.transform, "DONE", .35f, .65f, CloseSelection);
-            var cr = close.GetComponent<RectTransform>(); cr.anchorMin = new Vector2(.35f, .02f); cr.anchorMax = new Vector2(.65f, .12f);
+            upgradeButton=MakeButton(selectionRoot.transform,"UPGRADE",.55f,.95f,()=> { if(battle.UpgradeHero(battle.Party[battle.ActiveIndex].Identity.Id)) { SaveProgress(); RefreshSelection(); } });
+            var upgradeRect=upgradeButton.GetComponent<RectTransform>(); upgradeRect.anchorMin=new Vector2(.55f,.02f); upgradeRect.anchorMax=new Vector2(.95f,.12f);
+            var close = MakeButton(selectionRoot.transform, "DONE", .05f, .45f, CloseSelection);
+            var cr = close.GetComponent<RectTransform>(); cr.anchorMin = new Vector2(.05f, .02f); cr.anchorMax = new Vector2(.45f, .12f);
             selectionRoot.SetActive(false);
         }
         void OpenSelection(bool skills, HeroClass kind) {
@@ -434,6 +437,9 @@ namespace Ashlight {
         void RefreshSelection() {
             var member = battle.Party[battle.ActiveIndex];
             selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.DisplayClass + " / " + member.Identity.Quality + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
+            selectionTitle.text+="\n"+member.Identity.Name+" Lv "+member.Level+" · XP "+member.Experience+"/"+member.NextLevelXP+" · Upgrade "+member.UpgradeRank+"/5 · Shards "+member.Shards;
+            upgradeButton.interactable=battle.CanChangeParty && member.UpgradeRank<PartyHero.MaxUpgradeRank && member.Shards>=member.UpgradeCost;
+            upgradeButton.GetComponentInChildren<Text>().text=member.UpgradeRank==PartyHero.MaxUpgradeRank?"UPGRADE MAX":"UPGRADE "+member.Identity.Name+"\n"+member.Shards+"/"+member.UpgradeCost+" shards";
             for (int i = 0; i < 2; i++) {
                 slots[i].gameObject.SetActive(selectingSkills);
                 slots[i].GetComponentInChildren<Text>(true).text = "SLOT " + (i + 1) + ": " + member.Skill(i).Name;
@@ -448,8 +454,9 @@ namespace Ashlight {
                     choices[i].interactable = battle.CanChangeParty && member.SkillIndex(1 - selectedSlot) != i;
                 } else if (i < candidates.Count) {
                     var candidate = candidates[i]; int inParty = -1;
+                    var progress=battle.HeroProgress(candidate.Id); var stats=progress==null?candidate.Stats:progress.Definition; var ult=progress==null?candidate.Ultimate:progress.Ultimate;
                     for (int j = 0; j < battle.Party.Count; j++) if (battle.Party[j].Identity.Id == candidate.Id) inParty = j;
-                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.Affinity + "\nHP " + candidate.Stats.MaxHealth + " | Attack " + candidate.Stats.AttackDamage + "\nULT: " + candidate.Ultimate.Description + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
+                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.Affinity + "\nHP " + stats.MaxHealth + " | Attack " + stats.AttackDamage + " | Lv " + (progress==null?1:progress.Level) + " / +" + (progress==null?0:progress.UpgradeRank) + "\nULT: " + ult.Description + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
             }
@@ -527,7 +534,7 @@ namespace Ashlight {
             var hero=result.Hero;
             chapterTitle.color=hero.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):hero.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):hero.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
             chapterTitle.text="SUMMON: "+hero.Name+" — "+hero.Quality+" "+hero.DisplayClass+" / "+hero.Affinity+"\n"+
-                (result.Duplicate?"Duplicate: +"+result.Refund+" crystals refunded.":"New hero added to reserves! Choose them before battle.")+"\n"+SummonWallet()+" | "+saveNotice;
+                (result.Duplicate?"Duplicate: +"+result.Refund+" crystals and +"+(10+(int)hero.Quality*5)+" "+hero.Name+" shards.":"New hero added to reserves! Choose them before battle.")+"\n"+SummonWallet()+" | "+saveNotice;
         }
         void StartChapter(int index) {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
@@ -543,9 +550,10 @@ namespace Ashlight {
             enemyTurn=null;
             string reward="";
             if(battle.Current==Phase.Won) {
+                reward="Party gained "+(40+battle.ChapterIndex*10+(battle.Enemies[0].Definition.IsBoss?20:0))+" XP each! ";
                 int previous=battle.Recruits.Count;
                 battle.ContinueAfterVictory(); RefreshAppearance();
-                if(battle.Recruits.Count>previous) reward=battle.Recruits[battle.Recruits.Count-1].Name+" recruited! ";
+                if(battle.Recruits.Count>previous) reward+=battle.Recruits[battle.Recruits.Count-1].Name+" recruited! ";
             } else if(!battle.CanChangeParty && !battle.CampaignComplete) battle.Reset();
             effects.Clear();
             atChapters=true; attackTime=-10; feedbackUntil=0; parried=false;
@@ -581,7 +589,7 @@ namespace Ashlight {
             var visibleEnemy = battle.Enemies[visibleTarget].Definition;
             string roster = "";
             for (int i = 0; i < party.Count; i++)
-                roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
+                roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].Level + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
             status.text = "ASHLIGHT — Party " + party.Count + "/3 | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;

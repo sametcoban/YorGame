@@ -291,7 +291,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==2);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==3);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -530,6 +530,55 @@ class BattleChecks {
   Check(energyParty.LastUltimate==energyParty.Party[1].Identity.Ultimate && energyParty.Party[1].Energy==0);
   var energyReload=new Battle(true); Check(energyReload.RestoreProgress(energyParty.ExportProgress()));
   foreach(var member in energyReload.Party) Check(member.Energy==0);
+  var growthHero=new PartyHero(HeroClass.Knight);
+  growthHero.GainExperience(99); Check(growthHero.Level==1 && growthHero.Experience==99);
+  growthHero.GainExperience(1); Check(growthHero.Level==2 && growthHero.Experience==0 && growthHero.Definition.MaxHealth>100 && growthHero.Definition.AttackDamage>25);
+  growthHero.GainExperience(275); Check(growthHero.Level==4 && growthHero.Experience==0);
+  growthHero.GainExperience(100000); Check(growthHero.Level==20 && growthHero.Experience==0);
+  int capAttack=growthHero.Definition.AttackDamage; growthHero.GainExperience(100); Check(growthHero.Experience==0 && growthHero.Definition.AttackDamage==capAttack);
+  var upgradeBattle=new Battle(true);
+  var dupOne=upgradeBattle.Summon(.1,0); Check(dupOne.Duplicate && dupOne.Refund==20 && upgradeBattle.HeroProgress("Knight_Common").Shards==10);
+  Check(!upgradeBattle.UpgradeHero("Knight_Common") && !upgradeBattle.UpgradeHero("Rogue_Common"));
+  upgradeBattle.Summon(.1,0); Check(upgradeBattle.HeroProgress("Knight_Common").Shards==20);
+  Check(upgradeBattle.UpgradeHero("Knight_Common"));
+  Check(upgradeBattle.Party[0].UpgradeRank==1 && upgradeBattle.Party[0].Shards==0 && upgradeBattle.Party[0].UpgradeCost==40);
+  Check(upgradeBattle.Hero.AttackDamage>25 && upgradeBattle.Hero.MaxHealth>100 && upgradeBattle.Party[0].Ultimate.Damage>upgradeBattle.Party[0].Identity.Ultimate.Damage);
+  Check(!upgradeBattle.UpgradeHero("Knight_Common"));
+  upgradeBattle.Party[0].Shards=1000; Check(upgradeBattle.Attack());
+  Check(!upgradeBattle.UpgradeHero("Knight_Common") && upgradeBattle.Party[0].Shards==1000);
+  upgradeBattle.Reset();
+  for(int rank=2;rank<=5;rank++) Check(upgradeBattle.UpgradeHero("Knight_Common") && upgradeBattle.Party[0].UpgradeRank==rank);
+  int cappedShards=upgradeBattle.Party[0].Shards;
+  Check(!upgradeBattle.UpgradeHero("Knight_Common") && upgradeBattle.Party[0].Shards==cappedShards);
+  var growthSave=upgradeBattle.ExportProgress(); var growthReload=new Battle(true);
+  Check(growthReload.RestoreProgress(growthSave) && growthReload.Party[0].UpgradeRank==5 && growthReload.Party[0].Shards==cappedShards);
+  Check(growthReload.Hero.AttackDamage==upgradeBattle.Hero.AttackDamage);
+  growthSave.loadouts[0].level=21;
+  Check(!growthReload.RestoreProgress(growthSave) && growthReload.Party[0].UpgradeRank==5);
+  growthSave.loadouts[0].level=1; growthSave.loadouts[0].experience=100;
+  Check(!growthReload.RestoreProgress(growthSave));
+  growthSave.version=2; Check(growthReload.RestoreProgress(growthSave) && growthReload.Party[0].Level==1 && growthReload.Party[0].UpgradeRank==0 && growthReload.Party[0].Shards==0);
+  var xpBattle=new Battle(true); xpBattle.Enemies[0].Health=1; Check(xpBattle.Attack() && xpBattle.Current==Phase.Won);
+  Check(xpBattle.Party[0].Experience==0);
+  var pendingXP=xpBattle.ExportProgress(); var pendingReload=new Battle(true);
+  Check(pendingReload.RestoreProgress(pendingXP) && pendingReload.ContinueAfterVictory());
+  Check(pendingReload.HeroProgress("Knight_Common").Experience==40 && pendingReload.HeroProgress("Paladin_Common").Experience==0);
+  Check(!pendingReload.ContinueAfterVictory() && pendingReload.Party[0].Experience==40);
+  var awardedReload=new Battle(true); Check(awardedReload.RestoreProgress(pendingReload.ExportProgress()) && awardedReload.Party[0].Experience==40);
+  // Growth follows the named hero through reserve swaps.
+  pendingReload.Party[0].GainExperience(100); pendingReload.Party[0].Shards=17;
+  var reserveSave=pendingReload.ExportProgress(); reserveSave.recruited=new[]{"Knight_Common","Paladin_Common","Rogue_Common"};
+  reserveSave.loadouts=new[]{reserveSave.loadouts[0],reserveSave.loadouts[1],new HeroLoadoutData{id="Rogue_Common",firstSkill=0,secondSkill=1}};
+  Check(pendingReload.RestoreProgress(reserveSave) && pendingReload.EquipHero("Rogue_Common"));
+  Check(pendingReload.HeroProgress("Knight_Common").Level==2 && pendingReload.HeroProgress("Knight_Common").Shards==17);
+  Check(pendingReload.EquipHero("Knight_Common") && pendingReload.Party[0].Level==2 && pendingReload.Party[0].Experience==40);
+  var replayGrowth=upgradeBattle.ExportProgress(); replayGrowth.encounter=30; replayGrowth.pendingVictory=false;
+  Check(growthReload.RestoreProgress(replayGrowth) && growthReload.RestartCampaign());
+  Check(growthReload.Party[0].UpgradeRank==5 && growthReload.Party[0].Shards==cappedShards);
+  var bossXP=new Battle(true); var bossXPsave=bossXP.ExportProgress(); bossXPsave.encounter=14;
+  Check(bossXP.RestoreProgress(bossXPsave)); bossXP.Enemies[0].Health=bossXP.Enemies[1].Health=1;
+  bossXP.Attack(); bossXP.BeginStrike(); Check(bossXP.Defend(true,.1f) && bossXP.Current==Phase.Won);
+  Check(bossXP.ContinueAfterVictory() && bossXP.HeroProgress("Knight_Common").Experience==80);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
