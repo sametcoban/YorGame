@@ -78,6 +78,9 @@ class BattleChecks {
   int targetHealth = campaign.Party[targetIndex].Health;
   campaign.BeginStrike(); campaign.FinishStrike();
   Check(campaign.Party[targetIndex].Health == targetHealth - 35);
+  Check(campaign.Current == Phase.EnemyWindup && campaign.Party[0].Acted);
+  Check(campaign.AttackingEnemyIndex == 1 && campaign.BeginStrike());
+  campaign.FinishStrike();
   Check(campaign.Current == Phase.Player && !campaign.Party[0].Acted);
   campaign.Reset();
   campaign.Party[0].Health = 0; campaign.Party[1].Health = 40; campaign.Party[2].Health = 50;
@@ -308,6 +311,79 @@ class BattleChecks {
   }
   foreach(var named in HeroDefinition.Catalog)
    if(named.Class==HeroClass.Sorceress) Check(named.DisplayClass==(named.Gender==HeroGender.Woman?"Sorceress":"Sorcerer"));
-  Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, and battle outcomes.");
+  for(int chapter=0;chapter<6;chapter++) for(int stage=0;stage<5;stage++) {
+   var group=ChapterDefinition.EnemiesAt(chapter*5+stage);
+   Check(group.Count==(chapter>=2 && stage==4?2:1));
+   foreach(var foe in group) Check(foe.IsBoss==(stage==4));
+   if(group.Count==2) Check(group[1].Weakness==group[0].Resistance && group[1].Resistance==group[0].Weakness);
+  }
+  var paired=new Battle(true);var pairSave=paired.ExportProgress();pairSave.encounter=14;
+  Check(paired.RestoreProgress(pairSave) && paired.Enemies.Count==2 && paired.CanChangeParty);
+  Check(!paired.SelectEnemy(-1) && !paired.SelectEnemy(2));
+  Check(paired.SelectEnemy(1) && paired.SelectedEnemyIndex==1);
+  int firstBefore=paired.Enemies[0].Health,secondBefore=paired.Enemies[1].Health;
+  Check(paired.Attack() && paired.Enemies[0].Health==firstBefore && paired.Enemies[1].Health<secondBefore);
+  Check(!paired.CanChangeParty && !paired.SelectEnemy(0) && paired.AttackingEnemyIndex==0);
+  Check(paired.BeginStrike());firstBefore=paired.Enemies[0].Health;secondBefore=paired.Enemies[1].Health;
+  Check(paired.Defend(true,.1f));
+  Check(paired.Enemies[0].Health<firstBefore && paired.Enemies[1].Health==secondBefore); // counter the attacker, not the selected target
+  paired.FinishStrike();
+  Check(paired.Current==Phase.EnemyWindup && paired.AttackingEnemyIndex==1 && !paired.Defended && paired.Party[0].Acted);
+  Check(paired.BeginStrike() && paired.Defend(false,.3f));paired.FinishStrike();
+  Check(paired.Current==Phase.Player && !paired.Party[0].Acted && paired.HeroHealth==100);
+  paired.Enemies[0].Health=1;Check(paired.SelectEnemy(0) && paired.Attack());
+  Check(paired.Enemies[0].Health==0 && paired.Current!=Phase.Won && paired.SelectedEnemyIndex==1 && paired.AttackingEnemyIndex==1);
+  Check(paired.BeginStrike() && paired.Defend(false,.1f));paired.FinishStrike();
+  Check(paired.Current==Phase.Player && !paired.SelectEnemy(0));
+  var midPair=paired.ExportProgress();var midReload=new Battle(true);
+  Check(midReload.RestoreProgress(midPair) && midReload.Enemies.Count==2 && midReload.Enemies[0].Health==midReload.Enemies[0].Definition.MaxHealth && midReload.Enemies[1].Health==midReload.Enemies[1].Definition.MaxHealth);
+  paired.Enemies[1].Health=1;Check(paired.Attack() && paired.Current==Phase.Won);
+  int pairCurrency=paired.Crystals;var pairWon=paired.ExportProgress();var pairReload=new Battle(true);
+  Check(pairReload.RestoreProgress(pairWon) && pairReload.Current==Phase.Won && pairReload.Enemies[0].Health==0 && pairReload.Enemies[1].Health==0);
+  Check(pairReload.ContinueAfterVictory() && pairReload.Encounter==15 && pairReload.Crystals==pairCurrency+50);
+  Check(!pairReload.ContinueAfterVictory() && pairReload.Crystals==pairCurrency+50);
+  Check(paired.RestoreProgress(pairSave));paired.Enemies[0].Health=1;
+  Check(paired.SelectEnemy(1) && paired.Attack() && paired.BeginStrike() && paired.Defend(true,.1f));
+  Check(paired.Enemies[0].Health==0 && paired.Current==Phase.EnemyStrike);
+  paired.FinishStrike();Check(paired.Current==Phase.EnemyWindup && paired.AttackingEnemyIndex==1);
+  Check(paired.BeginStrike());paired.FinishStrike();Check(paired.Current==Phase.Player && paired.HeroHealth==65);
+  paired.Reset();Check(paired.Enemies[0].Health==400 && paired.Enemies[1].Health==280 && paired.SelectedEnemyIndex==0 && paired.CanChangeParty);
+  paired.Attack();paired.BeginStrike();paired.Defend(false,.1f);paired.FinishStrike();
+  paired.Party[0].Health=1;Check(paired.BeginStrike());paired.FinishStrike();
+  Check(paired.Current==Phase.Lost && !paired.Attack() && !paired.SelectEnemy(0));
+  // Defeating the second boss first removes its attack from the round.
+  Check(paired.RestoreProgress(pairSave));paired.Enemies[1].Health=1;
+  Check(paired.SelectEnemy(1) && paired.Attack() && paired.SelectedEnemyIndex==0 && paired.AttackingEnemyIndex==0);
+  Check(paired.BeginStrike() && paired.Defend(false,.1f));paired.FinishStrike();
+  Check(paired.Current==Phase.Player);
+  // Enemy turns skip fallen allies, and a death during the first strike does not end a surviving party.
+  var rotation=new Battle(true);var rotationSave=campaign.ExportProgress();rotationSave.encounter=14;rotationSave.pendingVictory=false;
+  Check(rotation.RestoreProgress(rotationSave) && rotation.Party.Count==3);
+  rotation.Party[0].Health=0;rotation.Party[1].Health=1;
+  Check(rotation.SelectHero(1) && rotation.Attack() && rotation.Attack());
+  Check(rotation.Current==Phase.EnemyWindup && rotation.ActiveIndex==1);
+  Check(rotation.BeginStrike());rotation.FinishStrike();
+  Check(rotation.Current==Phase.EnemyWindup && rotation.Party[1].Health==0 && rotation.ActiveIndex==2 && rotation.AttackingEnemyIndex==1);
+  Check(rotation.BeginStrike() && rotation.Defend(false,.1f));rotation.FinishStrike();
+  Check(rotation.Current==Phase.Player && rotation.ActiveIndex==2 && !rotation.Party[2].Acted);
+  // Clear all four paired encounters through the public combat API.
+  for(int chapter=2;chapter<6;chapter++) {
+   var run=new Battle(true);var snapshot=run.ExportProgress();snapshot.encounter=chapter*5+4;
+   Check(run.RestoreProgress(snapshot));int turns=0;
+   while(run.Current!=Phase.Won && turns++<300) {
+    if(run.Current==Phase.Player) Check(run.Attack());
+    else { Check(run.BeginStrike() && run.Defend(false,.1f));run.FinishStrike(); }
+   }
+   Check(run.Current==Phase.Won && run.Enemies[0].Health==0 && run.Enemies[1].Health==0);
+   Check(run.ContinueAfterVictory() && run.Encounter==(chapter+1)*5 && run.Crystals==350);
+   Check(run.CampaignComplete==(chapter==5));
+  }
+  foreach(var visual in EnemyVisualDefinition.Catalog) {
+   Check(visual.Height>0 && visual.Height<=2.8f && !string.IsNullOrEmpty(visual.SourceModel));
+   Check(EnemyVisualDefinition.For(visual.EnemyName)==visual);
+  }
+  foreach(var foe in ChapterDefinition.EnemiesAt(14)) Check(EnemyVisualDefinition.For(foe.Name)!=null);
+  Check(EnemyVisualDefinition.For("Training Warden")==null);
+  Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

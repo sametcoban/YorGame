@@ -19,9 +19,10 @@ namespace Ashlight {
     public sealed class EnemyDefinition {
         public readonly string Name;
         public readonly int MaxHealth;
+        public readonly bool IsBoss;
         public readonly Element Weakness, Resistance;
-        public EnemyDefinition(string name, int health, Element weakness = Element.Physical, Element resistance = Element.Physical) {
-            Name = name; MaxHealth = health; Weakness = weakness; Resistance = resistance;
+        public EnemyDefinition(string name, int health, Element weakness = Element.Physical, Element resistance = Element.Physical, bool isBoss = false) {
+            Name = name; MaxHealth = health; Weakness = weakness; Resistance = resistance; IsBoss = isBoss;
         }
         public int Damage(int amount, Element element) {
             if (amount <= 0) return 0;

@@ -41,7 +41,9 @@
       "Dodge",
       "Parry",
       "Hit",
-      "Death"
-    ]
+      "Death",
+      "Windup"
+    ],
+    "material_slots": 6
   }
 ]

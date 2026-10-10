@@ -20,6 +20,11 @@ namespace Ashlight {
         public PartyHero(HeroDefinition identity) { Identity = identity; Restore(); }
         internal void Restore() { Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Acted = false; }
     }
+    public sealed class BattleEnemy {
+        public EnemyDefinition Definition { get; private set; }
+        public int Health { get; internal set; }
+        public BattleEnemy(EnemyDefinition definition) { Definition = definition; Health = definition.MaxHealth; }
+    }
     public sealed class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
@@ -37,7 +42,16 @@ namespace Ashlight {
         public const int MaxPartySize = 3;
         public IReadOnlyList<HeroClass> UnlockedClasses { get { return unlocked.AsReadOnly(); } }
         int targetCursor, encounter;
-        public EnemyDefinition Enemy { get; private set; }
+        readonly List<BattleEnemy> enemies = new List<BattleEnemy>();
+        public IReadOnlyList<BattleEnemy> Enemies { get { return enemies.AsReadOnly(); } }
+        public int SelectedEnemyIndex { get; private set; }
+        public int AttackingEnemyIndex { get; private set; }
+        public EnemyDefinition Enemy { get { return enemies[SelectedEnemyIndex].Definition; } }
+        bool AllEnemiesDefeated { get { foreach (var enemy in enemies) if (enemy.Health > 0) return false; return true; } }
+        public bool SelectEnemy(int index) {
+            if (Current != Phase.Player || index < 0 || index >= enemies.Count || enemies[index].Health <= 0) return false;
+            SelectedEnemyIndex = index; return true;
+        }
         public int LastDamage { get; private set; }
         public float LastElementMultiplier { get; private set; }
         public Element LastElement { get; private set; }
@@ -47,7 +61,7 @@ namespace Ashlight {
         public ClassDefinition Hero { get { return Active.Definition; } }
         public int AbilityCharges { get { return Active.AbilityCharges; } }
         public int HeroHealth { get { return Active.Health; } }
-        public int EnemyHealth { get; private set; }
+        public int EnemyHealth { get { return enemies[SelectedEnemyIndex].Health; } }
         public Phase Current { get; private set; }
         public bool Defended { get; private set; }
         public Battle() : this(HeroClass.Knight) { }
@@ -59,7 +73,8 @@ namespace Ashlight {
         }
         public bool CanChangeParty {
             get {
-                if (Current != Phase.Player || EnemyHealth != Enemy.MaxHealth) return false;
+                if (Current != Phase.Player) return false;
+                foreach (var enemy in enemies) if (enemy.Health != enemy.Definition.MaxHealth) return false;
                 foreach (var member in party)
                     if (member.Acted || member.Health != member.Definition.MaxHealth || member.SkillCharges(0) != 2 || member.SkillCharges(1) != 2) return false;
                 return true;
@@ -178,13 +193,16 @@ namespace Ashlight {
             Crystals=data.version==1?Summoning.StarterCrystals:data.crystals;
             RareMisses=data.version==1?0:data.rareMisses; LegendaryMisses=data.version==1?0:data.legendaryMisses;
             encounter = data.encounter; Reset(); ActiveIndex = data.activeIndex;
-            if (data.pendingVictory) { Current = Phase.Won; EnemyHealth = 0; }
+            if (data.pendingVictory) { Current = Phase.Won; foreach (var enemy in enemies) enemy.Health = 0; }
             return true;
         }
         public void Reset() {
             foreach (var member in party) member.Restore();
-            Enemy = campaign ? ChapterDefinition.EnemyAt(Math.Min(encounter, ChapterDefinition.TotalStages - 1)) : new EnemyDefinition("Training Warden", 100);
-            ActiveIndex = 0; targetCursor = 0; EnemyHealth = Enemy.MaxHealth; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete ? Phase.Complete : Phase.Player; Defended = false;
+            enemies.Clear();
+            if (campaign) foreach (var definition in ChapterDefinition.EnemiesAt(Math.Min(encounter, ChapterDefinition.TotalStages - 1))) enemies.Add(new BattleEnemy(definition));
+            else enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden", 100)));
+            SelectedEnemyIndex = AttackingEnemyIndex = 0;
+            ActiveIndex = 0; targetCursor = 0; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete ? Phase.Complete : Phase.Player; Defended = false;
         }
         public bool Attack() {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0) return false;
@@ -203,20 +221,29 @@ namespace Ashlight {
             DealDamage(skill.Damage, skill.Affinity);
             CompleteAction(); return true;
         }
-        void DealDamage(int amount, Element? skillElement = null) {
+        void DealDamage(int amount, Element? skillElement = null, int target = -1) {
+            var foe = enemies[target < 0 ? SelectedEnemyIndex : target];
+            var definition = foe.Definition;
             LastElement = skillElement ?? Active.Identity.Affinity;
-            LastElementMultiplier = amount > 0 ? Enemy.Multiplier(LastElement) : 1f;
-            int damage = Enemy.Damage(amount, LastElement);
-            LastDamage = Math.Min(EnemyHealth, damage);
-            EnemyHealth = Math.Max(0, EnemyHealth - damage);
+            LastElementMultiplier = amount > 0 ? definition.Multiplier(LastElement) : 1f;
+            int damage = definition.Damage(amount, LastElement);
+            LastDamage = Math.Min(foe.Health, damage);
+            foe.Health = Math.Max(0, foe.Health - damage);
+            if (enemies[SelectedEnemyIndex].Health == 0)
+                for (int i = 0; i < enemies.Count; i++) if (enemies[i].Health > 0) { SelectedEnemyIndex = i; break; }
         }
         void CompleteAction() {
             Active.Acted = true; Defended = false;
-            if (EnemyHealth == 0) { Current = Phase.Won; return; }
+            if (AllEnemiesDefeated) { Current = Phase.Won; return; }
             for (int i = 0; i < party.Count; i++) {
                 if (party[i].Health > 0 && !party[i].Acted) { ActiveIndex = i; return; }
             }
-            // Cycle enemy targets across living allies each round; display the target before the strike.
+            for (int i = 0; i < enemies.Count; i++) if (enemies[i].Health > 0) { AttackingEnemyIndex = i; break; }
+            PrepareEnemyStrike();
+        }
+        void PrepareEnemyStrike() {
+            Defended = false;
+            // Cycle targets across living allies for each surviving enemy's strike.
             for (int offset = 0; offset < party.Count; offset++) {
                 int index = (targetCursor + offset) % party.Count;
                 if (party[index].Health > 0) { ActiveIndex = index; targetCursor = (index + 1) % party.Count; break; }
@@ -230,8 +257,8 @@ namespace Ashlight {
         public bool Defend(bool parry, float elapsed) {
             if (Current != Phase.EnemyStrike || Defended || elapsed < 0 || elapsed > (parry ? .18f : .4f)) return false;
             Defended = true;
-            if (parry) DealDamage(10);
-            if (EnemyHealth == 0) Current = Phase.Won;
+            if (parry) DealDamage(10, null, AttackingEnemyIndex);
+            if (AllEnemiesDefeated) Current = Phase.Won;
             return true;
         }
         public void FinishStrike() {
@@ -239,6 +266,12 @@ namespace Ashlight {
             if (!Defended) {
                 Active.Health = Math.Max(0, Active.Health - Math.Max(0, 35 - Active.Guard));
                 Active.Guard = 0;
+            }
+            bool survivor = false;
+            foreach (var member in party) if (member.Health > 0) survivor = true;
+            if (!survivor) { Current = Phase.Lost; return; }
+            for (int i = AttackingEnemyIndex + 1; i < enemies.Count; i++) if (enemies[i].Health > 0) {
+                AttackingEnemyIndex = i; PrepareEnemyStrike(); return;
             }
             Current = Phase.Lost;
             for (int i = 0; i < party.Count; i++) {

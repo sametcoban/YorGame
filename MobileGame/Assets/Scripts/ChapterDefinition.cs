@@ -12,7 +12,7 @@ namespace Ashlight {
                 // Some stages change the elemental puzzle within each chapter.
                 Element weak=stage==2 ? resistance : weakness;
                 Element resist=stage==2 ? weakness : resistance;
-                enemies[stage]=new EnemyDefinition(names[stage],health,weak,resist);
+                enemies[stage]=new EnemyDefinition(names[stage],health,weak,resist,stage==4);
             }
             Enemies=Array.AsReadOnly(enemies);
         }
@@ -26,6 +26,15 @@ namespace Ashlight {
             new ChapterDefinition("The Eclipse Throne",new[]{"Dusk Shade","Hollow Templar","Nightbound Oracle","Eclipse Warden","Veiled Monarch"},5,Element.Light,Element.Fire)
         });
         public static int TotalStages { get { return Catalog.Count*StagesPerChapter; } }
+        // Chapter 3 onward ends with two bosses in the same encounter. Save indices stay stable.
+        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger" };
+        public static IReadOnlyList<EnemyDefinition> EnemiesAt(int encounter) {
+            var primary = EnemyAt(encounter);
+            if (encounter / StagesPerChapter < 2 || encounter % StagesPerChapter != 4)
+                return Array.AsReadOnly(new[] { primary });
+            var partner = new EnemyDefinition(Partners[encounter / StagesPerChapter - 2], (int)(primary.MaxHealth*.7f), primary.Resistance, primary.Weakness, true);
+            return Array.AsReadOnly(new[] { primary, partner });
+        }
         public static EnemyDefinition EnemyAt(int encounter) {
             if(encounter<0 || encounter>=TotalStages) throw new ArgumentOutOfRangeException("encounter");
             return Catalog[encounter/StagesPerChapter].Enemies[encounter%StagesPerChapter];

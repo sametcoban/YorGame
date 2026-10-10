@@ -1,0 +1,145 @@
+[
+  {
+    "model": "LanternWarden.fbx",
+    "triangles": 17750,
+    "bones": 53,
+    "material_slots": 6,
+    "materials": [
+      "Leather",
+      "Iron",
+      "Brass",
+      "Recess",
+      "Ember",
+      "Wool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death",
+      "Windup"
+    ]
+  },
+  {
+    "model": "AshHound.fbx",
+    "triangles": 3362,
+    "bones": 14,
+    "material_slots": 4,
+    "materials": [
+      "Recess",
+      "Bone",
+      "Iron",
+      "Ember"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death",
+      "Windup"
+    ]
+  },
+  {
+    "model": "CinderScout.fbx",
+    "triangles": 17634,
+    "bones": 53,
+    "material_slots": 6,
+    "materials": [
+      "Leather",
+      "SootWool",
+      "Brass",
+      "Iron",
+      "Recess",
+      "Frost"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death",
+      "Windup"
+    ]
+  },
+  {
+    "model": "IronWatcher.fbx",
+    "triangles": 17618,
+    "bones": 53,
+    "material_slots": 7,
+    "materials": [
+      "Leather",
+      "RustIron",
+      "Brass",
+      "Recess",
+      "Ember",
+      "Wool",
+      "Blade"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death",
+      "Windup"
+    ]
+  },
+  {
+    "model": "Roadkeeper.fbx",
+    "triangles": 17992,
+    "bones": 53,
+    "material_slots": 6,
+    "materials": [
+      "Leather",
+      "Iron",
+      "Brass",
+      "Recess",
+      "Ember",
+      "Wool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death",
+      "Windup"
+    ]
+  },
+  {
+    "model": "HollowMatron.fbx",
+    "triangles": 17054,
+    "bones": 53,
+    "material_slots": 6,
+    "materials": [
+      "Leather",
+      "SootWool",
+      "Brass",
+      "Iron",
+      "Recess",
+      "Frost"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death",
+      "Windup"
+    ]
+  }
+]

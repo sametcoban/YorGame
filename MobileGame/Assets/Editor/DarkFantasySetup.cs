@@ -22,11 +22,11 @@ public sealed class DarkFantasyImporter : AssetPostprocessor {
         var importer = (ModelImporter)assetImporter;
         var selected = new List<ModelImporterClipAnimation>(); var names = new HashSet<string>();
         foreach (var clip in importer.defaultClipAnimations) {
-            string state = RealisticHeroSetup.StateFor(clip.name);
+            string state = DarkFantasySetup.StateFor(clip.name);
             if (state == null || !names.Add(state)) continue;
             clip.name = state; clip.loopTime = state == "Idle"; selected.Add(clip);
         }
-        if (selected.Count == 7) importer.clipAnimations = selected.ToArray();
+        if (selected.Count >= 7) importer.clipAnimations = selected.ToArray();
     }
     void OnPreprocessTexture() {
         if (!assetPath.StartsWith(Source + "Textures/", StringComparison.Ordinal)) return;
@@ -44,6 +44,15 @@ public sealed class DarkFantasyImporter : AssetPostprocessor {
 public static class DarkFantasySetup {
     const string Generated = "Assets/Resources/DarkFantasy";
     static readonly string[] States = { "Idle", "Attack", "Cast", "Dodge", "Parry", "Hit", "Death" };
+    internal static string StateFor(string name) {
+        int separator = name.LastIndexOf('|');
+        string shortName = separator < 0 ? name : name.Substring(separator + 1);
+        return shortName == "Windup" ? shortName : RealisticHeroSetup.StateFor(name);
+    }
+    [MenuItem("Ashlight/Art/Build Enemy Roster")]
+    public static void BuildEnemyRoster() { Ensure(false, false, true); }
+    [MenuItem("Ashlight/Art/Build Chapter One Enemies")]
+    public static void BuildEnemies() { BuildEnemyRoster(); }
     [MenuItem("Ashlight/Art/Build Dark Fantasy Roster")]
     public static void BuildRoster() { Ensure(false, true); }
     static void EnsureRoster(bool rebuild) {
@@ -58,14 +67,16 @@ public static class DarkFantasySetup {
     }
     [MenuItem("Ashlight/Art/Build Dark Fantasy Reference")]
     public static void Build() { Ensure(true); }
-    public static void Ensure(bool rebuild = false, bool rebuildRoster = false) {
+    public static void Ensure(bool rebuild = false, bool rebuildRoster = false, bool rebuildEnemies = false) {
         if (EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode) return;
         Directory.CreateDirectory(Generated + "/Materials"); Directory.CreateDirectory(Generated + "/Controllers");
         AssetDatabase.Refresh();
-        foreach (string name in new[] { "Stone", "PaleStone", "Iron", "Blade", "Brass", "Leather", "Wool", "RustWool", "WineWool", "VioletWool", "MossWool", "SootWool", "AshWool", "Recess", "Ember", "Arcane", "Venom", "Light" }) Material(name);
+        foreach (string name in new[] { "Stone", "PaleStone", "Iron", "Blade", "Brass", "Leather", "Wool", "RustWool", "WineWool", "VioletWool", "MossWool", "SootWool", "AshWool", "Recess", "Ember", "Arcane", "Venom", "Light", "Bone", "RustIron", "Frost" }) Material(name);
         BuildActor("Rowan", "Assets/Resources/Heroes/Named/Knight_Common.prefab", 2f, 1f, 145f, rebuild);
         BuildActor("LanternWarden", "Assets/Resources/Enemies/LanternWarden.prefab", 2.35f, 1.3f, -145f, rebuild);
         EnsureRoster(rebuildRoster);
+        foreach (var enemy in EnemyVisualDefinition.Catalog)
+            BuildActor(enemy.ModelName, "Assets/Resources/" + enemy.ResourcePath + ".prefab", enemy.Height, 1.3f, -145f, rebuildEnemies, enemy.SourceModel, enemy);
         AssetDatabase.SaveAssets();
     }
     static Material Material(string role) {
@@ -86,6 +97,9 @@ public static class DarkFantasySetup {
             case "Leather": color = new Color(.08f,.045f,.03f); break;
             case "Wool": color = new Color(.045f,.07f,.105f); break;
             case "RustWool": color = new Color(.10f,.04f,.023f); break;
+            case "Bone": color = new Color(.34f,.31f,.24f); break;
+            case "RustIron": color = new Color(.17f,.095f,.055f); break;
+            case "Frost": color = new Color(.15f,.42f,.65f); break;
             case "WineWool": color = new Color(.15f,.035f,.045f); break;
             case "VioletWool": color = new Color(.09f,.04f,.15f); break;
             case "MossWool": color = new Color(.055f,.09f,.05f); break;
@@ -98,7 +112,7 @@ public static class DarkFantasySetup {
             default: color = new Color(.009f,.013f,.019f); break;
         }
         material.color = color;
-        bool metal = role == "Iron" || role == "Blade" || role == "Brass";
+        bool metal = role == "Iron" || role == "Blade" || role == "Brass" || role == "RustIron";
         material.SetFloat("_Metallic",metal ? .65f : 0); material.SetFloat("_Glossiness",metal ? .28f : .12f);
         string texture = metal ? "ForgedMetal" : role == "Stone" || role == "PaleStone" ? "CourtyardStone" : null;
         material.mainTexture = texture == null ? null : AssetDatabase.LoadAssetAtPath<Texture2D>(DarkFantasyImporter.Source + "Textures/" + texture + ".png");
@@ -107,18 +121,18 @@ public static class DarkFantasySetup {
         if (normal != null) { material.EnableKeyword("_NORMALMAP"); material.SetFloat("_BumpScale",.45f); }
         else material.DisableKeyword("_NORMALMAP");
         // Retain emission for the eyes/lantern and the timed enemy warning flash.
-        material.EnableKeyword("_EMISSION"); material.SetColor("_EmissionColor",(role == "Ember" || role == "Arcane" || role == "Venom" || role == "Light") ? color*2 : Color.black);
+        material.EnableKeyword("_EMISSION"); material.SetColor("_EmissionColor",(role == "Ember" || role == "Arcane" || role == "Venom" || role == "Light" || role == "Frost") ? color*2 : Color.black);
         EditorUtility.SetDirty(material); return material;
     }
-    static void BuildActor(string name, string path, float height, float pivot, float facing, bool rebuild) {
+    static void BuildActor(string name, string path, float height, float pivot, float facing, bool rebuild, string sourceName = null, EnemyVisualDefinition enemyStyle = null) {
         if (!rebuild && AssetDatabase.LoadAssetAtPath<GameObject>(path) != null) return;
-        string source = DarkFantasyImporter.Source + "Models/" + name + ".fbx";
+        string source = DarkFantasyImporter.Source + "Models/" + (sourceName ?? name) + ".fbx";
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(source); if (model == null) return;
         var clips = new Dictionary<string, AnimationClip>();
         foreach (var asset in AssetDatabase.LoadAllAssetsAtPath(source)) {
             var clip = asset as AnimationClip;
             if (clip == null || clip.name.StartsWith("__preview__",StringComparison.Ordinal)) continue;
-            string state = RealisticHeroSetup.StateFor(clip.name); if (state != null) clips[state] = clip;
+            string state = DarkFantasySetup.StateFor(clip.name); if (state != null) clips[state] = clip;
         }
         foreach (string state in States) if (!clips.ContainsKey(state)) throw new InvalidOperationException(name + " is missing " + state + ". Reimport the FBX.");
         string controllerPath = Generated + "/Controllers/" + name + ".controller";
@@ -126,6 +140,8 @@ public static class DarkFantasySetup {
         var machine = controller.layers[0].stateMachine;
         foreach (var state in machine.states) machine.RemoveState(state.state);
         foreach (string state in States) { var entry = machine.AddState(state); entry.motion = clips[state]; if (state == "Idle") machine.defaultState = entry; }
+        AnimationClip windup;
+        if (clips.TryGetValue("Windup", out windup)) { var entry = machine.AddState("Windup"); entry.motion = windup; }
         Directory.CreateDirectory(Path.GetDirectoryName(path)); AssetDatabase.Refresh();
         var root = new GameObject(name);
         try {
@@ -137,7 +153,10 @@ public static class DarkFantasySetup {
                 bounds.Encapsulate(renderer.bounds); var materials = renderer.sharedMaterials;
                 for (int i = 0; i < materials.Length; i++) {
                     string role = materials[i] == null ? "Iron" : materials[i].name.Split('.')[0];
-                    materials[i] = Material(name == "LanternWarden" && role == "Wool" ? "RustWool" : role);
+                    if (enemyStyle != null && enemyStyle.ClothRole != null && role.EndsWith("Wool",StringComparison.Ordinal)) role = enemyStyle.ClothRole;
+                    if (enemyStyle != null && enemyStyle.ClothRole != null && (role == "Frost" || role == "Ember"))
+                        role = enemyStyle.EffectElement == Element.Lightning ? "Arcane" : enemyStyle.EffectElement == Element.Poison ? "Venom" : enemyStyle.EffectElement == Element.Light ? "Light" : "Ember";
+                    materials[i] = Material((name == "LanternWarden" || name == "Roadkeeper") && role == "Wool" ? "RustWool" : name == "IronWatcher" && role == "Wool" ? "SootWool" : role);
                 }
                 renderer.sharedMaterials = materials;
                 var skinned = renderer as SkinnedMeshRenderer; if (skinned != null) skinned.updateWhenOffscreen = true;
@@ -148,7 +167,8 @@ public static class DarkFantasySetup {
             var animator = instance.GetComponent<Animator>() ?? instance.AddComponent<Animator>();
             animator.runtimeAnimatorController = controller; animator.applyRootMotion = false;
             root.AddComponent<HeroVisual>().Animator = animator;
-            if (name == "LanternWarden") root.AddComponent<EnemyPresentation>();
+            foreach (var enemy in EnemyVisualDefinition.Catalog)
+                if (enemy.ModelName == name) { root.AddComponent<EnemyPresentation>(); break; }
             PrefabUtility.SaveAsPrefabAsset(root,path);
         } finally { UnityEngine.Object.DestroyImmediate(root); }
     }

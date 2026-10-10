@@ -5,7 +5,9 @@ from mathutils import Vector
 args=sys.argv[sys.argv.index('--')+1:];folder=Path(args[0]);target=args[1]
 roster=len(args)>2
 classes=['Knight','Paladin','Sorceress','Ranger','Rogue','Cleric']
-models=[(kind+'_'+args[2],(i-2.5)*2) for i,kind in enumerate(classes)] if roster else [('Rowan',-1.2),('LanternWarden',1.2)]
+enemies=roster and args[2]=='Enemies'
+if enemies:classes=['Lantern Warden','Ash Hound','Cinder Scout','Iron Watcher','Roadkeeper']
+models=[(name,(i-2)*2.4) for i,name in enumerate(['LanternWarden','AshHound','CinderScout','IronWatcher','Roadkeeper'])] if enemies else [(kind+'_'+args[2],(i-2.5)*2) for i,kind in enumerate(classes)] if roster else [('Rowan',-1.2),('LanternWarden',1.2)]
 bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
 for name,x in models:
     with bpy.data.libraries.load(str(folder/(name+'.blend')),link=False) as (src,dst):dst.objects=src.objects
@@ -13,7 +15,7 @@ for name,x in models:
         if obj is not None:bpy.context.collection.objects.link(obj)
     rig=next(o for o in dst.objects if o.type=='ARMATURE');rig.location.x=x
 for material in bpy.data.materials:
-    if material.name.split('.')[0] not in ['Iron','Brass','Blade'] or not material.use_nodes:continue
+    if material.name.split('.')[0] not in ['Iron','Brass','Blade','RustIron'] or not material.use_nodes:continue
     nodes=material.node_tree.nodes;links=material.node_tree.links;shader=nodes.get('Principled BSDF')
     texture=nodes.new('ShaderNodeTexImage');texture.image=bpy.data.images.load(str(folder/'ForgedMetal.png'),check_existing=True)
     multiply=nodes.new('ShaderNodeMixRGB');multiply.blend_type='MULTIPLY';multiply.inputs[0].default_value=1

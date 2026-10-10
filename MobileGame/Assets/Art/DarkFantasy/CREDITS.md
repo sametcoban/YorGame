@@ -30,3 +30,18 @@ Copy the FBX and texture outputs to Models and Textures respectively. MODEL_REPO
 Independent Blender FBX reimport passed: Rowan 17,558 triangles and 8,936 weighted vertices; Warden 17,750 triangles and 9,037 weighted vertices. Each contains one rig, one mesh, UVs and Idle, Attack, Cast, Dodge, Parry, Hit and Death states. Closed helmets replace visible realistic faces. The Blender art preview was inspected. Unity compilation/import, animation playback, courtyard framing, action clipping and device performance are not verified here.
 
 The twelve class/gender FBX files also independently reimported successfully: 16,670–17,778 triangles each, one weighted mesh and one 53-bone rig, nonempty UVs, class palette roles, at most seven material slots and seven animation states. Both male and female Blender lineup previews were inspected. These checks do not verify Unity or device playback.
+
+## Enemy additions
+
+The Ash Hound mesh and its 14-bone skeleton, all enemy armor additions, talismans, crown, new attack and Windup poses are original CC0 1.0 work. Humanoid enemies and the female HollowMatron caster base derive from the same licensed adult MakeHuman sources above. No new paid or downloaded assets are required. ENEMY_REPORT.json records six source models; the eight paired-boss prefabs reuse these source meshes with distinct palette/effect settings in Unity.
+
+After generating both reference and roster outputs, run:
+
+```sh
+blender -b --factory-startup --python-exit-code 1 --python Tools/build_chapter_one_enemies.py -- /tmp/ashlight-dark-fantasy /tmp/ashlight-dark-roster /tmp/ashlight-enemies
+blender -b --factory-startup --python-exit-code 1 --python Tools/validate_chapter_one_enemies.py -- /tmp/ashlight-enemies
+```
+
+Copy the six FBX outputs to Models (the updated LanternWarden replaces the earlier reference export). Copy the original reference textures into the temporary enemy output directory, then render the lineup with `Tools/render_dark_fantasy.py`, passing that directory, a PNG path and `Enemies` as the final argument. The newer ENEMY_REPORT.json supersedes the earlier Warden animation report; the shipped MODEL_REPORT.json includes its new Windup state.
+
+Independent import/evaluated-pose checks passed for all six models: 3,362–17,992 triangles, at most seven material slots, weighted skeleton, UVs, Idle/Attack/Cast/Dodge/Parry/Hit/Death/Windup clips. The original Hound has 14 bones; humanoids retain 53. The five-enemy Blender lineup was visually inspected. These checks do not verify Unity import or actual battle playback.

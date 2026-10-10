@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ashlight {
     // Reuses up to 48 simple effect objects. No downloaded art or particle dependencies.
     public sealed class CombatEffects : MonoBehaviour {
-        enum Mode { Spark, Ring, Beam, Text }
+        enum Mode { Spark, Ring, GroundRing, Beam, Text }
         sealed class Effect {
             public GameObject Root;
             public Renderer Mesh;
@@ -66,11 +66,11 @@ namespace Ashlight {
             effect.Kind = mode; effect.Element = element; effect.Start = position; effect.Age = 0; effect.Duration = duration; effect.Size = size; effect.Velocity = Vector3.zero;
             effect.Mesh.gameObject.SetActive(mode == Mode.Spark);
             effect.Text.gameObject.SetActive(mode == Mode.Text);
-            effect.Line.enabled = mode == Mode.Ring || mode == Mode.Beam;
+            effect.Line.enabled = mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam;
             effect.Mesh.sharedMaterial = materials[element]; effect.Line.sharedMaterial = materials[element]; effect.Text.color = Tint(element);
-            effect.Line.loop = mode == Mode.Ring;
+            effect.Line.loop = mode == Mode.Ring || mode == Mode.GroundRing;
             effect.Line.startWidth = effect.Line.endWidth = size;
-            effect.Line.positionCount = mode == Mode.Ring ? 24 : 2;
+            effect.Line.positionCount = (mode == Mode.Ring || mode == Mode.GroundRing) ? 24 : 2;
             if (mode == Mode.Spark) effect.Mesh.transform.localScale = Vector3.one * size;
             return effect;
         }
@@ -102,6 +102,15 @@ namespace Ashlight {
             Floating(to, "−" + damage + (multiplier > 1 ? " WEAK!" : multiplier < 1 ? " RESIST" : ""), element);
             shakeLeft = Mathf.Max(shakeLeft,.12f);
         }
+        public void BossImpact(Vector3 position, Element element) {
+            var ground = new Vector3(position.x,.055f,position.z);
+            Get(Mode.GroundRing,ground,element,.6f,.09f);
+            for (int i = 0; i < 6; i++) {
+                float angle = i*Mathf.PI/3;
+                Spark(ground,element,new Vector3(Mathf.Cos(angle),.7f,Mathf.Sin(angle))*1.8f,.11f,.55f);
+            }
+            shakeLeft = Mathf.Max(shakeLeft,.18f);
+        }
         public void Heal(Vector3 position, int amount) {
             Ring(position, Element.Light);
             Floating(position, "+" + amount, Element.Light);
@@ -124,11 +133,11 @@ namespace Ashlight {
                     effect.Root.transform.rotation = view.transform.rotation;
                     var color = effect.Text.color; color.a = 1-progress; effect.Text.color = color;
                 }
-                if (effect.Kind == Mode.Ring) {
+                if (effect.Kind == Mode.Ring || effect.Kind == Mode.GroundRing) {
                     float radius = .15f + progress * .85f;
                     for (int i = 0; i < 24; i++) {
                         float angle = i*Mathf.PI*2/24;
-                        effect.Line.SetPosition(i,new Vector3(Mathf.Cos(angle)*radius,Mathf.Sin(angle)*radius,0));
+                        effect.Line.SetPosition(i,effect.Kind == Mode.GroundRing ? new Vector3(Mathf.Cos(angle)*radius,0,Mathf.Sin(angle)*radius) : new Vector3(Mathf.Cos(angle)*radius,Mathf.Sin(angle)*radius,0));
                     }
                     effect.Line.startWidth = effect.Line.endWidth = effect.Size * (1-progress);
                 }
