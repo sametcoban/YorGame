@@ -44,15 +44,28 @@ public sealed class DarkFantasyImporter : AssetPostprocessor {
 public static class DarkFantasySetup {
     const string Generated = "Assets/Resources/DarkFantasy";
     static readonly string[] States = { "Idle", "Attack", "Cast", "Dodge", "Parry", "Hit", "Death" };
+    [MenuItem("Ashlight/Art/Build Dark Fantasy Roster")]
+    public static void BuildRoster() { Ensure(false, true); }
+    static void EnsureRoster(bool rebuild) {
+        if (EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode) return;
+        foreach (HeroClass kind in Enum.GetValues(typeof(HeroClass)))
+            foreach (HeroGender gender in Enum.GetValues(typeof(HeroGender))) {
+                string name = kind + "_" + gender;
+                // Separate generated paths preserve existing custom and legacy class prefabs.
+                BuildActor(name, "Assets/Resources/Heroes/DarkFantasy/" + name + ".prefab", 2f, 1f, 145f, rebuild);
+            }
+        AssetDatabase.SaveAssets();
+    }
     [MenuItem("Ashlight/Art/Build Dark Fantasy Reference")]
     public static void Build() { Ensure(true); }
-    public static void Ensure(bool rebuild = false) {
+    public static void Ensure(bool rebuild = false, bool rebuildRoster = false) {
         if (EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode) return;
         Directory.CreateDirectory(Generated + "/Materials"); Directory.CreateDirectory(Generated + "/Controllers");
         AssetDatabase.Refresh();
-        foreach (string name in new[] { "Stone", "PaleStone", "Iron", "Blade", "Brass", "Leather", "Wool", "RustWool", "Recess", "Ember" }) Material(name);
+        foreach (string name in new[] { "Stone", "PaleStone", "Iron", "Blade", "Brass", "Leather", "Wool", "RustWool", "WineWool", "VioletWool", "MossWool", "SootWool", "AshWool", "Recess", "Ember", "Arcane", "Venom", "Light" }) Material(name);
         BuildActor("Rowan", "Assets/Resources/Heroes/Named/Knight_Common.prefab", 2f, 1f, 145f, rebuild);
         BuildActor("LanternWarden", "Assets/Resources/Enemies/LanternWarden.prefab", 2.35f, 1.3f, -145f, rebuild);
+        EnsureRoster(rebuildRoster);
         AssetDatabase.SaveAssets();
     }
     static Material Material(string role) {
@@ -73,6 +86,14 @@ public static class DarkFantasySetup {
             case "Leather": color = new Color(.08f,.045f,.03f); break;
             case "Wool": color = new Color(.045f,.07f,.105f); break;
             case "RustWool": color = new Color(.10f,.04f,.023f); break;
+            case "WineWool": color = new Color(.15f,.035f,.045f); break;
+            case "VioletWool": color = new Color(.09f,.04f,.15f); break;
+            case "MossWool": color = new Color(.055f,.09f,.05f); break;
+            case "SootWool": color = new Color(.035f,.035f,.045f); break;
+            case "AshWool": color = new Color(.26f,.24f,.18f); break;
+            case "Arcane": color = new Color(.30f,.42f,.8f); break;
+            case "Venom": color = new Color(.26f,.52f,.14f); break;
+            case "Light": color = new Color(.8f,.64f,.31f); break;
             case "Ember": color = new Color(1,.39f,.05f); break;
             default: color = new Color(.009f,.013f,.019f); break;
         }
@@ -86,7 +107,7 @@ public static class DarkFantasySetup {
         if (normal != null) { material.EnableKeyword("_NORMALMAP"); material.SetFloat("_BumpScale",.45f); }
         else material.DisableKeyword("_NORMALMAP");
         // Retain emission for the eyes/lantern and the timed enemy warning flash.
-        material.EnableKeyword("_EMISSION"); material.SetColor("_EmissionColor",role == "Ember" ? color*2 : Color.black);
+        material.EnableKeyword("_EMISSION"); material.SetColor("_EmissionColor",(role == "Ember" || role == "Arcane" || role == "Venom" || role == "Light") ? color*2 : Color.black);
         EditorUtility.SetDirty(material); return material;
     }
     static void BuildActor(string name, string path, float height, float pivot, float facing, bool rebuild) {

@@ -322,6 +322,7 @@ namespace Ashlight {
                 var identity = battle.Party[i].Identity;
                 // Only use a matching authored model; a woman's hero never inherits a man's model.
                 var prefab = Resources.Load<GameObject>("Heroes/Named/" + identity.Id) ??
+                    Resources.Load<GameObject>("Heroes/DarkFantasy/" + kind + "_" + identity.Gender) ??
                     Resources.Load<GameObject>("Heroes/" + kind + "_" + identity.Gender);
                 if (prefab != null) {
                     hero = Instantiate(prefab, homes[i], Quaternion.identity, battleStage).transform;

@@ -1,0 +1,310 @@
+[
+  {
+    "model": "Knight_Man.fbx",
+    "triangles": 17558,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Ember",
+      "Iron",
+      "Leather",
+      "Recess",
+      "Wool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Knight",
+    "gender": "Man",
+    "material_slots": 7
+  },
+  {
+    "model": "Knight_Woman.fbx",
+    "triangles": 16978,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Ember",
+      "Iron",
+      "Leather",
+      "Recess",
+      "Wool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Knight",
+    "gender": "Woman",
+    "material_slots": 7
+  },
+  {
+    "model": "Paladin_Man.fbx",
+    "triangles": 17778,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Light",
+      "Recess",
+      "WineWool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Paladin",
+    "gender": "Man",
+    "material_slots": 7
+  },
+  {
+    "model": "Paladin_Woman.fbx",
+    "triangles": 17198,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Light",
+      "Recess",
+      "WineWool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Paladin",
+    "gender": "Woman",
+    "material_slots": 7
+  },
+  {
+    "model": "Sorceress_Man.fbx",
+    "triangles": 17546,
+    "bones": 53,
+    "materials": [
+      "Arcane",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Recess",
+      "VioletWool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Sorceress",
+    "gender": "Man",
+    "material_slots": 6
+  },
+  {
+    "model": "Sorceress_Woman.fbx",
+    "triangles": 16966,
+    "bones": 53,
+    "materials": [
+      "Arcane",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Recess",
+      "VioletWool"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Sorceress",
+    "gender": "Woman",
+    "material_slots": 6
+  },
+  {
+    "model": "Ranger_Man.fbx",
+    "triangles": 17738,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Iron",
+      "Leather",
+      "MossWool",
+      "Recess",
+      "Venom"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Ranger",
+    "gender": "Man",
+    "material_slots": 7
+  },
+  {
+    "model": "Ranger_Woman.fbx",
+    "triangles": 17158,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Iron",
+      "Leather",
+      "MossWool",
+      "Recess",
+      "Venom"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Ranger",
+    "gender": "Woman",
+    "material_slots": 7
+  },
+  {
+    "model": "Rogue_Man.fbx",
+    "triangles": 17250,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Recess",
+      "SootWool",
+      "Venom"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Rogue",
+    "gender": "Man",
+    "material_slots": 7
+  },
+  {
+    "model": "Rogue_Woman.fbx",
+    "triangles": 16670,
+    "bones": 53,
+    "materials": [
+      "Blade",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Recess",
+      "SootWool",
+      "Venom"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Rogue",
+    "gender": "Woman",
+    "material_slots": 7
+  },
+  {
+    "model": "Cleric_Man.fbx",
+    "triangles": 17746,
+    "bones": 53,
+    "materials": [
+      "AshWool",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Light",
+      "Recess"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Cleric",
+    "gender": "Man",
+    "material_slots": 6
+  },
+  {
+    "model": "Cleric_Woman.fbx",
+    "triangles": 17166,
+    "bones": 53,
+    "materials": [
+      "AshWool",
+      "Brass",
+      "Iron",
+      "Leather",
+      "Light",
+      "Recess"
+    ],
+    "states": [
+      "Idle",
+      "Attack",
+      "Cast",
+      "Dodge",
+      "Parry",
+      "Hit",
+      "Death"
+    ],
+    "class": "Cleric",
+    "gender": "Woman",
+    "material_slots": 6
+  }
+]

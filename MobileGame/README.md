@@ -1,6 +1,6 @@
 # Ashlight: mobile 3D combat starter
 
-An original combat prototype inspired by reactive turn-based RPGs. The first visual reference uses stylized dark fantasy armor and a generated ruined courtyard; the remaining roster is still prototype art. No Clair Obscur assets, names, music, or story are included.
+An original combat prototype inspired by reactive turn-based RPGs. All six hero classes now use stylized dark fantasy armor and a generated ruined courtyard. Enemy art beyond the first Warden remains placeholder. No Clair Obscur assets, names, music, or story are included.
 
 ## Open and play
 
@@ -15,20 +15,27 @@ The scene starts empty intentionally: `Prototype` generates the camera, lighting
 
 ## Stylized dark fantasy reference
 
-Rowan (Common Knight) and the first enemy, Lantern Warden, wear original angular armor, closed helmets, tattered capes, and muted metal. The Warden carries a halberd and glowing lantern. A torchlit ruined courtyard, lower camera, staggered party positions, charcoal HUD and compact health bars establish the new direction. Other heroes and enemies have not yet received this art pass. The built-in rendering pipeline is retained.
+Rowan (Common Knight) and the first enemy, Lantern Warden, wear original angular armor, closed helmets, tattered capes, and muted metal. The Warden carries a halberd and glowing lantern. A torchlit ruined courtyard, lower camera, staggered party positions, charcoal HUD and compact health bars establish the new direction. All six hero classes now have male and female dark fantasy variants. Other enemies remain placeholder capsules. The built-in rendering pipeline is retained.
 
 To update an existing Unity project:
 
 1. Copy **Assets/Art**, the updated **Assets/Editor** and **Assets/Scripts** from this version. Keep your existing project settings and saves.
 2. Wait for importing, then run **Ashlight > Prepare Mobile Project**.
-3. Run **Ashlight > Art > Build Dark Fantasy Reference**. This refreshes only the Rowan and Lantern Warden reference prefabs; automatic preparation preserves existing prefabs.
+3. Run **Ashlight > Art > Build Dark Fantasy Roster** to refresh all twelve class/gender models. Use **Build Dark Fantasy Reference** only if Rowan or the Warden also need refreshing. Automatic preparation preserves existing generated prefabs.
 4. Open the Battle scene and press Play. Select Rowan in your party and start the first chapter. If you already completed the campaign, use **Restart Campaign** to replay it while preserving your collection and currency.
 
 ![Blender character art preview](ArtPreview/DarkFantasyReference.png)
 
-This is a Blender character art preview, not a Unity screenshot; it does not show the courtyard or HUD. The free CC0 source and original asset details are in [DarkFantasy/CREDITS.md](Assets/Art/DarkFantasy/CREDITS.md).
+The class roster uses the existing hero gender assignments (18 women and 12 men). Paladins wear winged helmets and wine-colored capes; Sorceress/Sorcerer carry crystal staves and crowned cowls; Rangers carry recurve bows, arrows and quivers; Rogues carry twin leaf daggers and poison vials; Clerics carry halo staves, prayer books and ash-colored split vestments. Knights retain the sword and kite shield. Classes share basic armor construction; individual named heroes do not yet have unique art or rarity-specific outfits.
 
-Validation: **1,555 combat checks passed**. Both FBX files independently reimported with weighted meshes, UVs and seven animation states; each is below 18,000 triangles. All three textures are 512×512 and their checksums match. Unity is unavailable in this environment, so Unity compilation, import, Play mode, clipping, camera framing and mobile performance require local verification.
+![Male class roster, Blender preview](ArtPreview/DarkFantasyRosterMan.png)
+![Female class roster, Blender preview](ArtPreview/DarkFantasyRosterWoman.png)
+
+Named hero prefabs still take priority. Otherwise, hero loading now uses `Resources/Heroes/DarkFantasy/<class>_<gender>`, then the legacy class/gender prefab as fallback. The new generated folder preserves existing custom and legacy prefabs. Characters still use basic animation; Ranger and Rogue attacks and caster staff motions have distinct poses.
+
+These are Blender character art previews, not Unity screenshots; they do not show the courtyard or HUD. The free CC0 source and original asset details are in [DarkFantasy/CREDITS.md](Assets/Art/DarkFantasy/CREDITS.md).
+
+Validation: **1,555 combat checks passed**. The twelve new class FBX files independently reimported with weighted meshes, UVs, the 53-bone skeleton and seven animation states; each is below 18,000 triangles and uses at most seven material slots. All three textures are 512×512 and their checksums match. Unity is unavailable in this environment, so Unity compilation, import, Play mode, clipping, camera framing and mobile performance require local verification.
 
 ## iPhone browser testing from Windows
 
@@ -197,7 +204,7 @@ The project includes two adult human base models derived from MakeHuman/MPFB's C
 3. Open the battle scene and press Play. Rowan should now have an actual human mesh. Recruit/select a woman to see the female model. All genders use the same stats, skills, rarity rules, and progression.
 4. **When updating from the earlier human models, choose Ashlight > Characters > Build Realistic Humans after the FBX import.** This refreshes the generated material slots, including facial hair. If a human prefab is missing, choose **Ashlight > Characters > Build Realistic Humans**. This explicitly rebuilds class/gender prefabs; automatic preparation preserves existing prefabs. A missing model shows a neutral capsule and a Console warning rather than the old outfit figures.
 
-Models have faces, fingers, natural proportions, a 53-bone skeleton, opaque mesh clothing, and seven basic states: Idle, Attack, Cast, Dodge, Parry, Hit, Death. Root motion is disabled. A named prefab at `Resources/Heroes/Named/<hero-id>.prefab` still takes priority over a class/gender prefab. Except for Rowan’s new armored named prefab, named heroes share these two base faces/bodies; unique faces, detailed skin/hair textures, polished animation and weapon meshes remain future art work. These are simple human models, not film-quality or photorealistic characters.
+Models have faces, fingers, natural proportions, a 53-bone skeleton, opaque mesh clothing, and seven basic states: Idle, Attack, Cast, Dodge, Parry, Hit, Death. Root motion is disabled. A named prefab at `Resources/Heroes/Named/<hero-id>.prefab` still takes priority over a class/gender prefab. These older base models are retained as fallback assets. Dark fantasy class/gender models now take priority for named heroes without custom prefabs; unique faces, detailed skin/hair textures, polished animation and weapon meshes remain future art work. These are simple human models, not film-quality or photorealistic characters.
 
 The 30 authored hero profiles include 18 women and 12 men, all adults ages 24–52. Stable IDs and gameplay are unchanged. Men in the Sorceress class display as Sorcerer; its class-selection button reads Sorcery.
 
