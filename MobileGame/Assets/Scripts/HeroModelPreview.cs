@@ -9,7 +9,7 @@ namespace Ashlight {
         const int PreviewLayer=31;
         public bool Show(HeroDefinition hero) {
             Clear();
-            var prefab=Resources.Load<GameObject>("Heroes/Named/"+hero.Id) ??
+            var prefab=Resources.Load<GameObject>("Heroes/NamedVariants/"+hero.Id) ?? Resources.Load<GameObject>("Heroes/Named/"+hero.Id) ??
                 Resources.Load<GameObject>("Heroes/DarkFantasy/"+hero.Class+"_"+hero.Gender) ??
                 Resources.Load<GameObject>("Heroes/"+hero.Class+"_"+hero.Gender);
             if(prefab==null) return false;

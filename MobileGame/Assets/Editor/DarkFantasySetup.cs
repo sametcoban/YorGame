@@ -84,6 +84,7 @@ public static class DarkFantasySetup {
         EnsureRoster(rebuildRoster);
         foreach (var enemy in EnemyVisualDefinition.Catalog)
             BuildActor(enemy.ModelName, "Assets/Resources/" + enemy.ResourcePath + ".prefab", enemy.Height, 1.3f, -145f, rebuildEnemies, enemy.SourceModel, enemy);
+        NamedKnightSetup.Ensure(rebuildRoster);
         AssetDatabase.SaveAssets();
     }
     static Material Material(string role) {
@@ -131,7 +132,7 @@ public static class DarkFantasySetup {
         material.EnableKeyword("_EMISSION"); material.SetColor("_EmissionColor",(role == "Ember" || role == "Arcane" || role == "Venom" || role == "Light" || role == "Frost") ? color*2 : Color.black);
         EditorUtility.SetDirty(material); return material;
     }
-    static void BuildActor(string name, string path, float height, float pivot, float facing, bool rebuild, string sourceName = null, EnemyVisualDefinition enemyStyle = null) {
+    internal static void BuildActor(string name, string path, float height, float pivot, float facing, bool rebuild, string sourceName = null, EnemyVisualDefinition enemyStyle = null, NamedKnightSetup.Look heroLook = null) {
         if (!rebuild && AssetDatabase.LoadAssetAtPath<GameObject>(path) != null) return;
         string source = DarkFantasyImporter.Source + "Models/" + (sourceName ?? name) + ".fbx";
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(source); if (model == null) return;
@@ -163,7 +164,7 @@ public static class DarkFantasySetup {
                     if (enemyStyle != null && enemyStyle.ClothRole != null && role.EndsWith("Wool",StringComparison.Ordinal)) role = enemyStyle.ClothRole;
                     if (enemyStyle != null && enemyStyle.ClothRole != null && (role == "Frost" || role == "Ember"))
                         role = enemyStyle.EffectElement == Element.Cold ? "Frost" : enemyStyle.EffectElement == Element.Lightning ? "Arcane" : enemyStyle.EffectElement == Element.Poison ? "Venom" : enemyStyle.EffectElement == Element.Light ? "Light" : "Ember";
-                    materials[i] = Material((name == "LanternWarden" || name == "Roadkeeper") && role == "Wool" ? "RustWool" : name == "IronWatcher" && role == "Wool" ? "SootWool" : role);
+                    materials[i] = heroLook!=null?NamedKnightSetup.Palette(heroLook,role,Material(role)):Material((name == "LanternWarden" || name == "Roadkeeper") && role == "Wool" ? "RustWool" : name == "IronWatcher" && role == "Wool" ? "SootWool" : role);
                 }
                 renderer.sharedMaterials = materials;
                 var skinned = renderer as SkinnedMeshRenderer; if (skinned != null) skinned.updateWhenOffscreen = true;

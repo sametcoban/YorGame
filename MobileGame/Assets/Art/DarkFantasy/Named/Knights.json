@@ -1,0 +1,7 @@
+{"looks":[
+{"id":"Knight_Common","name":"Rowan","gender":"Man","armor":"#46515D","cloth":"#503023","trim":"#8F7051","glow":"#FF7634","feature":"ember"},
+{"id":"Knight_Uncommon","name":"Aldric","gender":"Man","armor":"#665D4D","cloth":"#592430","trim":"#B79350","glow":"#FFB343","feature":"crest"},
+{"id":"Knight_Rare","name":"Brenna","gender":"Woman","armor":"#3F625B","cloth":"#233E31","trim":"#AAB7A4","glow":"#A2E2BF","feature":"thorn"},
+{"id":"Knight_Epic","name":"Kaelan","gender":"Man","armor":"#302C45","cloth":"#452A65","trim":"#8F87B1","glow":"#B388FF","feature":"dread"},
+{"id":"Knight_Legendary","name":"Seraphine","gender":"Woman","armor":"#B4B2A5","cloth":"#6B253E","trim":"#D1AA58","glow":"#FFD66F","feature":"wing"}
+]}

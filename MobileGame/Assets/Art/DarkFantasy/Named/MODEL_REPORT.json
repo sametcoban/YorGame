@@ -1,0 +1,77 @@
+[
+  {
+    "id": "Knight_Common",
+    "gender": "Man",
+    "feature": "ember",
+    "triangles": 17646,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Knight_Uncommon",
+    "gender": "Man",
+    "feature": "crest",
+    "triangles": 17734,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Knight_Rare",
+    "gender": "Woman",
+    "feature": "thorn",
+    "triangles": 17286,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Knight_Epic",
+    "gender": "Man",
+    "feature": "dread",
+    "triangles": 17954,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Knight_Legendary",
+    "gender": "Woman",
+    "feature": "wing",
+    "triangles": 17550,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  }
+]

@@ -6,8 +6,10 @@ from pathlib import Path
 folder=Path(sys.argv[sys.argv.index('--')+1]);reports=[]
 states={'Idle','Attack','Cast','Dodge','Parry','Hit','Death'}
 roster='--roster' in sys.argv
+named='--named-knights' in sys.argv
 classes=['Knight','Paladin','Sorceress','Ranger','Rogue','Cleric']
 names=[kind+'_'+gender for kind in classes for gender in ['Man','Woman']] if roster else ['Rowan','LanternWarden']
+if named: names=['Named_Knight_'+quality for quality in ['Common','Uncommon','Rare','Epic','Legendary']]
 for name in names:
     bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
     for action in list(bpy.data.actions):bpy.data.actions.remove(action)
@@ -29,7 +31,7 @@ for name in names:
     fabric={'Knight':'Wool','Paladin':'WineWool','Sorceress':'VioletWool','Ranger':'MossWool','Rogue':'SootWool','Cleric':'AshWool'}.get(kind,'Wool')
     glow={'Paladin':'Light','Sorceress':'Arcane','Ranger':'Venom','Rogue':'Venom','Cleric':'Light'}.get(kind,'Ember')
     assert {fabric,glow}.issubset(roles), 'Missing class palette'
-    if roster:
+    if roster or named:
         assert len(bones)==53, 'Skeleton changed unexpectedly'
         assert len(mesh.data.materials)<=7, 'Redundant material slots increase mobile draw calls'
     assert not roles.intersection({'Skin','Lips','Hair','EyeWhite','Iris','Pupil'}), 'Realistic face materials leaked into stylized reference'
