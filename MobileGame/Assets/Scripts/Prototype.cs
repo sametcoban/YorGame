@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 namespace Ashlight {
     public sealed class Prototype : MonoBehaviour {
-        Battle battle = new Battle(true);
+        Battle battle = new Battle(true,enableWaves:true);
         bool atChapters;
         GameObject chapterRoot;
         Text chapterTitle;
@@ -245,6 +245,21 @@ namespace Ashlight {
         }
         static void SetMeter(Image image, float amount) {
             image.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(amount), 1);
+        }
+        bool transitioningWave;
+        IEnumerator NextWave() {
+            transitioningWave=true;
+            message="WAVE "+(battle.WaveIndex+1)+" CLEARED — next wave incoming!";
+            cue.text="WAVE CLEARED";
+            yield return new WaitForSeconds(1.2f);
+            if(battle.AdvanceWave()) {
+                effects.Clear(); CreateEnemy();
+                for(int i=0;i<foeAttackAt.Length;i++) foeAttackAt[i]=-10;
+                attackTime=-10; attacker=null; feedbackUntil=0;
+                message="WAVE "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" — health and energy carried over.";
+                nextAutoAction=Time.time+.8f;
+            }
+            transitioningWave=false;
         }
         IEnumerator EnemyTurn() {
             // Both bosses remain on the field; each living boss attacks once per enemy round.
@@ -696,7 +711,7 @@ namespace Ashlight {
             for(int i=0;i<chapterChoices.Length;i++) {
                 chapterChoices[i].gameObject.SetActive(!battle.CampaignComplete);
                 var chapter=ChapterDefinition.Catalog[i];
-                string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5: "+battle.Enemies[0].Definition.Name+(battle.Enemies.Count==2?" + "+battle.Enemies[1].Definition.Name:"");
+                string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5 · 3 waves: "+ChapterDefinition.EnemyAt(battle.Encounter).Name;
                 chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+" · "+Mathf.Min(3,i+1)+" hero slots\n"+state;
                 chapterChoices[i].interactable=!battle.CampaignComplete && i==battle.ChapterIndex;
             }
@@ -721,7 +736,7 @@ namespace Ashlight {
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].Level + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = "ASHLIGHT — Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
+            status.text = "ASHLIGHT — Wave "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" · Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
@@ -734,6 +749,7 @@ namespace Ashlight {
                 energyLabels[i].text=party[i].Identity.Name+" · "+energy+"/100"+(energy==100?" · ULTIMATE":"");
             }
             bool preparing = !atChapters && battle.CanChangeParty;
+            if(!atChapters && !presentingAction && enemyTurn==null && battle.Current==Phase.WaveCleared && !transitioningWave) StartCoroutine(NextWave());
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
             reset.gameObject.SetActive(finished && battle.Current!=Phase.Won);
             loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing);
@@ -798,7 +814,7 @@ namespace Ashlight {
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);
             SetMeter(timing, 1 - elapsed / .4f);
             timing.color = elapsed <= .18f ? Color.yellow : new Color(.2f, .7f, .85f);
-            cue.text = presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.Action!=EnemyAction.Attack ? "" : battle.IncomingSkill.PartyWide ? " — ALL HEROES" : " — " + battle.Party[battle.ActiveIndex].Identity.Name) :
+            cue.text = battle.Current==Phase.WaveCleared ? "WAVE CLEARED — NEXT WAVE INCOMING" : presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.Action!=EnemyAction.Attack ? "" : battle.IncomingSkill.PartyWide ? " — ALL HEROES" : " — " + battle.Party[battle.ActiveIndex].Identity.Name) :
                 striking && !battle.Defended ? (elapsed <= .18f ? "RESOLVING DEFENSE" : elapsed <= .4f ? "RESOLVING DEFENSE" : "DEFENSE MISSED") :
                 Time.time < feedbackUntil ? (battle.Defended ? (parried ? "PARRY + COUNTER" : "DODGED") : "HIT −" + lastHitDamage) : "";
             cue.color = Time.time < feedbackUntil && battle.Defended ? Color.cyan : Color.yellow;

@@ -380,3 +380,14 @@ Chapter 6’s Veiled Monarch replaces every second action in his three-action cy
 Charge progress and remaining shields appear in the enemy target labels, with casting and healing effects. Auto Play prioritizes charged bosses, then unshielded healers, then other unshielded enemies. These mechanics spend an enemy action and never trigger dodge or parry rolls. Restarting or loading a fight resets its temporary mechanics.
 
 To test this update in an existing project, copy the updated **Assets/Scripts**, let Unity compile, then replay the final encounters of chapters 3, 5 and 6. No new art import is required. Pure C# combat checks run in the cloud; Unity playback and UI still need editor validation.
+
+
+## Three-wave stages
+
+Every stage in the game now has three waves. Wave 1 contains a chapter enemy; wave 2 contains another enemy (two together from chapter 2 onward). These enemies have 30% of their normal health and deal 60% of normal damage. Wave 3 is the original stage encounter: chapter finales still end with their boss, including two bosses together from chapter 3 onward.
+
+A 1.2-second transition replaces defeated enemies and shows the next wave number. Living heroes keep health, energy, remaining skill charges, guard and status effects; fallen heroes stay down. Each new wave begins a fresh party turn. Party and equipment changes stay locked after combat starts. Auto Play continues through transitions and stops at the final results screen.
+
+XP, crystals, recruitment and gear are granted once, after all three waves and pressing Continue. Existing saves remain compatible. Loading or restarting an unfinished stage begins wave 1 with a restored party, matching the existing fresh-encounter save behavior; pending final victories still reopen their saved results.
+
+Copy the updated **Assets/Scripts** into your existing Unity project to test. No new assets are required. The pure C# checks cover all 90 campaign waves, resource carryover, transitions, reward timing and pending-victory save compatibility. Unity animations, layout and difficulty still need playtesting.

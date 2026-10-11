@@ -35,6 +35,17 @@ namespace Ashlight {
             var partner = new EnemyDefinition(Partners[encounter / StagesPerChapter - 2], (int)(primary.MaxHealth*.7f), primary.Resistance, primary.Weakness, true);
             return Array.AsReadOnly(new[] { primary, partner });
         }
+        public static IReadOnlyList<EnemyDefinition> WaveAt(int encounter,int wave,int waveCount) {
+            if(waveCount<1 || wave<0 || wave>=waveCount) throw new ArgumentOutOfRangeException("wave");
+            if(wave==waveCount-1) return EnemiesAt(encounter);
+            var chapter=Catalog[encounter/StagesPerChapter];
+            var source=chapter.Enemies[(encounter%StagesPerChapter+wave)%4];
+            var first=new EnemyDefinition(source.Name,Math.Max(20,(int)Math.Ceiling(source.MaxHealth*.3)),source.Weakness,source.Resistance);
+            if(wave==0 || encounter/StagesPerChapter==0) return Array.AsReadOnly(new[]{first});
+            var next=chapter.Enemies[(encounter%StagesPerChapter+wave+1)%4];
+            var second=new EnemyDefinition(next.Name,Math.Max(20,(int)Math.Ceiling(next.MaxHealth*.3)),next.Weakness,next.Resistance);
+            return Array.AsReadOnly(new[]{first,second});
+        }
         public static EnemyDefinition EnemyAt(int encounter) {
             if(encounter<0 || encounter>=TotalStages) throw new ArgumentOutOfRangeException("encounter");
             return Catalog[encounter/StagesPerChapter].Enemies[encounter%StagesPerChapter];

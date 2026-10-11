@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 namespace Ashlight {
-    public enum Phase { Player, EnemyWindup, EnemyStrike, Won, Lost, Complete }
+    public enum Phase { Player, EnemyWindup, EnemyStrike, WaveCleared, Won, Lost, Complete }
     public sealed class PartyHero {
         public HeroDefinition Identity { get; private set; }
         ClassDefinition stats;
@@ -64,6 +64,9 @@ namespace Ashlight {
     public sealed class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
+        readonly bool waveBattles;
+        public int WaveIndex { get; private set; }
+        public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
         public int Crystals { get; private set; }
         public int RareMisses { get; private set; }
         public int LegendaryMisses { get; private set; }
@@ -115,14 +118,14 @@ namespace Ashlight {
         public bool HeroDefended(int index) { return defendedHeroes[index]; }
         public Battle() : this(HeroClass.Knight) { }
         public Battle(HeroClass kind) { unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset(); }
-        public Battle(bool recruitmentCampaign) { campaign = recruitmentCampaign; Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
+        public Battle(bool recruitmentCampaign, bool enableWaves=false) { campaign = recruitmentCampaign; waveBattles=enableWaves; Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
         public void SelectClass(HeroClass kind) {
             if (campaign) throw new InvalidOperationException("Campaign heroes are recruited, not replaced.");
             party.Clear(); recruits.Clear(); unlocked.Clear(); unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset();
         }
         public bool CanChangeParty {
             get {
-                if (Current != Phase.Player) return false;
+                if (Current != Phase.Player || WaveIndex>0) return false;
                 foreach (var enemy in enemies) if (enemy.Health != enemy.Definition.MaxHealth) return false;
                 foreach (var member in party)
                     if (member.Acted || member.Health != member.Definition.MaxHealth || member.SkillCharges(0) != 2 || member.SkillCharges(1) != 2) return false;
@@ -169,6 +172,7 @@ namespace Ashlight {
             Results=new BattleResults(xp,campaign?Summoning.VictoryCrystals:0,loot,recruit,Party);
         }
         void Victory() {
+            if(WaveIndex<WaveCount-1) { Current=Phase.WaveCleared; return; }
             Current=Phase.Won;
             if(Results==null) BuildResults(campaign?GearDefinition.Drop(enemies[0].Definition.IsBoss,lootRandom.NextDouble(),lootRandom.Next(18)):null);
         }
@@ -341,6 +345,7 @@ namespace Ashlight {
             RareMisses=data.version==1?0:data.rareMisses; LegendaryMisses=data.version==1?0:data.legendaryMisses;
             encounter = data.encounter; Reset(); ActiveIndex = Math.Min(data.activeIndex,party.Count-1);
             if (data.pendingVictory) {
+                WaveIndex=WaveCount-1; LoadWaveEnemies();
                 foreach (var enemy in enemies) enemy.Health = 0;
                 if(data.version==5) {
                     for(int i=0;i<party.Count;i++) { party[i].EncounterDamage=data.results.damage[i]; party[i].EncounterHealing=data.results.healing[i]; }
@@ -354,11 +359,29 @@ namespace Ashlight {
             foreach (var member in party) member.Restore();
             Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null; LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
             Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
-            enemies.Clear();
-            if (campaign) foreach (var definition in ChapterDefinition.EnemiesAt(Math.Min(encounter, ChapterDefinition.TotalStages - 1))) enemies.Add(new BattleEnemy(definition));
-            else enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden", 100)));
+            WaveIndex=0; LoadWaveEnemies();
             SelectedEnemyIndex = AttackingEnemyIndex = 0;
             ActiveIndex = 0; targetCursor = 0; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete ? Phase.Complete : Phase.Player; Defended = false;
+        }
+        void LoadWaveEnemies() {
+            enemies.Clear();
+            if(!campaign) enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden",100)));
+            else foreach(var definition in ChapterDefinition.WaveAt(Math.Min(encounter,ChapterDefinition.TotalStages-1),WaveIndex,WaveCount))
+                enemies.Add(new BattleEnemy(definition));
+        }
+        public bool AdvanceWave() {
+            if(Current!=Phase.WaveCleared || WaveIndex>=WaveCount-1) return false;
+            WaveIndex++; LoadWaveEnemies();
+            foreach(var member in party) member.Acted=false;
+            for(int i=0;i<party.Count;i++) if(party[i].Health>0) { ActiveIndex=i; break; }
+            SelectedEnemyIndex=AttackingEnemyIndex=targetCursor=0;
+            Defended=false; IncomingSkill=null; LastUltimate=null;
+            LastMechanicTarget=-1; LastEnemyHealing=LastShieldAbsorbed=0;
+            Array.Clear(defendedHeroes,0,defendedHeroes.Length);
+            Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length);
+            Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
+            Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
+            Current=Phase.Player; return true;
         }
         public bool Attack() {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0) return false;
@@ -443,6 +466,8 @@ namespace Ashlight {
                 IncomingSkill=new EnemySkill("Root Communion · restores a living partner",0,Element.Poison,action:EnemyAction.HealPartner);
             if(attacker.Definition.Name=="Veiled Monarch" && attacker.CompletedStrikes%3==1)
                 IncomingSkill=new EnemySkill("Eclipse Veil · shields one boss; target the other",0,Element.Light,action:EnemyAction.Shield);
+            if(WaveIndex<WaveCount-1 && IncomingSkill.Action==EnemyAction.Attack)
+                IncomingSkill=new EnemySkill(IncomingSkill.Name,Math.Max(1,(int)Math.Ceiling(IncomingSkill.Damage*.6)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status);
             // Cycle targets across living allies for each surviving enemy's strike.
             for (int offset = 0; offset < party.Count; offset++) {
                 int index = (targetCursor + offset) % party.Count;

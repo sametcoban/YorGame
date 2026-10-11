@@ -748,6 +748,68 @@ class BattleChecks {
   Check(shieldHealth-shield.Enemies[1].Health==shield.Party[0].EncounterDamage-recorded);
   ResolveEnemies(shield); shield.Enemies[1].Shield=60; shield.Enemies[0].Health=1;
   shield.SelectEnemy(0); Check(shield.Attack() && shield.Enemies[0].Health==0 && shield.Enemies[1].Shield==0);
+  // The game opts into waves; single-wave battles above retain coverage of the original combat rules.
+  var waves=new Battle(true,enableWaves:true);
+  Check(waves.WaveCount==3 && waves.WaveIndex==0 && !waves.AdvanceWave());
+  waves.Party[0].Health=77; waves.Party[0].Energy=25; waves.Enemies[0].Health=1;
+  Check(waves.UseAbility(0) && waves.Current==Phase.WaveCleared);
+  int carriedHealth=waves.HeroHealth,carriedEnergy=waves.Party[0].Energy,carriedCharges=waves.Party[0].SkillCharges(0);
+  int carriedDamage=waves.Party[0].EncounterDamage; waves.Party[0].Guard=9;
+  waves.Party[0].Status=Debuff.Shock; waves.Party[0].StatusRounds=2;
+  Check(waves.Results==null && waves.Crystals==Summoning.StarterCrystals && !waves.ContinueAfterVictory());
+  Check(!waves.Attack() && !waves.UseAbility(1) && !waves.SelectHero(0));
+  var betweenWaves=waves.ExportProgress();
+  Check(!betweenWaves.pendingVictory && betweenWaves.results==null);
+  Check(waves.AdvanceWave() && waves.WaveIndex==1 && waves.Current==Phase.Player && !waves.CanChangeParty);
+  Check(waves.HeroHealth==carriedHealth && waves.Party[0].Energy==carriedEnergy && waves.Party[0].SkillCharges(0)==carriedCharges);
+  Check(waves.Party[0].Guard==9 && waves.Party[0].Status==Debuff.Shock && waves.Party[0].StatusRounds==2);
+  Check(waves.Party[0].EncounterDamage==carriedDamage && !waves.Party[0].Acted && !waves.AdvanceWave());
+  var waveReload=new Battle(true,enableWaves:true);
+  Check(waveReload.RestoreProgress(betweenWaves) && waveReload.WaveIndex==0 && waveReload.HeroHealth==waveReload.Hero.MaxHealth);
+  waves.Reset(); Check(waves.WaveIndex==0 && waves.CanChangeParty && waves.Party[0].Energy==0);
+  var fallenWave=new Battle(true,enableWaves:true); var fallenSave=fallenWave.ExportProgress();
+  fallenSave.encounter=14; fallenSave.recruited=teamSave.recruited; fallenSave.party=teamSave.party; fallenSave.loadouts=teamSave.loadouts;
+  Check(fallenWave.RestoreProgress(fallenSave)); fallenWave.Party[0].Health=0;
+  Check(fallenWave.SelectHero(1)); fallenWave.Party[1].Energy=75; fallenWave.Enemies[0].Health=1;
+  Check(fallenWave.Attack() && fallenWave.Current==Phase.WaveCleared && fallenWave.Party[1].Energy==100);
+  Check(fallenWave.AdvanceWave() && fallenWave.Party[0].Health==0 && fallenWave.ActiveIndex==1);
+  Check(fallenWave.Party[1].Energy==100 && fallenWave.Attack() && fallenWave.LastUltimate!=null && fallenWave.Party[1].Energy==0);
+  // Complete all 90 waves with public actions and defend every affected living hero.
+  var waveCampaign=new Battle(true,enableWaves:true); int clearedWaves=0,steps=0;
+  while(!waveCampaign.CampaignComplete && steps++<6000) {
+   if(waveCampaign.Current==Phase.Player) {
+    waveCampaign.SelectEnemy(AutoBattlePlanner.ChooseTarget(waveCampaign));
+    int planned=AutoBattlePlanner.ChooseSkill(waveCampaign);
+    Check(planned<0?waveCampaign.Attack():waveCampaign.UseAbility(planned));
+   } else if(waveCampaign.Current==Phase.EnemyWindup) {
+    Check(waveCampaign.BeginStrike());
+    if(waveCampaign.IncomingSkill.Action==EnemyAction.Attack)
+     for(int member=0;member<waveCampaign.Party.Count;member++)
+      if(waveCampaign.Party[member].Health>0 && (waveCampaign.IncomingSkill.PartyWide || member==waveCampaign.ActiveIndex))
+       Check(waveCampaign.DefendHero(member,false,.1f));
+    waveCampaign.FinishStrike();
+   } else if(waveCampaign.Current==Phase.WaveCleared) {
+    clearedWaves++; Check(waveCampaign.Results==null && waveCampaign.AdvanceWave());
+   } else if(waveCampaign.Current==Phase.Won) {
+    clearedWaves++; Check(waveCampaign.WaveIndex==2 && waveCampaign.Results!=null);
+    if(waveCampaign.StageIndex==4) Check(waveCampaign.Enemies[0].Definition.IsBoss);
+    var savedWaveVictory=waveCampaign.ExportProgress(); var pendingWave=new Battle(true,enableWaves:true);
+    Check(pendingWave.RestoreProgress(savedWaveVictory) && pendingWave.Current==Phase.Won && pendingWave.WaveIndex==2);
+    Check(pendingWave.Results.Loot.Id==waveCampaign.Results.Loot.Id);
+    int previousCrystals=pendingWave.Crystals;
+    Check(pendingWave.ContinueAfterVictory() && pendingWave.Encounter==savedWaveVictory.encounter+1 && pendingWave.Crystals==previousCrystals+Summoning.VictoryCrystals);
+    Check(!pendingWave.ContinueAfterVictory());
+    Check(waveCampaign.ContinueAfterVictory());
+   } else throw new Exception("Unexpected wave campaign phase: "+waveCampaign.Current);
+  }
+  Check(waveCampaign.CampaignComplete && clearedWaves==90 && waveCampaign.Recruits.Count==30);
+  for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) {
+   for(int wave=0;wave<3;wave++) {
+    var group=ChapterDefinition.WaveAt(stage,wave,3);
+    Check(group.Count>=1 && group.Count<=2);
+    foreach(var member in group) Check(EnemyVisualDefinition.For(member.Name)!=null && (wave==2 || !member.IsBoss));
+   }
+  }
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
