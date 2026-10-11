@@ -35,6 +35,7 @@ namespace Ashlight {
         int actionTarget, actionHero, actionEnergy;
         readonly int[] actionEnemyBefore = new int[2], shownEnemyDamage = new int[2];
         readonly Image[] energyBars = new Image[Battle.MaxPartySize];
+        readonly Image[] partyHealthBars = new Image[Battle.MaxPartySize];
         readonly Text[] energyLabels = new Text[Battle.MaxPartySize];
         readonly float[] dodgeAt = { -10, -10, -10, -10, -10 };
         readonly float[] foeAttackAt = { -10, -10 };
@@ -149,15 +150,16 @@ namespace Ashlight {
             safe.anchorMax = new Vector2(safeArea.xMax / Screen.width, safeArea.yMax / Screen.height);
             safe.offsetMin = safe.offsetMax = Vector2.zero;
             Panel(safe, new Vector2(0,.79f), Vector2.one, new Color(.025f,.03f,.045f,.90f));
-            Panel(safe, Vector2.zero, new Vector2(1,.24f), new Color(.025f,.03f,.045f,.94f));
+            Panel(safe, Vector2.zero, new Vector2(1,.285f), new Color(.025f,.03f,.045f,.94f));
             Panel(safe, new Vector2(.025f,.795f), new Vector2(.975f,.798f), new Color(.40f,.31f,.17f,.8f));
-            status = Label(safe, "", new Vector2(.035f, .825f), new Vector2(.965f, .98f), 22);
+            status = Label(safe, "", new Vector2(.035f, .845f), new Vector2(.965f, .98f), 22);
             status.alignment = TextAnchor.UpperLeft;
-            factionStatus=Label(safe,"",new Vector2(.035f,.8f),new Vector2(.965f,.825f),17);
+            factionStatus=Label(safe,"",new Vector2(.035f,.82f),new Vector2(.965f,.845f),17);
             for(int i=0;i<energyBars.Length;i++) {
                 float left=.025f+i*.194f;
-                energyLabels[i]=Label(safe,"",new Vector2(left,.195f),new Vector2(left+.18f,.235f),17);
-                energyBars[i]=Bar(safe,new Vector2(left,.175f),new Vector2(left+.18f,.188f),new Color(.25f,.65f,.9f));
+                energyLabels[i]=Label(safe,"",new Vector2(left,.225f),new Vector2(left+.18f,.28f),20);
+                partyHealthBars[i]=Bar(safe,new Vector2(left,.205f),new Vector2(left+.18f,.218f),new Color(.35f,.7f,.43f));
+                energyBars[i]=Bar(safe,new Vector2(left,.18f),new Vector2(left+.18f,.193f),new Color(.25f,.65f,.9f));
             }
             heroHealth = Bar(safe, new Vector2(.035f, .805f), new Vector2(.43f, .818f), new Color(.65f, .27f, .18f));
             enemyHealth = Bar(safe, new Vector2(.57f, .805f), new Vector2(.965f, .818f), new Color(.58f,.43f,.19f));
@@ -170,8 +172,8 @@ namespace Ashlight {
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMinSize = 10;
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMaxSize = 16;
             }
-            timing = Bar(safe, new Vector2(.3f, .255f), new Vector2(.7f, .28f), Color.yellow);
-            cue = Label(safe, "", new Vector2(.2f, .29f), new Vector2(.8f, .39f), 32);
+            timing = Bar(safe, new Vector2(.3f, .29f), new Vector2(.7f, .305f), Color.yellow);
+            cue = Label(safe, "", new Vector2(.2f, .315f), new Vector2(.8f, .395f), 32);
             attack = MakeButton(safe, "ATTACK", .02f, .19f, () => PerformAction(-1));
             ability = MakeButton(safe, "", .21f, .38f, () => PerformAction(0));
             abilityTwo = MakeButton(safe, "", .4f, .57f, () => PerformAction(1));
@@ -190,7 +192,7 @@ namespace Ashlight {
                 PlayerPrefs.SetInt(SpeedKey,battleSpeed); PlayerPrefs.Save();
                 ApplyBattleSpeed();
             });
-            // Keep battle actions below the energy row (.175 to .235).
+            // Keep actions separate from the party health and energy meters.
             foreach (var actionButton in new[] { attack, ability, abilityTwo, autoButton, speedButton }) {
                 var actionRect = actionButton.GetComponent<RectTransform>();
                 actionRect.anchorMin = new Vector2(actionRect.anchorMin.x, .025f);
@@ -263,10 +265,13 @@ namespace Ashlight {
             var obj = new GameObject(text, typeof(RectTransform), typeof(Image), typeof(Button)); obj.transform.SetParent(parent, false);
             var rect = obj.GetComponent<RectTransform>(); rect.anchorMin = new Vector2(min, .05f); rect.anchorMax = new Vector2(max, .22f); rect.offsetMin = rect.offsetMax = Vector2.zero;
             obj.GetComponent<Image>().color = new Color(.075f, .085f, .105f, .97f);
-            Label(obj.transform, text, Vector2.zero, Vector2.one, 28);
+            var caption = Label(obj.transform, text, Vector2.zero, Vector2.one, 26);
+            var captionRect = caption.GetComponent<RectTransform>();
+            captionRect.offsetMin = new Vector2(10, 5); captionRect.offsetMax = new Vector2(-10, -5);
+            caption.resizeTextMinSize = 16;
             var border = obj.AddComponent<Outline>(); border.effectColor = new Color(.39f,.30f,.17f,.8f); border.effectDistance = new Vector2(1,-1);
             var button = obj.GetComponent<Button>();
-            var colors = button.colors; colors.highlightedColor = new Color(1,.88f,.66f); colors.pressedColor = new Color(.74f,.58f,.35f); button.colors = colors;
+            var colors = button.colors; colors.highlightedColor = new Color(1,.88f,.66f); colors.pressedColor = new Color(.74f,.58f,.35f); colors.disabledColor = new Color(.48f,.48f,.48f,.8f); button.colors = colors;
             if (onPress) obj.AddComponent<PressAction>().Action = action;
             else button.onClick.AddListener(action);
             return button;
@@ -814,8 +819,8 @@ namespace Ashlight {
             var rect=dailyRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; dailyRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
             Label(dailyRoot.transform,"DAILY QUESTS\nResets at 00:00 UTC · Claim rewards before the next day.",new Vector2(.05f,.82f),new Vector2(.95f,.98f),25);
             dailyButtons=new Button[4];
-            for(int i=0;i<4;i++) { int quest=i; float y=.61f-i*.18f; dailyButtons[i]=MakeButton(dailyRoot.transform,"",.05f,.95f,()=> { if(battle.ClaimDaily(quest)) { SaveProgress(); RefreshDailyMenu(); } }); PlaceGearControl(dailyButtons[i],.05f,y,.95f,y+.15f); dailyButtons[i].GetComponentInChildren<Text>().fontSize=22; }
-            var done=MakeButton(dailyRoot.transform,"DONE",.7f,.95f,()=> { dailyRoot.SetActive(false); chapterTitle.text="ASHLIGHT — Chapters\n"+SummonWallet()+" | "+saveNotice; }); PlaceGearControl(done,.7f,.02f,.95f,.065f); dailyRoot.SetActive(false);
+            for(int i=0;i<4;i++) { int quest=i; float y=.64f-i*.16f; dailyButtons[i]=MakeButton(dailyRoot.transform,"",.05f,.95f,()=> { if(battle.ClaimDaily(quest)) { SaveProgress(); RefreshDailyMenu(); } }); PlaceGearControl(dailyButtons[i],.05f,y,.95f,y+.14f); dailyButtons[i].GetComponentInChildren<Text>().fontSize=22; }
+            var done=MakeButton(dailyRoot.transform,"DONE",.7f,.95f,()=> { dailyRoot.SetActive(false); chapterTitle.text="ASHLIGHT — Chapters\n"+SummonWallet()+" | "+saveNotice; }); PlaceGearControl(done,.7f,.025f,.95f,.115f); dailyRoot.SetActive(false);
             var open=MakeButton(chapterRoot.transform,"DAILY QUESTS",.76f,.98f,()=> { dailyRoot.transform.SetAsLastSibling(); dailyRoot.SetActive(true); RefreshDailyMenu(); }); PlaceGearControl(open,.76f,.025f,.98f,.135f);
         }
         void RefreshDailyMenu() {
@@ -1016,20 +1021,23 @@ namespace Ashlight {
             hero = allies[battle.ActiveIndex];
             int visibleTarget = presentingAction ? actionTarget : battle.SelectedEnemyIndex;
             var visibleEnemy = battle.Enemies[visibleTarget].Definition;
-            string roster = "";
-            for (int i = 0; i < party.Count; i++)
-                roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].LevelLabel + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = (battle.InTower?"TOWER "+battle.TowerFloor:"ASHLIGHT")+" — Wave "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" · Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " · "+visibleEnemy.Row+" "+visibleEnemy.Role+" " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
-                (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
+            status.text = (battle.InTower ? "TOWER " + battle.TowerFloor : "ASHLIGHT") + " · WAVE " + (battle.WaveIndex+1) + "/" + battle.WaveCount +
+                " · " + (visibleEnemy.IsBoss ? "BOSS: " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) +
+                "\nWeak: " + visibleEnemy.Weakness + " · Resists: " + visibleEnemy.Resistance + " · Acting: " + party[battle.ActiveIndex].Identity.Name +
+                "\n" + (battle.Current == Phase.Won ? "Victory! Continue to claim your rewards." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
                 bool visible=!atChapters && i<party.Count;
                 energyBars[i].transform.parent.gameObject.SetActive(visible); energyLabels[i].gameObject.SetActive(visible);
+                partyHealthBars[i].transform.parent.gameObject.SetActive(visible);
                 if(!visible) continue;
                 int energy=presentingAction && i==actionHero?actionEnergy:party[i].Energy;
+                SetMeter(partyHealthBars[i],party[i].Health/(float)party[i].Definition.MaxHealth);
+                partyHealthBars[i].color=party[i].Health <= party[i].Definition.MaxHealth*.25f ? new Color(.85f,.3f,.25f) : new Color(.35f,.7f,.43f);
+                energyLabels[i].color=i==battle.ActiveIndex ? new Color(1,.82f,.4f) : new Color(.9f,.86f,.77f);
                 SetMeter(energyBars[i],energy/(float)PartyHero.MaxEnergy);
                 energyBars[i].color=energy==PartyHero.MaxEnergy?new Color(1,.75f,.2f):new Color(.25f,.65f,.9f);
-                energyLabels[i].text=party[i].Identity.Name+" · "+(battle.IsFrontRow(i)?"FRONT":"BACK")+"\nHP "+party[i].Health+"/"+party[i].Definition.MaxHealth+" · Energy "+energy+"/100"+(energy==100?" · ULT":"");
+                energyLabels[i].text=party[i].Identity.Name+" · "+(battle.IsFrontRow(i)?"FRONT":"BACK")+"\n"+(party[i].Health<=0?"FALLEN":"HP "+party[i].Health+" · "+(energy==100?"ULT READY":"EN "+energy))+ (party[i].Status==Debuff.None?"":" · "+party[i].Status);
             }
             factionStatus.gameObject.SetActive(!atChapters); factionStatus.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary;
             bool preparing = !atChapters && battle.CanChangeParty;
