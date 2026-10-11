@@ -601,3 +601,9 @@ Validate in Unity at landscape phone aspect ratios, including notched screens: c
 Physical hits show sweeping slash arcs; Ranger attacks launch a projectile that arrives on the existing animation impact frame. Spell windups use a contracting charge ring. Ultimates have a larger charge, ground impact and camera pulse, with a focused slash for single-target attacks. Floating damage, healing and status messages stack vertically at each character and stay opaque longer before fading. Effects continue using the existing 48-object pool without Particle System dependencies.
 
 This changes presentation only; damage, healing, energy and combat timing rules remain the same. In Unity, check melee combos, ranged shots, elemental casts, both ultimate types, simultaneous party healing/status messages and Auto Play at 1×/2×/3×. Visual playback and mobile performance cannot be verified in this cloud environment.
+
+### First-time tutorial
+
+New players receive five contextual tips: choosing a chapter, preparing skills and using Auto Play, claiming victory rewards, summoning and forming a team, and continuing progression. Every tip can be acknowledged or the whole tutorial skipped. Acknowledged tips and an open tip's pending state are stored separately in `Ashlight.Tutorial.v1` PlayerPrefs; restarting resumes a pending tip. Existing battle saves are exempt by default. Use **Tutorial** beside the Tower button in Chapters to replay the tips without clearing game progress. Auto Play cannot take an action while a tip is open.
+
+Unity validation: try the Tutorial button on an existing save, acknowledge the welcome and enter a chapter, close the preparation tip and Enemy Preview, win and claim rewards, then summon. Also test Skip, reopening the game with a tip open, and restarting after acknowledging it. The tutorial does not grant rewards or alter save snapshots. Unity runtime and PlayerPrefs persistence checks remain to be run locally.
