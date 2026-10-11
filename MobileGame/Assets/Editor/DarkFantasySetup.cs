@@ -73,14 +73,11 @@ public static class DarkFantasySetup {
         AssetDatabase.Refresh();
         string atmospherePath=Generated+"/Materials/Atmosphere.mat";
         var atmosphere=AssetDatabase.LoadAssetAtPath<Material>(atmospherePath);
-        if(atmosphere==null) {
-            var shader=Shader.Find("Particles/Standard Unlit");
-            if(shader==null) throw new InvalidOperationException("Missing built-in particle shader.");
-            atmosphere=new Material(shader); AssetDatabase.CreateAsset(atmosphere,atmospherePath);
-        }
-        atmosphere.SetFloat("_Mode",2); atmosphere.SetInt("_SrcBlend",(int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        atmosphere.SetInt("_DstBlend",(int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); atmosphere.SetInt("_ZWrite",0);
-        atmosphere.EnableKeyword("_ALPHABLEND_ON"); atmosphere.renderQueue=3000; EditorUtility.SetDirty(atmosphere);
+        var atmosphereShader=Shader.Find("Sprites/Default");
+        if(atmosphereShader==null) throw new InvalidOperationException("Missing built-in sprite shader.");
+        if(atmosphere==null) { atmosphere=new Material(atmosphereShader); AssetDatabase.CreateAsset(atmosphere,atmospherePath); }
+        atmosphere.shader=atmosphereShader; atmosphere.mainTexture=Texture2D.whiteTexture;
+        atmosphere.renderQueue=3000; EditorUtility.SetDirty(atmosphere);
         foreach (string name in new[] { "Stone", "PaleStone", "Iron", "Blade", "Brass", "Leather", "Wool", "RustWool", "WineWool", "VioletWool", "MossWool", "SootWool", "AshWool", "Recess", "Ember", "Arcane", "Venom", "Light", "Bone", "RustIron", "Frost" }) Material(name);
         BuildActor("Rowan", "Assets/Resources/Heroes/Named/Knight_Common.prefab", 2f, 1f, 145f, rebuild);
         BuildActor("LanternWarden", "Assets/Resources/Enemies/LanternWarden.prefab", 2.35f, 1.3f, -145f, rebuild);

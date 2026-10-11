@@ -10,6 +10,9 @@ namespace Ashlight {
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
         readonly List<Material> ownedMaterials = new List<Material>();
         Light[] torches;
+        Mesh atmosphereMesh;
+        Vector3[] motePositions, moteVertices;
+        Camera stageCamera;
         ChapterStageDefinition theme;
         int chapter;
         static Color Tint(string hex) { Color color; ColorUtility.TryParseHtmlString(hex,out color); return color; }
@@ -50,6 +53,7 @@ namespace Ashlight {
             ownedMaterials.Add(fallback); return fallback;
         }
         void Build(Camera camera) {
+            stageCamera=camera;
             Frame(camera); camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Tint(theme.Sky);
             camera.allowHDR = false; camera.allowMSAA = true;
             // One shadow-casting sun plus two small, shadowless torch lights.
@@ -154,19 +158,44 @@ namespace Ashlight {
             }
         }
         void Atmosphere() {
-            var obj=new GameObject("Chapter atmosphere"); obj.transform.SetParent(transform,false); obj.transform.localPosition=new Vector3(0,4,0);
-            var particles=obj.AddComponent<ParticleSystem>(); particles.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main=particles.main; main.maxParticles=48; main.startLifetime=6; main.startSpeed=.22f;
-            main.startSize=chapter==1?.04f:.025f; Color particleColor=chapter==1?Tint(theme.Accent):Tint(theme.Flame); particleColor.a=.35f; main.startColor=particleColor;
-            main.gravityModifier=chapter==1?.12f:-.015f; main.simulationSpace=ParticleSystemSimulationSpace.Local;
-            var emission=particles.emission; emission.rateOverTime=chapter==1?7:4;
-            var shape=particles.shape; shape.shapeType=ParticleSystemShapeType.Box; shape.scale=new Vector3(11,1,8);
-            var renderer=obj.GetComponent<ParticleSystemRenderer>(); var template=Resources.Load<Material>("DarkFantasy/Materials/Atmosphere");
+            var obj=new GameObject("Chapter atmosphere",typeof(MeshFilter),typeof(MeshRenderer)); obj.transform.SetParent(transform,false);
+            int count=chapter==1?40:24;
+            motePositions=new Vector3[count]; moteVertices=new Vector3[count*4];
+            var triangles=new int[count*6]; var uv=new Vector2[count*4]; var colors=new Color[count*4];
+            var random=new System.Random(6101+chapter);
+            for(int i=0;i<count;i++) {
+                motePositions[i]=new Vector3((float)random.NextDouble()*11-5.5f,(float)random.NextDouble()*4.5f,(float)random.NextDouble()*8-3);
+                int v=i*4,t=i*6;
+                triangles[t]=v; triangles[t+1]=v+1; triangles[t+2]=v+2; triangles[t+3]=v; triangles[t+4]=v+2; triangles[t+5]=v+3;
+                uv[v]=Vector2.zero; uv[v+1]=Vector2.right; uv[v+2]=Vector2.one; uv[v+3]=Vector2.up;
+                for(int j=0;j<4;j++) colors[v+j]=Color.white;
+            }
+            atmosphereMesh=new Mesh { name="Atmosphere motes" }; atmosphereMesh.MarkDynamic();
+            atmosphereMesh.vertices=moteVertices; atmosphereMesh.triangles=triangles; atmosphereMesh.uv=uv; atmosphereMesh.colors=colors;
+            atmosphereMesh.bounds=new Bounds(new Vector3(0,2.25f,1),new Vector3(12,6,9)); ownedMeshes.Add(atmosphereMesh);
+            obj.GetComponent<MeshFilter>().sharedMesh=atmosphereMesh;
+            var template=Resources.Load<Material>("DarkFantasy/Materials/Atmosphere");
             var material=template!=null?new Material(template):new Material(Shader.Find("Sprites/Default"));
-            ownedMaterials.Add(material); renderer.sharedMaterial=material; renderer.shadowCastingMode=ShadowCastingMode.Off; renderer.receiveShadows=false;
-            particles.Play();
+            var color=chapter==1?Tint(theme.Accent):Tint(theme.Flame); color.a=.35f; material.color=color;
+            ownedMaterials.Add(material); var renderer=obj.GetComponent<MeshRenderer>(); renderer.sharedMaterial=material;
+            renderer.shadowCastingMode=ShadowCastingMode.Off; renderer.receiveShadows=false;
+            UpdateAtmosphere(0);
+        }
+        void UpdateAtmosphere(float delta) {
+            if(atmosphereMesh==null || stageCamera==null) return;
+            float size=chapter==1?.022f:.014f;
+            Vector3 right=stageCamera.transform.right*size, up=stageCamera.transform.up*size;
+            for(int i=0;i<motePositions.Length;i++) {
+                var point=motePositions[i]; point.y+=delta*(chapter==1?-.35f:.09f);
+                point.x+=delta*Mathf.Sin(Time.time*.5f+i)*.04f;
+                if(point.y<0) point.y=4.5f; if(point.y>4.5f) point.y=0;
+                motePositions[i]=point; int v=i*4;
+                moteVertices[v]=point-right-up; moteVertices[v+1]=point+right-up; moteVertices[v+2]=point+right+up; moteVertices[v+3]=point-right+up;
+            }
+            atmosphereMesh.vertices=moteVertices;
         }
         void Update() {
+            UpdateAtmosphere(Time.deltaTime);
             if (torches == null) return;
             for (int i = 0; i < torches.Length; i++) torches[i].intensity = 2.7f + Mathf.Sin(Time.time*3.1f+i*1.6f)*.08f;
         }
