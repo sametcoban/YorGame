@@ -105,7 +105,9 @@ namespace Ashlight {
         readonly Text[] resultsHeroes=new Text[Battle.MaxPartySize];
         readonly GameObject[] resultsHeroPanels=new GameObject[Battle.MaxPartySize];
         GameObject equipmentRoot;
-        Text equipmentTitle;
+        Text equipmentTitle, gearComparison;
+        string gearSelected, gearNotice="";
+        Button gearEquip, gearBest;
         readonly Button[] gearHeroes=new Button[Battle.MaxPartySize],gearSlots=new Button[3],gearChoices=new Button[6];
         readonly System.Collections.Generic.List<GearDefinition> gearCandidates=new System.Collections.Generic.List<GearDefinition>();
         GearSlot browsingSlot;
@@ -813,35 +815,53 @@ namespace Ashlight {
             equipmentTitle=Label(equipmentRoot.transform,"",new Vector2(.03f,.84f),new Vector2(.97f,.99f),22);
             for(int i=0;i<gearHeroes.Length;i++) {
                 int index=i; float left=.025f+i*.194f;
-                gearHeroes[i]=MakeButton(equipmentRoot.transform,"",left,left+.18f,()=> { if(battle.SelectHero(index)) RefreshEquipment(); });
+                gearHeroes[i]=MakeButton(equipmentRoot.transform,"",left,left+.18f,()=> { if(battle.SelectHero(index)) { gearSelected=null; gearNotice=""; RefreshEquipment(); } });
                 PlaceGearControl(gearHeroes[i],left,.755f,left+.18f,.825f);
             }
             for(int i=0;i<3;i++) {
                 int index=i; float left=.04f+i*.32f;
-                gearSlots[i]=MakeButton(equipmentRoot.transform,"",left,left+.28f,()=> { browsingSlot=(GearSlot)index; gearPage=0; RefreshEquipment(); });
+                gearSlots[i]=MakeButton(equipmentRoot.transform,"",left,left+.28f,()=> { browsingSlot=(GearSlot)index; gearPage=0; gearSelected=null; gearNotice=""; RefreshEquipment(); });
                 PlaceGearControl(gearSlots[i],left,.66f,left+.28f,.74f);
             }
+            gearComparison=Label(equipmentRoot.transform,"",new Vector2(.04f,.56f),new Vector2(.96f,.65f),20);
             for(int i=0;i<6;i++) {
-                int index=i; float left=i%2==0?.04f:.52f; float bottom=.475f-i/2*.16f;
-                gearChoices[i]=MakeButton(equipmentRoot.transform,"",left,left+.44f,()=> { int entry=gearPage*6+index; if(entry<gearCandidates.Count && battle.EquipGear(battle.Party[battle.ActiveIndex].Identity.Id,browsingSlot,gearCandidates[entry].Id)) { SaveProgress(); RefreshEquipment(); } });
-                PlaceGearControl(gearChoices[i],left,bottom,left+.44f,bottom+.14f);
+                int index=i; float left=i%2==0?.04f:.52f; float bottom=.43f-i/2*.14f;
+                gearChoices[i]=MakeButton(equipmentRoot.transform,"",left,left+.44f,()=> { int entry=gearPage*6+index; if(entry<gearCandidates.Count) { gearSelected=gearCandidates[entry].Id; gearNotice=""; RefreshEquipment(); } });
+                PlaceGearControl(gearChoices[i],left,bottom,left+.44f,bottom+.12f);
+                gearChoices[i].GetComponentInChildren<Text>().resizeTextMaxSize=20;
             }
-            gearPrevious=MakeButton(equipmentRoot.transform,"PREVIOUS",.04f,.25f,()=> { gearPage--; RefreshEquipment(); }); PlaceGearControl(gearPrevious,.04f,.035f,.25f,.12f);
-            var unequip=MakeButton(equipmentRoot.transform,"UNEQUIP",.27f,.49f,()=> { if(battle.EquipGear(battle.Party[battle.ActiveIndex].Identity.Id,browsingSlot,null)) { SaveProgress(); RefreshEquipment(); } }); PlaceGearControl(unequip,.27f,.035f,.49f,.12f);
-            gearNext=MakeButton(equipmentRoot.transform,"NEXT",.51f,.73f,()=> { gearPage++; RefreshEquipment(); }); PlaceGearControl(gearNext,.51f,.035f,.73f,.12f);
-            var done=MakeButton(equipmentRoot.transform,"DONE",.75f,.96f,()=>equipmentRoot.SetActive(false)); PlaceGearControl(done,.75f,.035f,.96f,.12f);
+            gearPrevious=MakeButton(equipmentRoot.transform,"<",.04f,.12f,()=> { gearPage--; gearSelected=null; RefreshEquipment(); }); PlaceGearControl(gearPrevious,.04f,.035f,.12f,.12f);
+            gearEquip=MakeButton(equipmentRoot.transform,"EQUIP",.14f,.34f,()=> { if(gearSelected!=null && battle.EquipGear(battle.Party[battle.ActiveIndex].Identity.Id,browsingSlot,gearSelected)) { gearNotice="Equipped "+GearDefinition.Find(gearSelected).Name+"."; SaveProgress(); RefreshEquipment(); } }); PlaceGearControl(gearEquip,.14f,.035f,.34f,.12f);
+            gearBest=MakeButton(equipmentRoot.transform,"EQUIP BEST",.36f,.56f,()=> {
+                bool changed=battle.EquipBestGear(battle.Party[battle.ActiveIndex].Identity.Id);
+                gearNotice=changed?"Best available gear equipped across all three slots.":"Already using the best available gear for this hero.";
+                if(changed) SaveProgress(); RefreshEquipment();
+            }); PlaceGearControl(gearBest,.36f,.035f,.56f,.12f);
+            var unequip=MakeButton(equipmentRoot.transform,"UNEQUIP",.58f,.76f,()=> { if(battle.EquipGear(battle.Party[battle.ActiveIndex].Identity.Id,browsingSlot,null)) { gearNotice="Slot cleared."; SaveProgress(); RefreshEquipment(); } }); PlaceGearControl(unequip,.58f,.035f,.76f,.12f);
+            gearNext=MakeButton(equipmentRoot.transform,">",.78f,.86f,()=> { gearPage++; gearSelected=null; RefreshEquipment(); }); PlaceGearControl(gearNext,.78f,.035f,.86f,.12f);
+            var done=MakeButton(equipmentRoot.transform,"DONE",.88f,.96f,()=>equipmentRoot.SetActive(false)); PlaceGearControl(done,.88f,.035f,.96f,.12f);
             equipmentRoot.SetActive(false);
         }
         void OpenEquipment() {
             if(atChapters || !battle.CanChangeParty) return;
-            selectionRoot.SetActive(false); gearPage=0; equipmentRoot.transform.SetAsLastSibling(); equipmentRoot.SetActive(true); RefreshEquipment();
+            selectionRoot.SetActive(false); gearPage=0; gearSelected=null; gearNotice=""; equipmentRoot.transform.SetAsLastSibling(); equipmentRoot.SetActive(true); RefreshEquipment();
         }
         void RefreshEquipment() {
             var member=battle.Party[battle.ActiveIndex]; gearCandidates.Clear();
             foreach(var item in GearDefinition.Catalog) if(item.Slot==browsingSlot && battle.GearCount(item.Id)>0) gearCandidates.Add(item);
+            gearCandidates.Sort((a,b)=> { int order=b.Quality.CompareTo(a.Quality); return order!=0?order:string.CompareOrdinal(a.Id,b.Id); });
             gearPage=Mathf.Clamp(gearPage,0,Mathf.Max(0,(gearCandidates.Count-1)/6));
+            bool onPage=false;
+            for(int i=gearPage*6;i<System.Math.Min(gearCandidates.Count,gearPage*6+6);i++) if(gearCandidates[i].Id==gearSelected) onPage=true;
+            if(!onPage) gearSelected=gearCandidates.Count>0?gearCandidates[gearPage*6].Id:null;
             var equipped=member.Gear(browsingSlot);
-            equipmentTitle.text=member.Identity.Name+" · EQUIPMENT · HP "+member.Definition.MaxHealth+" · Attack "+member.Definition.AttackDamage+"\n"+browsingSlot+": "+(equipped==null?"Empty":equipped.Description)+"\n"+(gearCandidates.Count==0?"Win battles and press Continue to collect gear.":"Page "+(gearPage+1)+" · Each owned copy can equip one hero, including reserves.");
+            equipmentTitle.text=member.Identity.Name+" · EQUIPMENT · HP "+member.Definition.MaxHealth+" · Attack "+member.Definition.AttackDamage+"\n"+browsingSlot+": "+(equipped==null?"Empty":equipped.Description)+"\n"+(gearNotice!=""?gearNotice:gearCandidates.Count==0?"Win battles and press Continue to collect gear.":"Page "+(gearPage+1)+" · Select an item to compare, then Equip.");
+            var selected=gearSelected==null?null:GearDefinition.Find(gearSelected);
+            var preview=selected==null?null:battle.PreviewGear(member.Identity.Id,browsingSlot,selected.Id);
+            gearComparison.text=preview==null?"No gear in this slot yet.":selected.Name+" · "+selected.Quality+"\nHP "+member.Definition.MaxHealth+" → "+preview.Definition.MaxHealth+" · ATK "+member.Definition.AttackDamage+" → "+preview.Definition.AttackDamage+" · Armor "+member.Protection+" → "+preview.Protection+" · Power "+member.Power+" → "+preview.Power;
+            if(preview!=null && browsingSlot==GearSlot.Accessory) gearComparison.text+="\n"+selected.Element+" damage "+Mathf.RoundToInt((member.DamageBoost(selected.Element)-1)*100)+"% → "+Mathf.RoundToInt((preview.DamageBoost(selected.Element)-1)*100)+"%";
+            gearEquip.interactable=battle.CanChangeParty && selected!=null && selected!=equipped && battle.AvailableGear(selected.Id)>0;
+            gearBest.interactable=battle.CanChangeParty;
             for(int i=0;i<gearHeroes.Length;i++) {
                 gearHeroes[i].gameObject.SetActive(i<battle.Party.Count);
                 if(i<battle.Party.Count) gearHeroes[i].GetComponentInChildren<Text>().text=(i==battle.ActiveIndex?"▶ ":"")+battle.Party[i].Identity.Name;
@@ -853,10 +873,12 @@ namespace Ashlight {
             for(int i=0;i<6;i++) {
                 int entry=gearPage*6+i; gearChoices[i].gameObject.SetActive(entry<gearCandidates.Count);
                 if(entry>=gearCandidates.Count) continue;
-                var item=gearCandidates[entry]; int used=0;
-                foreach(var hero in battle.Recruits) if(battle.HeroProgress(hero.Id).Gear(browsingSlot)==item) used++;
-                gearChoices[i].GetComponentInChildren<Text>().text=item.Description+"\n"+(item==equipped?"EQUIPPED · ":"")+"Available "+(battle.GearCount(item.Id)-used)+" / Owned "+battle.GearCount(item.Id);
-                gearChoices[i].interactable=item!=equipped && used<battle.GearCount(item.Id);
+                var item=gearCandidates[entry]; int available=battle.AvailableGear(item.Id);
+                gearChoices[i].GetComponentInChildren<Text>().text=item.Description+"\n"+(item==equipped?"EQUIPPED · ":available==0?"IN USE · ":"")+"Available "+available+" / Owned "+battle.GearCount(item.Id);
+                gearChoices[i].GetComponentInChildren<Text>().color=RarityTint(item.Quality);
+                gearChoices[i].GetComponent<Outline>().effectColor=RarityTint(item.Quality);
+                gearChoices[i].GetComponent<Image>().color=item.Id==gearSelected?new Color(.28f,.23f,.14f):new Color(.075f,.085f,.105f);
+                gearChoices[i].interactable=true;
             }
             gearPrevious.interactable=gearPage>0; gearNext.interactable=(gearPage+1)*6<gearCandidates.Count;
         }

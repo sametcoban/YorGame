@@ -644,3 +644,11 @@ Single and ten-pull summons briefly show sealed cards, then reveal them in seque
 **Skip Reveal** immediately displays the complete result. **Done** can close during the reveal. Repeat summons are disabled while revealing, with a method-level guard against duplicate taps. The complete pull is resolved once and saved before the presentation begins; reveal, skip, close, and interruption only update presentation. The tutorial's summon tip appears after the reveal instead of hiding it.
 
 Unity testing remains required for single/ten pulls, Rare/Epic/Legendary cues, duplicates, Skip during the first or last card, Done during a reveal, rapid taps, muted sound, and application interruption. Summon odds, pity, prices, and grants remain unchanged.
+
+### Equipment management polish
+
+Item cards use rarity-colored text/borders and show owned/available copies plus Equipped/In Use status. Select a card to preview before/after HP, attack, armor, power, and accessory elemental boost, then tap **Equip**. Browsing and comparison do not change gear or combat resources. Higher-rarity items sort first.
+
+**Equip Best** updates all three slots for the selected named hero using available inventory copies; it never removes equipment from another active or reserve hero. Weapons/armor use estimated hero power; accessories use the boost to the hero's basic attack, two equipped skills, and ultimate. This is a general recommendation, independent of any specific enemy's weakness. Equal scores retain the current item, and accessories that boost no currently used damaging element are left unequipped when the slot is empty. Gear changes still lock after combat begins.
+
+Pure C# checks cover isolated previews, reservations, released copies, empty/invalid selections, accessory usefulness and changes in equipped skills, equal-score stability, save round-trips, and combat locks. Unity layout and touch tests remain required: compare/equip/unequip, page six-item lists, switch heroes and slots, test Equip Best on a five-hero team, and inspect long accessory descriptions.

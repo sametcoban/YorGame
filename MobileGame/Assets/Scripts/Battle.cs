@@ -468,6 +468,45 @@ namespace Ashlight {
             if(!changed) return false;
             hero.RefreshStats(); hero.Restore(); return true;
         }
+        public int AvailableGear(string itemId) {
+            var item=GearDefinition.Find(itemId); if(item==null) return 0;
+            int used=0; foreach(var recruit in recruits) { var owner=HeroProgress(recruit.Id); if(owner!=null && owner.Gear(item.Slot)==item) used++; }
+            return Math.Max(0,GearCount(itemId)-used);
+        }
+        public PartyHero PreviewGear(string heroId,GearSlot slot,string itemId) {
+            if(heroId==null) return null;
+            var member=HeroProgress(heroId);
+            if(member==null || (int)slot<0 || (int)slot>2) return null;
+            var item=itemId==null?null:GearDefinition.Find(itemId);
+            if(itemId!=null && (item==null || item.Slot!=slot || GearCount(itemId)==0)) return null;
+            var clone=PreviewCopy(member,member.FactionBonus); clone.SetGear(slot,item); return clone;
+        }
+        double EquipmentScore(PartyHero member,GearSlot slot,GearDefinition item) {
+            if(slot!=GearSlot.Accessory) {
+                var clone=PreviewCopy(member,member.FactionBonus); clone.SetGear(slot,item); return clone.Power;
+            }
+            if(item==null) return 0;
+            double damage=member.Identity.Affinity==item.Element?member.Definition.AttackDamage:0;
+            for(int skill=0;skill<2;skill++) if((member.Skill(skill).Affinity??member.Identity.Affinity)==item.Element) damage+=member.Skill(skill).Damage;
+            if(member.Ultimate.Affinity==item.Element) damage+=member.Ultimate.Damage*member.EnergyGain/100.0*(member.Ultimate.AreaDamage?1.5:1);
+            return damage*item.ElementBoost;
+        }
+        public bool EquipBestGear(string heroId) {
+            if(heroId==null || !campaign || (!CanChangeParty && !CampaignComplete)) return false;
+            var member=HeroProgress(heroId); if(member==null) return false;
+            bool changed=false;
+            for(int index=0;index<3;index++) {
+                var slot=(GearSlot)index; var current=member.Gear(slot); var best=current;
+                double score=EquipmentScore(member,slot,current);
+                foreach(var item in GearDefinition.Catalog) {
+                    if(item.Slot!=slot || item==current || AvailableGear(item.Id)==0) continue;
+                    double candidate=EquipmentScore(member,slot,item);
+                    if(candidate>score) { best=item; score=candidate; }
+                }
+                if(best!=current && EquipGear(heroId,slot,best.Id)) changed=true;
+            }
+            return changed;
+        }
         public bool EquipGear(string heroId,GearSlot slot,string itemId) {
             if(!campaign || (!CanChangeParty && !CampaignComplete) || (int)slot<0 || (int)slot>2) return false;
             var member=HeroProgress(heroId); var item=itemId==null?null:GearDefinition.Find(itemId);

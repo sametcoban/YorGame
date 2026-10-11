@@ -1486,6 +1486,46 @@ class BattleChecks {
   Check(soloUltimate.LastUltimate!=null && !soloUltimate.LastUltimate.AreaDamage && soloUltimate.LastUltimateDamage[2]>0 && soloUltimate.LastUltimateDamage[0]==0 && soloUltimate.LastUltimateDamage[1]==0);
   var thirdTargetSave=soloUltimate.ExportProgress(); var thirdReload=new Battle(true,enableWaves:true,enableFactions:true);
   Check(thirdReload.RestoreProgress(thirdTargetSave) && thirdReload.Enemies.Count==3 && thirdReload.WaveIndex==0 && thirdReload.Encounter==31);
+  // Equipment previews are isolated, and automatic gearing respects reservations and useful elements.
+  var bestGear=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},20);
+  var bestGearSave=bestGear.ExportProgress();
+  bestGearSave.inventory=new[]{
+   new GearStackData{id="Weapon_Rare_Physical",count=1},new GearStackData{id="Weapon_Epic_Fire",count=1},
+   new GearStackData{id="Armor_Legendary_Cold",count=1},new GearStackData{id="Armor_Common_Physical",count=1},
+   new GearStackData{id="Accessory_Legendary_Cold",count=1},new GearStackData{id="Accessory_Common_Fire",count=1},new GearStackData{id="Accessory_Epic_Fire",count=1}
+  };
+  foreach(var loadout in bestGearSave.loadouts) {
+   if(loadout.id=="Knight_Common") loadout.gear=new[]{"Weapon_Rare_Physical",null,"Accessory_Legendary_Cold"};
+   if(loadout.id=="Sorceress_Legendary") loadout.gear=new[]{null,"Armor_Legendary_Cold",null};
+  }
+  Check(bestGear.RestoreProgress(bestGearSave));
+  Check(bestGear.AvailableGear("Armor_Legendary_Cold")==0 && bestGear.AvailableGear("Weapon_Epic_Fire")==1 && bestGear.AvailableGear("unknown")==0 && bestGear.AvailableGear(null)==0);
+  bestGear.Party[0].Health=42; bestGear.Party[0].Energy=50; bestGear.Party[0].Guard=9;
+  int oldGearPower=bestGear.Party[0].Power;
+  var armorPreview=bestGear.PreviewGear("Knight_Common",GearSlot.Armor,"Armor_Legendary_Cold");
+  Check(armorPreview!=null && armorPreview.Definition.MaxHealth>bestGear.Party[0].Definition.MaxHealth && armorPreview.Protection==10);
+  Check(bestGear.Party[0].Health==42 && bestGear.Party[0].Energy==50 && bestGear.Party[0].Guard==9 && bestGear.Party[0].Power==oldGearPower && bestGear.Party[0].Gear(GearSlot.Armor)==null);
+  Check(bestGear.PreviewGear(null,GearSlot.Armor,null)==null && bestGear.PreviewGear("missing",GearSlot.Armor,null)==null && bestGear.PreviewGear("Knight_Common",(GearSlot)99,null)==null);
+  Check(bestGear.PreviewGear("Knight_Common",GearSlot.Armor,"Weapon_Epic_Fire")==null && bestGear.PreviewGear("Knight_Common",GearSlot.Armor,"Armor_Rare_Fire")==null);
+  Check(!bestGear.EquipBestGear("Knight_Common")); bestGear.Reset();
+  Check(bestGear.EquipBestGear("Knight_Common"));
+  Check(bestGear.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Epic_Fire" && bestGear.Party[0].Gear(GearSlot.Armor).Id=="Armor_Common_Physical" && bestGear.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Epic_Fire");
+  Check(bestGear.HeroProgress("Sorceress_Legendary").Gear(GearSlot.Armor).Id=="Armor_Legendary_Cold" && bestGear.AvailableGear("Armor_Legendary_Cold")==0);
+  Check(bestGear.AvailableGear("Weapon_Rare_Physical")==1 && bestGear.AvailableGear("Accessory_Legendary_Cold")==1 && bestGear.AvailableGear("Accessory_Epic_Fire")==0);
+  Check(!bestGear.EquipBestGear("Knight_Common") && !bestGear.EquipBestGear(null) && !bestGear.EquipBestGear("missing"));
+  Check(bestGear.EquipBestGear("Cleric_Common") && bestGear.HeroProgress("Cleric_Common").Gear(GearSlot.Accessory)==null);
+  var bestReload=new Battle(true,enableWaves:true,enableFactions:true);
+  Check(bestReload.RestoreProgress(bestGear.ExportProgress()) && bestReload.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Epic_Fire" && bestReload.AvailableGear("Weapon_Epic_Fire")==0);
+  Check(bestGear.Attack() && !bestGear.EquipBestGear("Knight_Common") && bestGear.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Epic_Fire");
+  var tiedGearSave=bestReload.ExportProgress();
+  var tiedInventory=new System.Collections.Generic.List<GearStackData>(tiedGearSave.inventory); tiedInventory.Add(new GearStackData{id="Weapon_Epic_Poison",count=1}); tiedGearSave.inventory=tiedInventory.ToArray();
+  foreach(var loadout in tiedGearSave.loadouts) if(loadout.id=="Knight_Common") loadout.gear[0]="Weapon_Epic_Poison";
+  Check(bestReload.RestoreProgress(tiedGearSave) && !bestReload.EquipBestGear("Knight_Common") && bestReload.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Epic_Poison");
+  var elementGear=PassiveBattle(10,new[]{"Sorceress_Common"}); var elementGearSave=elementGear.ExportProgress();
+  foreach(var loadout in elementGearSave.loadouts) if(loadout.id=="Sorceress_Common") { loadout.firstSkill=2; loadout.secondSkill=3; }
+  elementGearSave.inventory=new[]{new GearStackData{id="Accessory_Common_Cold",count=1},new GearStackData{id="Accessory_Legendary_Lightning",count=1}};
+  Check(elementGear.RestoreProgress(elementGearSave) && elementGear.EquipBestGear("Sorceress_Common") && elementGear.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Common_Cold");
+  Check(elementGear.EquipSkill(0,0) && elementGear.EquipBestGear("Sorceress_Common") && elementGear.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Legendary_Lightning");
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
