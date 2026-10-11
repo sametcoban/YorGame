@@ -258,9 +258,30 @@ namespace Ashlight {
                 if (visual != null) visual.Play("Windup");
                 if (art != null && art.SourceModel == "AshHound") sounds.Play("HoundGrowl",.7f);
                 else if (art != null && art.IsRanged) sounds.Play("Charge",.6f);
-                message = actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + ".";
+                message = skill.Action!=EnemyAction.Attack ? actor.name+" prepares "+skill.Name+"." : actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + ".";
                 yield return new WaitForSeconds(1.2f);
                 if (!battle.BeginStrike()) break;
+                if(skill.Action!=EnemyAction.Attack) {
+                    if(visual!=null) visual.Play("Cast");
+                    effects.Ring(actor.position,skill.Element);
+                    sounds.Play("Charge",.6f);
+                    yield return new WaitForSeconds(.45f);
+                    battle.FinishStrike();
+                    int recipient=battle.LastMechanicTarget;
+                    if(skill.Action==EnemyAction.Charge) {
+                        effects.Floating(actor.position,"CHARGING · DEAL 60 DAMAGE",Element.Fire);
+                        message="Interrupt Cinder Sovereign: deal 60 damage before his next attack!";
+                    } else if(skill.Action==EnemyAction.HealPartner) {
+                        effects.Heal(foes[recipient].position,battle.LastEnemyHealing); sounds.Play("Heal");
+                        message="Thorn Queen restores "+battle.LastEnemyHealing+" HP to "+battle.Enemies[recipient].Definition.Name+".";
+                    } else {
+                        effects.Guard(foes[recipient].position); sounds.Play("Guard");
+                        effects.Floating(foes[recipient].position,"SHIELD 60",Element.Light);
+                        message="Eclipse Veil protects "+battle.Enemies[recipient].Definition.Name+". Attack the other boss.";
+                    }
+                    presentation.Warning(false);
+                    continue;
+                }
                 strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " uses " + skill.Name + " on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + "!";
                 presentation.Warning(true);
                 if (visual != null) visual.Play("Attack");
@@ -313,6 +334,10 @@ namespace Ashlight {
                 if (battle.Current == Phase.Won) SaveProgress();
             }
             else message = "Mistimed defense. React after FLASH.";
+        }
+        string EnemyMechanicLabel(int index) {
+            var foe=battle.Enemies[index];
+            return (foe.Shield>0?" · SHIELD "+foe.Shield:"") + (foe.Charged?" · CHARGE "+foe.ChargeDamage+"/60":"");
         }
         int VisibleEnemyHealth(int index) {
             return presentingAction ? Mathf.Max(0,actionEnemyBefore[index]-shownEnemyDamage[index]) : battle.Enemies[index].Health;
@@ -696,7 +721,7 @@ namespace Ashlight {
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].Level + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = "ASHLIGHT — Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
+            status.text = "ASHLIGHT — Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
@@ -753,7 +778,7 @@ namespace Ashlight {
                 if (!paired) continue;
                 var foe = battle.Enemies[i];
                 enemyTargets[i].interactable = battle.Current == Phase.Player && !presentingAction && foe.Health > 0;
-                enemyTargets[i].GetComponentInChildren<Text>().text = (i == visibleTarget ? "▶ " : "") + foe.Definition.Name + " " + VisibleEnemyHealth(i) + "/" + foe.Definition.MaxHealth;
+                enemyTargets[i].GetComponentInChildren<Text>().text = (i == visibleTarget ? "▶ " : "") + foe.Definition.Name + " " + VisibleEnemyHealth(i) + "/" + foe.Definition.MaxHealth + EnemyMechanicLabel(i);
                 enemyTargets[i].GetComponent<Image>().color = i == visibleTarget ? new Color(.31f,.25f,.15f) : new Color(.075f,.085f,.105f);
             }
             soundButton.GetComponentInChildren<Text>().text=sounds.Muted?"SOUND OFF":"SOUND ON";
@@ -769,11 +794,11 @@ namespace Ashlight {
                 nextAutoAction = Time.time+1.3f;
             }
             float elapsed = Time.time - strikeTime;
-            bool striking = !presentingAction && battle.Current == Phase.EnemyStrike;
+            bool striking = !presentingAction && battle.Current == Phase.EnemyStrike && battle.IncomingSkill.Action==EnemyAction.Attack;
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);
             SetMeter(timing, 1 - elapsed / .4f);
             timing.color = elapsed <= .18f ? Color.yellow : new Color(.2f, .7f, .85f);
-            cue.text = presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.PartyWide ? " — ALL HEROES" : " — " + battle.Party[battle.ActiveIndex].Identity.Name) :
+            cue.text = presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.Action!=EnemyAction.Attack ? "" : battle.IncomingSkill.PartyWide ? " — ALL HEROES" : " — " + battle.Party[battle.ActiveIndex].Identity.Name) :
                 striking && !battle.Defended ? (elapsed <= .18f ? "RESOLVING DEFENSE" : elapsed <= .4f ? "RESOLVING DEFENSE" : "DEFENSE MISSED") :
                 Time.time < feedbackUntil ? (battle.Defended ? (parried ? "PARRY + COUNTER" : "DODGED") : "HIT −" + lastHitDamage) : "";
             cue.color = Time.time < feedbackUntil && battle.Defended ? Color.cyan : Color.yellow;

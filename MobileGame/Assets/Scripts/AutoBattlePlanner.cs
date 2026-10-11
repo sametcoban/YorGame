@@ -18,9 +18,16 @@ namespace Ashlight {
             return roll < parry ? DefenseOutcome.Parry : roll < parry+dodge ? DefenseOutcome.Dodge : DefenseOutcome.Miss;
         }
         public static int ChooseTarget(Battle battle) {
-            int target = battle.SelectedEnemyIndex;
-            for (int i=0; i<battle.Enemies.Count; i++)
-                if (battle.Enemies[i].Health > 0 && (battle.Enemies[target].Health == 0 || battle.Enemies[i].Health < battle.Enemies[target].Health)) target=i;
+            int target = -1, bestPriority = -1;
+            for (int i=0; i<battle.Enemies.Count; i++) {
+                var foe=battle.Enemies[i];
+                if(foe.Health==0) continue;
+                int priority=foe.Charged?3:foe.Shield>0?0:foe.Definition.Name=="Thorn Queen"?2:1;
+                if(target<0 || priority>bestPriority || (priority==bestPriority && foe.Health<battle.Enemies[target].Health)) {
+                    target=i; bestPriority=priority;
+                }
+            }
+            if(target<0) return battle.SelectedEnemyIndex;
             return target;
         }
         public static int ChooseSkill(Battle battle) {

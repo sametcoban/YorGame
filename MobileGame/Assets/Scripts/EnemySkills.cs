@@ -1,14 +1,16 @@
 using System;
 namespace Ashlight {
     public enum Debuff { None, Burn, Poison, Chill, Shock, Weaken }
+    public enum EnemyAction { Attack, Charge, HealPartner, Shield }
     public sealed class EnemySkill {
         public readonly string Name;
         public readonly int Damage;
         public readonly Element Element;
         public readonly bool PartyWide;
         public readonly Debuff Status;
-        public EnemySkill(string name, int damage, Element element, bool partyWide=false, Debuff status=Debuff.None) {
-            Name=name; Damage=damage; Element=element; PartyWide=partyWide; Status=status;
+        public readonly EnemyAction Action;
+        public EnemySkill(string name, int damage, Element element, bool partyWide=false, Debuff status=Debuff.None, EnemyAction action=EnemyAction.Attack) {
+            Action=action; Name=name; Damage=damage; Element=element; PartyWide=partyWide; Status=status;
         }
     }
     public static class EnemySkills {

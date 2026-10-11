@@ -3,6 +3,17 @@ using Ashlight;
 class BattleChecks {
  static int count;
  static void Check(bool ok) { count++; if(!ok) throw new Exception("Failed check " + count); }
+ static Battle BossBattle(int encounter) {
+  var battle=new Battle(true); var save=battle.ExportProgress(); save.encounter=encounter;
+  Check(battle.RestoreProgress(save)); return battle;
+ }
+ static void ResolveEnemies(Battle battle) {
+  while(battle.Current==Phase.EnemyWindup) {
+   Check(battle.BeginStrike());
+   if(battle.IncomingSkill.Action==EnemyAction.Attack) Check(battle.Defend(false,.1f));
+   battle.FinishStrike();
+  }
+ }
  static void Main() {
   var b = new Battle();
   Check(b.Current == Phase.Player && b.HeroHealth == 100);
@@ -372,7 +383,7 @@ class BattleChecks {
    Check(run.RestoreProgress(snapshot));int turns=0;
    while(run.Current!=Phase.Won && turns++<300) {
     if(run.Current==Phase.Player) Check(run.Attack());
-    else { Check(run.BeginStrike() && run.Defend(false,.1f));run.FinishStrike(); }
+    else { Check(run.BeginStrike()); if(run.IncomingSkill.Action==EnemyAction.Attack) Check(run.Defend(false,.1f)); run.FinishStrike(); }
    }
    Check(run.Current==Phase.Won && run.Enemies[0].Health==0 && run.Enemies[1].Health==0);
    Check(run.ContinueAfterVictory() && run.Encounter==(chapter+1)*5 && run.Crystals==350);
@@ -429,10 +440,11 @@ class BattleChecks {
   Check(skillBattle.Attack()); skillBattle.BeginStrike();
   Check(skillBattle.Defend(false,.1f)); skillBattle.FinishStrike();
   skillBattle.BeginStrike(); Check(skillBattle.Defend(false,.1f)); skillBattle.FinishStrike();
-  Check(skillBattle.Attack()); Check(skillBattle.IncomingSkill.Status==Debuff.Poison);
+  Check(skillBattle.Attack()); Check(skillBattle.IncomingSkill.Action==EnemyAction.HealPartner);
   skillBattle.BeginStrike(); skillBattle.FinishStrike();
-  Check(skillBattle.Party[0].Status==Debuff.Poison && skillBattle.Party[0].StatusRounds==2);
-  skillBattle.BeginStrike(); Check(skillBattle.Defend(false,.1f)); skillBattle.FinishStrike();
+  Check(skillBattle.IncomingSkill.Status==Debuff.Poison);
+  skillBattle.BeginStrike(); skillBattle.FinishStrike();
+  Check(skillBattle.Party[0].Status==Debuff.Poison);
   Check(skillBattle.LastStatusDamage[0]==8 && skillBattle.Party[0].StatusRounds==1);
   skillBattle.Reset(); Check(skillBattle.Party[0].Status==Debuff.None && skillBattle.Enemies[0].CompletedStrikes==0);
   // Party-wide skills defend each living hero independently and consume guard only on a hit.
@@ -680,6 +692,62 @@ class BattleChecks {
   unityShape.results=new PendingResultsData{damage=new[]{1}}; Check(!new Battle(true).RestoreProgress(unityShape));
   unityShape.results=null; unityShape.loadouts[0].gear[0]="missing_item"; Check(!new Battle(true).RestoreProgress(unityShape));
   unityShape.loadouts[0].gear[0]=" "; Check(!new Battle(true).RestoreProgress(unityShape));
+  // Boss support actions spend their turn without attacking or accepting defensive counters.
+  var charge=BossBattle(14); charge.Enemies[0].CompletedStrikes=2;
+  Check(charge.Attack() && charge.IncomingSkill.Action==EnemyAction.Charge);
+  Check(charge.BeginStrike() && !charge.Defend(true,.1f)); charge.FinishStrike();
+  Check(charge.Enemies[0].Charged && charge.LastMechanicTarget==0 && charge.LastIncomingDamage[0]==0);
+  ResolveEnemies(charge);
+  charge.Enemies[0].ChargeDamage=59;
+  Check(AutoBattlePlanner.ChooseTarget(charge)==0 && charge.Attack());
+  Check(!charge.Enemies[0].Charged && charge.IncomingSkill.Damage==20 && charge.IncomingSkill.Status==Debuff.None);
+  ResolveEnemies(charge); charge.Reset();
+  Check(!charge.Enemies[0].Charged && charge.Enemies[0].ChargeDamage==0);
+  charge.Enemies[0].CompletedStrikes=2; charge.Attack(); ResolveEnemies(charge);
+  Check(charge.Enemies[0].Charged);
+  charge.SelectEnemy(1); charge.Attack();
+  Check(charge.IncomingSkill.Damage==70 && charge.IncomingSkill.Status==Debuff.Burn);
+  ResolveEnemies(charge); Check(!charge.Enemies[0].Charged);
+
+  var healer=BossBattle(24); healer.Enemies[0].CompletedStrikes=1;
+  healer.Enemies[1].Health-=10;
+  Check(healer.Attack() && healer.IncomingSkill.Action==EnemyAction.HealPartner);
+  healer.BeginStrike(); Check(!healer.Defend(false,.1f)); healer.FinishStrike();
+  Check(healer.LastMechanicTarget==1 && healer.LastEnemyHealing==10 && healer.Enemies[1].Health==healer.Enemies[1].Definition.MaxHealth);
+  Check(AutoBattlePlanner.ChooseTarget(healer)==0); ResolveEnemies(healer);
+  healer.Enemies[1].Health=0; healer.Enemies[0].CompletedStrikes=4;
+  healer.Attack(); healer.BeginStrike(); healer.FinishStrike();
+  Check(healer.LastMechanicTarget==0 && healer.LastEnemyHealing>0 && healer.Enemies[1].Health==0);
+
+  var shield=BossBattle(29); shield.Enemies[0].CompletedStrikes=1;
+  shield.Attack(); shield.BeginStrike(); shield.FinishStrike();
+  Check(shield.LastMechanicTarget==1 && shield.Enemies[1].Shield==60 && shield.Enemies[0].Shield==0);
+  Check(AutoBattlePlanner.ChooseTarget(shield)==0); ResolveEnemies(shield);
+  shield.SelectEnemy(1); int shieldHealth=shield.Enemies[1].Health;
+  int recorded=shield.Party[0].EncounterDamage;
+  shield.Attack(); Check(shield.Enemies[1].Health==shieldHealth && shield.Enemies[1].Shield<60);
+  Check(shield.LastDamage==0 && shield.LastShieldAbsorbed>0 && shield.Party[0].EncounterDamage==recorded);
+  ResolveEnemies(shield); shield.Enemies[0].CompletedStrikes=4;
+  shield.Attack(); shield.BeginStrike(); shield.FinishStrike();
+  Check(shield.LastMechanicTarget==0 && shield.Enemies[0].Shield==60 && shield.Enemies[1].Shield==0);
+  Check(AutoBattlePlanner.ChooseTarget(shield)==1); ResolveEnemies(shield);
+  shield.Reset(); Check(shield.Enemies[0].Shield==0 && shield.Enemies[1].Shield==0);
+  // A real three-hero turn accumulates damage across actions to interrupt the charge.
+  var teamwork=new Battle(true); var teamSave=teamwork.ExportProgress(); teamSave.encounter=14;
+  teamSave.recruited=new[]{"Knight_Common","Rogue_Common","Sorceress_Common"}; teamSave.party=teamSave.recruited;
+  teamSave.loadouts=groupSave.loadouts;
+  Check(teamwork.RestoreProgress(teamSave)); teamwork.Enemies[0].CompletedStrikes=2;
+  for(int i=0;i<3;i++) Check(teamwork.Attack()); ResolveEnemies(teamwork);
+  Check(teamwork.Enemies[0].Charged && teamwork.Enemies[0].ChargeDamage==0);
+  for(int i=0;i<3;i++) Check(teamwork.Attack());
+  Check(teamwork.Enemies[0].ChargeDamage>=60 && !teamwork.Enemies[0].Charged && teamwork.IncomingSkill.Damage==20);
+  // Ultimates absorb the remaining shield before health damage, and caster death breaks the veil.
+  shield.Enemies[1].Shield=60; shield.SelectEnemy(1); shield.Party[0].Energy=75;
+  shieldHealth=shield.Enemies[1].Health; recorded=shield.Party[0].EncounterDamage;
+  Check(shield.Attack() && shield.LastUltimate!=null && shield.Enemies[1].Shield==0);
+  Check(shieldHealth-shield.Enemies[1].Health==shield.Party[0].EncounterDamage-recorded);
+  ResolveEnemies(shield); shield.Enemies[1].Shield=60; shield.Enemies[0].Health=1;
+  shield.SelectEnemy(0); Check(shield.Attack() && shield.Enemies[0].Health==0 && shield.Enemies[1].Shield==0);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

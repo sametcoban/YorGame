@@ -55,6 +55,9 @@ namespace Ashlight {
     public sealed class BattleEnemy {
         public EnemyDefinition Definition { get; private set; }
         public int CompletedStrikes { get; internal set; }
+        public bool Charged { get; internal set; }
+        public int ChargeDamage { get; internal set; }
+        public int Shield { get; internal set; }
         public int Health { get; internal set; }
         public BattleEnemy(EnemyDefinition definition) { Definition = definition; Health = definition.MaxHealth; }
     }
@@ -104,6 +107,9 @@ namespace Ashlight {
         public bool Defended { get; private set; }
         readonly bool[] defendedHeroes = new bool[MaxPartySize];
         public EnemySkill IncomingSkill { get; private set; }
+        public int LastMechanicTarget { get; private set; } = -1;
+        public int LastEnemyHealing { get; private set; }
+        public int LastShieldAbsorbed { get; private set; }
         public readonly int[] LastIncomingDamage = new int[MaxPartySize];
         public readonly int[] LastStatusDamage = new int[MaxPartySize];
         public bool HeroDefended(int index) { return defendedHeroes[index]; }
@@ -344,7 +350,7 @@ namespace Ashlight {
             return true;
         }
         public void Reset() {
-            Results=null;
+            Results=null; LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
             foreach (var member in party) member.Restore();
             Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null; LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
             Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
@@ -382,9 +388,15 @@ namespace Ashlight {
             int damage = definition.Damage(amount, LastElement);
             damage=(int)Math.Ceiling(damage*Active.DamageBoost(LastElement));
             if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
+            LastShieldAbsorbed=Math.Min(foe.Shield,damage); foe.Shield-=LastShieldAbsorbed; damage-=LastShieldAbsorbed;
             LastDamage = Math.Min(foe.Health, damage);
+            if(foe.Charged && Current==Phase.Player) {
+                foe.ChargeDamage+=LastDamage;
+                if(foe.ChargeDamage>=60) foe.Charged=false;
+            }
             Active.EncounterDamage=Math.Min(1000000,Active.EncounterDamage+LastDamage);
             foe.Health = Math.Max(0, foe.Health - damage);
+            if(foe.Health==0 && foe.Definition.Name=="Veiled Monarch") foreach(var enemy in enemies) enemy.Shield=0;
             if (enemies[SelectedEnemyIndex].Health == 0)
                 for (int i = 0; i < enemies.Count; i++) if (enemies[i].Health > 0) { SelectedEnemyIndex = i; break; }
         }
@@ -420,6 +432,17 @@ namespace Ashlight {
         void PrepareEnemyStrike() {
             Defended = false; Array.Clear(defendedHeroes,0,defendedHeroes.Length);
             IncomingSkill = campaign ? EnemySkills.For(encounter,enemies[AttackingEnemyIndex].Definition.IsBoss,enemies[AttackingEnemyIndex].CompletedStrikes) : new EnemySkill("Quick Strike",35,Element.Physical);
+            var attacker=enemies[AttackingEnemyIndex];
+            if(attacker.Definition.Name=="Cinder Sovereign") {
+                int move=attacker.CompletedStrikes%4;
+                IncomingSkill=EnemySkills.For(encounter,true,move);
+                if(move==2) IncomingSkill=new EnemySkill("Inferno Charge · deal 60 damage next round to interrupt",0,Element.Fire,action:EnemyAction.Charge);
+                if(move==3) IncomingSkill=new EnemySkill(attacker.Charged?"Charged Inferno":"Disrupted Inferno",attacker.Charged?70:20,Element.Fire,status:attacker.Charged?Debuff.Burn:Debuff.None);
+            }
+            if(attacker.Definition.Name=="Thorn Queen" && attacker.CompletedStrikes%3==1)
+                IncomingSkill=new EnemySkill("Root Communion · restores a living partner",0,Element.Poison,action:EnemyAction.HealPartner);
+            if(attacker.Definition.Name=="Veiled Monarch" && attacker.CompletedStrikes%3==1)
+                IncomingSkill=new EnemySkill("Eclipse Veil · shields one boss; target the other",0,Element.Light,action:EnemyAction.Shield);
             // Cycle targets across living allies for each surviving enemy's strike.
             for (int offset = 0; offset < party.Count; offset++) {
                 int index = (targetCursor + offset) % party.Count;
@@ -430,11 +453,12 @@ namespace Ashlight {
         public bool BeginStrike() {
             if (Current != Phase.EnemyWindup) return false;
             Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
+            LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
             Current = Phase.EnemyStrike; return true;
         }
         public bool Defend(bool parry, float elapsed) { return DefendHero(ActiveIndex,parry,elapsed); }
         public bool DefendHero(int index, bool parry, float elapsed) {
-            if (Current != Phase.EnemyStrike || index<0 || index>=party.Count || party[index].Health==0 ||
+            if (Current != Phase.EnemyStrike || IncomingSkill.Action!=EnemyAction.Attack || index<0 || index>=party.Count || party[index].Health==0 ||
                 (!IncomingSkill.PartyWide && index!=ActiveIndex) || defendedHeroes[index] || float.IsNaN(elapsed) || elapsed < 0 || elapsed > (parry ? .18f : .4f)) return false;
             defendedHeroes[index] = true;
             if(index==ActiveIndex) Defended=true;
@@ -449,9 +473,26 @@ namespace Ashlight {
             if (Current != Phase.EnemyStrike) return;
             Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length);
             Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
+            var attacker=enemies[AttackingEnemyIndex];
+            if(IncomingSkill.Action==EnemyAction.Charge) { attacker.Charged=true; attacker.ChargeDamage=0; LastMechanicTarget=AttackingEnemyIndex; }
+            if(IncomingSkill.Action==EnemyAction.HealPartner) {
+                int target=AttackingEnemyIndex;
+                for(int i=0;i<enemies.Count;i++) if(i!=AttackingEnemyIndex && enemies[i].Health>0) { target=i; break; }
+                var healed=enemies[target]; int before=healed.Health;
+                healed.Health=Math.Min(healed.Definition.MaxHealth,healed.Health+healed.Definition.MaxHealth/(target==AttackingEnemyIndex?10:5));
+                LastMechanicTarget=target; LastEnemyHealing=healed.Health-before;
+            }
+            if(IncomingSkill.Action==EnemyAction.Shield) {
+                foreach(var enemy in enemies) enemy.Shield=0;
+                int target=AttackingEnemyIndex;
+                if((attacker.CompletedStrikes/3)%2==0)
+                    for(int i=0;i<enemies.Count;i++) if(i!=AttackingEnemyIndex && enemies[i].Health>0) { target=i; break; }
+                enemies[target].Shield=60; LastMechanicTarget=target;
+            }
+            if(IncomingSkill.Action==EnemyAction.Attack && attacker.Definition.Name=="Cinder Sovereign" && attacker.CompletedStrikes%4==3) { attacker.Charged=false; attacker.ChargeDamage=0; }
             for(int i=0;i<party.Count;i++) {
                 var member=party[i];
-                if(member.Health==0 || (!IncomingSkill.PartyWide && i!=ActiveIndex) || defendedHeroes[i]) continue;
+                if(IncomingSkill.Action!=EnemyAction.Attack || member.Health==0 || (!IncomingSkill.PartyWide && i!=ActiveIndex) || defendedHeroes[i]) continue;
                 int damage=IncomingSkill.Damage+(member.Status==Debuff.Shock?5:0);
                 bool resistant=IncomingSkill.Element!=Element.Physical && member.Identity.Affinity==IncomingSkill.Element;
                 if(resistant) damage=(int)Math.Ceiling(damage*.75f);

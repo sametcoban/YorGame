@@ -1,21 +1,21 @@
 # Ashlight: mobile 3D combat starter
 
-An original combat prototype inspired by reactive turn-based RPGs. All six hero classes now use stylized dark fantasy armor and a generated ruined courtyard. Chapter one and the paired late-chapter bosses use enemy models; other encounters still use placeholder enemies. No Clair Obscur assets, names, music, or story are included.
+An original combat prototype inspired by reactive turn-based RPGs. All six hero classes now use stylized dark fantasy armor and a generated ruined courtyard. All campaign enemies use themed enemy models. No Clair Obscur assets, names, music, or story are included.
 
 ## Open and play
 
 1. Install Unity Hub and Unity **6000.0.65f1** with **Web Build Support (WebGL)** for browser testing on iPhone from Windows. Android Build Support is optional for Android APKs.
 2. Open this `MobileGame` directory as a Unity project. Allow package import to finish.
 3. The editor helper creates `Assets/Scenes/Battle.unity` and registers it for builds. If necessary select **Ashlight > Prepare Mobile Project**. Open that scene, then press Play.
-4. The game opens on the **Chapters** menu. Select the unlocked chapter, then use **Attack**, then watch **GET READY** followed by **PARRY OR DODGE!**. The shrinking defense meter is yellow during the 180 ms parry window, then blue for the remaining dodge window (400 ms total). Defense registers on button press, not release. Restart resets the battle. Mouse clicks work in the editor; buttons accept touch on devices.
+4. The game opens on the **Chapters** menu. Select the unlocked chapter, then use **Attack**, either equipped skill, or **Auto Play**. Defense rolls automatically using each class’s dodge and parry chances. Mouse clicks work in the editor; buttons accept touch on devices.
 
-The combat presentation includes health bars, attack lunges, enemy windup, dodge motion, and parry/counter feedback. Rowan and the Lantern Warden now use armored models with basic combat animation; other enemies still use placeholder capsules. Safe-area bounds update when the window or phone orientation changes. New presentation and touch-down behavior require Unity/device validation.
+The combat presentation includes health bars, attack lunges, enemy windup, dodge motion, and parry/counter feedback. Rowan and the Lantern Warden now use armored models with basic combat animation; all campaign encounters have enemy visuals. Safe-area bounds update when the window or phone orientation changes. New presentation and touch-down behavior require Unity/device validation.
 
 The scene starts empty intentionally: `Prototype` generates the camera, lighting, arena, characters, event system, and HUD at runtime. Use the built-in rendering pipeline. The UI uses the legacy input module; keep Active Input Handling set to **Input Manager (Old)** or **Both**. Landscape orientation and safe-area bounds are configured for the prototype. Device cutouts, aspect ratios, timing feel, and actual rendering need device testing.
 
 ## Stylized dark fantasy reference
 
-Rowan (Common Knight) and the first enemy, Lantern Warden, wear original angular armor, closed helmets, tattered capes, and muted metal. The Warden carries a halberd and glowing lantern. A torchlit ruined courtyard, lower camera, staggered party positions, charcoal HUD and compact health bars establish the new direction. All six hero classes now have male and female dark fantasy variants. All five chapter-one enemies and the paired bosses from chapter three onward now have modeled visuals; other enemies remain placeholder capsules. The built-in rendering pipeline is retained.
+Rowan (Common Knight) and the first enemy, Lantern Warden, wear original angular armor, closed helmets, tattered capes, and muted metal. The Warden carries a halberd and glowing lantern. A torchlit ruined courtyard, lower camera, staggered party positions, charcoal HUD and compact health bars establish the new direction. All six hero classes now have male and female dark fantasy variants. All five chapter-one enemies and the paired bosses from chapter three onward now have modeled visuals; all campaign enemies have modeled visuals. The built-in rendering pipeline is retained.
 
 To update an existing Unity project:
 
@@ -367,3 +367,16 @@ Atmosphere compatibility fix: snow and motes now use one animated billboard mesh
 Empty equipment strings are accepted as unequipped slots, and empty inline results objects are accepted when no victory is pending. Unknown gear IDs, malformed inventories, nonempty unclaimed-result payloads on a non-victory save, and invalid reward data still fail validation. Existing progress and backups are retained. **2,579 engine-independent checks passed**, including fixtures representing Unity's empty-string/empty-object serialization and reward reload/claim checks.
 
 Update `Assets/Scripts` and `Assets/Editor`. For a real Unity JSON round-trip check, run **Ashlight > Diagnostics > Check Save Serialization**. It tests fresh progress, combat, pending rewards, claims and equipped gear in isolated battles without reading or writing PlayerPrefs. This editor check has not been executed in the cloud environment, where Unity is unavailable.
+
+
+## Boss mechanics
+
+Chapter 3’s Cinder Sovereign spends his third action charging Inferno. Deal 60 total health damage to him during the next party turn to interrupt: the following attack drops from 70 Fire damage with Burn to 20 without Burn. Shield absorption and enemy-turn counters do not count toward interruption.
+
+Chapter 5’s Thorn Queen replaces every second action in her three-action cycle with Root Communion: heal her living partner by 20% of their maximum HP, capped at maximum. Alone, she heals herself by 10%. Fallen partners stay defeated.
+
+Chapter 6’s Veiled Monarch replaces every second action in his three-action cycle with Eclipse Veil. A 60-point damage shield alternates between his partner and himself; only one boss is shielded. Normal attacks, skills, counters and ultimates consume the shield before dealing health damage. Defeating the Monarch breaks the veil.
+
+Charge progress and remaining shields appear in the enemy target labels, with casting and healing effects. Auto Play prioritizes charged bosses, then unshielded healers, then other unshielded enemies. These mechanics spend an enemy action and never trigger dodge or parry rolls. Restarting or loading a fight resets its temporary mechanics.
+
+To test this update in an existing project, copy the updated **Assets/Scripts**, let Unity compile, then replay the final encounters of chapters 3, 5 and 6. No new art import is required. Pure C# combat checks run in the cloud; Unity playback and UI still need editor validation.
