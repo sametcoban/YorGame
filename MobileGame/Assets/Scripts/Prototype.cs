@@ -537,10 +537,11 @@ namespace Ashlight {
             for(int i=0;i<dodgeAt.Length;i++) dodgeAt[i]=-10;
             for (int i = 0; i < foeAttackAt.Length; i++) foeAttackAt[i] = -10;
         }
-        void HeroImpact(Transform acting, int target, int damage, Element element, float multiplier, bool pause) {
+        void HeroImpact(Transform acting, int target, int damage, Element element, float multiplier, bool pause, SkillPresentation profile=null, bool ultimate=false) {
             shownEnemyDamage[target] += damage;
             effects.Attack(acting.position,foes[target].position,element,damage,multiplier);
             if (damage <= 0) return;
+            if(profile!=null) effects.SkillImpact(profile.Style,acting.position,foes[target].position,element,ultimate);
             sounds.PlayElement(element,.85f);
             var victim = foes[target].GetComponent<HeroVisual>(); if (victim != null) victim.Play("Hit");
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
@@ -553,41 +554,43 @@ namespace Ashlight {
             int oldGuard = members[actingIndex].Guard;
             for(int i=0;i<battle.Enemies.Count;i++) { actionEnemyBefore[i]=battle.Enemies[i].Health; shownEnemyDamage[i]=0; actionChargeBefore[i]=battle.Enemies[i].ChargeDamage; actionChargedBefore[i]=battle.Enemies[i].Charged; }
             actionHero=actingIndex; actionEnergy=Mathf.Min(PartyHero.MaxEnergy,members[actingIndex].Energy+members[actingIndex].EnergyGain);
+            var profile=skillSlot>=0?SkillPresentation.For(members[actingIndex].Skill(skillSlot),members[actingIndex].Identity.Class):SkillPresentation.Basic(members[actingIndex].Identity.Class);
             string name = skillSlot >= 0 ? members[actingIndex].Skill(skillSlot).Name : "Attack";
             if (!(skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack())) return;
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health-healing[i]-battle.LastUltimateHealing[i];
-            bool casting = CombatMotion.UsesCast(members[actingIndex].Identity.Class,skillSlot >= 0 && battle.LastElement != Element.Physical);
-            actionMotion = CombatMotion.For(members[actingIndex].Identity.Class,casting);
+            bool casting = profile.Casting;
+            actionMotion = profile.Motion(members[actingIndex].Identity.Class);
             presentingAction = true; actionTarget = target;
             attacker = allies[actingIndex]; attackTime = Time.time;
             var visual = attacker.GetComponent<HeroVisual>(); if (visual != null) visual.Play(casting ? "Cast" : "Attack");
-            actionPresentation = StartCoroutine(PresentAction(actingIndex,target,casting,healing,members[actingIndex].Guard-oldGuard-battle.LastUltimateGuard[actingIndex],name));
+            actionPresentation = StartCoroutine(PresentAction(actingIndex,target,casting,healing,members[actingIndex].Guard-oldGuard-battle.LastUltimateGuard[actingIndex],name,profile));
         }
-        IEnumerator PresentAction(int actingIndex, int target, bool casting, int[] healing, int guard, string name) {
+        IEnumerator PresentAction(int actingIndex, int target, bool casting, int[] healing, int guard, string name, SkillPresentation profile) {
             var kind = battle.Party[actingIndex].Identity.Class;
             var actor = allies[actingIndex]; var motion = actionMotion;
             int damage = battle.LastDamage; Element element = battle.LastElement; float multiplier = battle.LastElementMultiplier;
             if (casting) sounds.Play("Charge",.7f);
             else if (kind == HeroClass.Ranger) sounds.Play("BowDraw",.75f);
             message = battle.Party[actingIndex].Identity.Name+" — "+name+".";
-            if (casting || kind == HeroClass.Ranger) effects.Windup(actor.position,foes[target].position,element,motion.Impact,kind == HeroClass.Ranger);
+            effects.SkillWindup(profile,actor.position,element,motion.Impact);
             while (Time.time < attackTime+motion.Impact-.10f) yield return null;
             if (!casting) sounds.Play(kind == HeroClass.Ranger ? "BowRelease" : kind == HeroClass.Rogue ? "DaggerSwipe" : kind == HeroClass.Paladin ? "HeavySwing" : "SwordSwing");
+            if(damage>0) effects.SkillRelease(profile,actor.position,foes[target].position,element,.10f);
             while (Time.time < attackTime+motion.Impact) yield return null;
             if(!string.IsNullOrEmpty(battle.LastOffensivePassive)) effects.Floating(actor.position,battle.LastOffensivePassive,battle.LastElement);
             bool combo = motion.SecondImpact > 0;
             int firstDamage = combo ? (damage+1)/2 : damage;
-            HeroImpact(actor,target,firstDamage,element,multiplier,!casting && kind != HeroClass.Ranger && !combo);
+            HeroImpact(actor,target,firstDamage,element,multiplier,!casting && kind != HeroClass.Ranger && !combo,profile);
             if (casting && damage == 0) sounds.PlayElement(element,.65f);
             bool healed = false;
-            for (int i = 0; i < healing.Length; i++) if (healing[i] > 0) { effects.Heal(allies[i].position,healing[i]); healed = true; }
+            for (int i = 0; i < healing.Length; i++) if (healing[i] > 0) { effects.Heal(allies[i].position,healing[i]); effects.SkillSupport(profile.Style,allies[i].position,element,true); healed = true; }
             if (healed) sounds.Play("Heal");
-            if (guard > 0) { effects.Guard(actor.position); sounds.Play("Guard"); }
+            if (guard > 0) { effects.Guard(actor.position); effects.SkillSupport(profile.Style,actor.position,element,false); sounds.Play("Guard"); }
             if (combo) {
                 while (Time.time < attackTime+motion.SecondImpact-.08f) yield return null;
                 sounds.Play("DaggerSwipe",.9f,1.08f);
                 while (Time.time < attackTime+motion.SecondImpact) yield return null;
-                HeroImpact(actor,target,damage-firstDamage,element,multiplier,true);
+                HeroImpact(actor,target,damage-firstDamage,element,multiplier,true,profile);
             }
             while (Time.time < attackTime+motion.Duration+.04f) yield return null;
             var ultimate=battle.LastUltimate;
@@ -595,15 +598,20 @@ namespace Ashlight {
                 message=battle.Party[actingIndex].Identity.Name+" — ULTIMATE: "+ultimate.Name+"!";
                 effects.Floating(actor.position,"ULTIMATE · "+ultimate.Name,ultimate.Affinity);
                 effects.Ring(actor.position,ultimate.Affinity,.15f); sounds.Play("Charge");
-                bool ultimateCast=CombatMotion.UsesCast(kind,ultimate.Affinity!=Element.Physical);
-                var ultimateMotion=CombatMotion.For(kind,ultimateCast); float ultimateAt=Time.time;
+                var ultimateProfile=SkillPresentation.Ultimate(kind,ultimate);
+                bool ultimateCast=ultimateProfile.Casting;
+                var ultimateMotion=ultimateProfile.Motion(kind); float ultimateAt=Time.time;
                 effects.UltimateCharge(actor.position,ultimate.Affinity,ultimateMotion.Impact);
                 actionMotion=ultimateMotion; attackTime=ultimateAt; actionTarget=battle.UltimateTarget;
                 var actorVisual=actor.GetComponent<HeroVisual>(); if(actorVisual!=null) actorVisual.Play(ultimateCast?"Cast":"Attack");
+                effects.SkillWindup(ultimateProfile,actor.position,ultimate.Affinity,ultimateMotion.Impact);
+                while(Time.time<ultimateAt+ultimateMotion.Impact-.10f) yield return null;
+                for(int i=0;i<battle.Enemies.Count;i++) if(battle.LastUltimateDamage[i]>0)
+                    effects.SkillRelease(ultimateProfile,actor.position,foes[i].position,ultimate.Affinity,.10f);
                 while(Time.time<ultimateAt+ultimateMotion.Impact) yield return null;
                 for(int i=0;i<battle.Enemies.Count;i++) if(battle.LastUltimateDamage[i]>0) {
                     float mult=battle.Enemies[i].Definition.Multiplier(ultimate.Affinity);
-                    HeroImpact(actor,i,battle.LastUltimateDamage[i],ultimate.Affinity,mult,!ultimateCast);
+                    HeroImpact(actor,i,battle.LastUltimateDamage[i],ultimate.Affinity,mult,!ultimateCast,ultimateProfile,true);
                     effects.UltimateImpact(foes[i].position,ultimate.Affinity,ultimate.AreaDamage);
                 }
                 actionEnergy=battle.Party[actingIndex].Energy;
