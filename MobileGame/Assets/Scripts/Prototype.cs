@@ -8,6 +8,7 @@ namespace Ashlight {
         bool atChapters;
         GameObject chapterRoot;
         Text chapterTitle;
+        Button idleRewardsButton;
         Button[] chapterChoices;
         Button restartCampaignButton;
         Button summonButton;
@@ -798,6 +799,7 @@ namespace Ashlight {
             chapterTitle=Label(chapterRoot.transform,"",new Vector2(.03f,.8f),new Vector2(.97f,.98f),30);
             soundButton=MakeButton(chapterRoot.transform,"SOUND ON",.80f,.97f,()=>sounds.ToggleMute());
             var soundRect=soundButton.GetComponent<RectTransform>(); soundRect.anchorMin=new Vector2(.80f,.747f); soundRect.anchorMax=new Vector2(.97f,.795f);
+            idleRewardsButton=MakeButton(chapterRoot.transform,"IDLE REWARDS",.05f,.78f,ClaimIdleRewards); PlaceGearControl(idleRewardsButton,.05f,.735f,.78f,.795f); idleRewardsButton.GetComponentInChildren<Text>(true).fontSize=18;
             chapterChoices=new Button[ChapterDefinition.Catalog.Count];
             for(int i=0;i<chapterChoices.Length;i++) {
                 int index=i; float left=i%2==0?.05f:.52f; float bottom=.57f-(i/2)*.2f;
@@ -811,6 +813,14 @@ namespace Ashlight {
             var replayRect=restartCampaignButton.GetComponent<RectTransform>();
             replayRect.anchorMin=new Vector2(.24f,.43f); replayRect.anchorMax=new Vector2(.76f,.61f);
             restartCampaignButton.gameObject.SetActive(false);
+        }
+        void ClaimIdleRewards() {
+            if(!atChapters) return;
+            int crystals=battle.IdleCrystals, xp=battle.IdleExperience;
+            if(!battle.ClaimIdleRewards()) return;
+            RefreshAppearance(); SaveProgress();
+            chapterTitle.color=Color.white;
+            chapterTitle.text="IDLE REWARDS CLAIMED\n+"+crystals+" crystals · +"+xp+" XP to each recruited hero\n"+SummonWallet()+" | "+saveNotice;
         }
         void RestartCampaign() {
             if(!atChapters || !battle.RestartCampaign()) return;
@@ -972,7 +982,7 @@ namespace Ashlight {
                 else if (battle.Current == Phase.Lost) sounds.Play("Defeat",.8f);
                 lastSoundPhase = battle.Current;
             }
-            if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
+            if(atChapters) { idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
             if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));

@@ -12,7 +12,9 @@ public static class SaveSerializationChecks {
     [MenuItem("Ashlight/Diagnostics/Check Save Serialization")]
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
-        var battle=new Battle(true); RoundTrip(battle);
+        var battle=new Battle(true); var fresh=RoundTrip(battle);
+        if(fresh.ExportProgress().idleClaimTicks!=battle.ExportProgress().idleClaimTicks || fresh.FurthestStage!=battle.FurthestStage)
+            throw new InvalidOperationException("Idle reward timestamp changed during Unity serialization.");
         battle.Attack(); RoundTrip(battle);
         battle.Reset(); var progress=battle.ExportProgress(); progress.loadouts[0].experience=90;
         if(!battle.RestoreProgress(progress)) throw new InvalidOperationException("Could not prepare serialization test battle.");

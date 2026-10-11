@@ -323,7 +323,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==6);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==7);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1061,7 +1061,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==6 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==7 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1139,6 +1139,41 @@ class BattleChecks {
    // Unfinished-stage reload starts wave one; stagePreview remains deterministic.
    Check(restoredTeam.WaveIndex==0 && ChapterDefinition.Preview(restoredTeam.Encounter)==ChapterDefinition.Preview(stage));
   }
+  // Offline rewards use an injected UTC clock, survive reloads, and consume time only once.
+  var idleNow=new DateTime(2026,10,11,12,0,0,DateTimeKind.Utc);
+  var idle=new Battle(true,utcNow:()=>idleNow);
+  Check(idle.IdleMinutes==0 && !idle.ClaimIdleRewards());
+  idleNow=idleNow.AddSeconds(59); Check(idle.IdleMinutes==0);
+  idleNow=idleNow.AddSeconds(2); Check(idle.IdleMinutes==1 && idle.IdleCrystals==1 && idle.IdleExperience==2);
+  int idleCurrency=idle.Crystals; Check(idle.ClaimIdleRewards() && idle.Crystals==idleCurrency+1 && idle.Party[0].Experience==2);
+  Check(!idle.ClaimIdleRewards()); idleNow=idleNow.AddSeconds(59); Check(idle.IdleMinutes==1); // retained fractional minute
+  var idleSave=idle.ExportProgress(); var idleReload=new Battle(true,utcNow:()=>idleNow);
+  Check(idleReload.RestoreProgress(idleSave) && idleReload.IdleMinutes==1 && idleReload.ClaimIdleRewards());
+  var afterClaim=idleReload.ExportProgress(); Check(idle.RestoreProgress(afterClaim) && !idle.ClaimIdleRewards());
+  idleNow=idleNow.AddDays(2); Check(idle.IdleMinutes==720 && idle.IdleCrystals==720 && idle.IdleExperience==1440);
+  Check(idle.ClaimIdleRewards() && idle.IdleMinutes==0);
+  long idleAnchor=idle.ExportProgress().idleClaimTicks; idleNow=idleNow.AddDays(-3);
+  Check(idle.IdleMinutes==0 && !idle.ClaimIdleRewards() && idle.ExportProgress().idleClaimTicks==idleAnchor);
+  idleNow=new DateTime(idleAnchor,DateTimeKind.Utc).AddMinutes(1); Check(idle.IdleMinutes==1);
+  var progressedIdle=idle.ExportProgress(); progressedIdle.encounter=10;
+  progressedIdle.recruited=new[]{"Knight_Common","Paladin_Common"}; progressedIdle.party=new[]{"Knight_Common"};
+  progressedIdle.loadouts=new[]{new HeroLoadoutData{id="Knight_Common",secondSkill=1},new HeroLoadoutData{id="Paladin_Common",secondSkill=1}};
+  Check(idle.RestoreProgress(progressedIdle) && idle.IdleCrystalRate==3 && idle.IdleExperienceRate==4);
+  idleCurrency=idle.Crystals; Check(idle.ClaimIdleRewards() && idle.Crystals==idleCurrency+3 && idle.HeroProgress("Paladin_Common").Experience==4);
+  idleNow=idleNow.AddMinutes(10); idle.Attack(); Check(!idle.ClaimIdleRewards()); idle.Reset(); Check(idle.ClaimIdleRewards());
+  progressedIdle=idle.ExportProgress(); progressedIdle.encounter=30; Check(idle.RestoreProgress(progressedIdle) && idle.RestartCampaign());
+  Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
+  var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
+  var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==7);
+  var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
+  foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
+  badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
+  badIdle.furthestStage=-1; Check(!replayIdle.RestoreProgress(badIdle));
+  var fullWallet=idle.ExportProgress(); fullWallet.crystals=999999; Check(idle.RestoreProgress(fullWallet));
+  idleNow=idleNow.AddMinutes(10); Check(idle.IdleCrystals==1 && idle.ClaimIdleRewards() && idle.Crystals==1000000);
+  Check(new Battle(true).RestoreProgress(idle.ExportProgress()));
+  var practiceIdle=new Battle(false,utcNow:()=>idleNow); idleNow=idleNow.AddHours(1); Check(!practiceIdle.ClaimIdleRewards());
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

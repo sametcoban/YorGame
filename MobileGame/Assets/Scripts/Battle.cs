@@ -83,6 +83,27 @@ namespace Ashlight {
         public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
         public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
+        readonly Func<DateTime> utcNow;
+        long idleClaimTicks;
+        int furthestStage;
+        public int FurthestStage { get { return Math.Max(furthestStage,encounter); } }
+        public const int IdleCapMinutes=720;
+        public int IdleCrystalRate { get { return 1+FurthestStage/5; } }
+        public int IdleExperienceRate { get { return 2+FurthestStage/5; } }
+        public int IdleMinutes { get { return (int)Math.Min(IdleCapMinutes,Math.Max(0,(utcNow().Ticks-idleClaimTicks)/TimeSpan.TicksPerMinute)); } }
+        public int IdleCrystals { get { return Math.Min(1000000-Crystals,IdleMinutes*IdleCrystalRate); } }
+        public int IdleExperience { get { return IdleMinutes*IdleExperienceRate; } }
+        public bool ClaimIdleRewards() {
+            if(!campaign || (!CanChangeParty && !CampaignComplete)) return false;
+            long now=utcNow().Ticks;
+            long elapsed=now-idleClaimTicks;
+            int minutes=(int)Math.Min(IdleCapMinutes,Math.Max(0,elapsed/TimeSpan.TicksPerMinute));
+            if(minutes==0) return false;
+            Crystals=Math.Min(1000000,Crystals+minutes*IdleCrystalRate);
+            foreach(var recruit in recruits) { var member=HeroProgress(recruit.Id); member.GainExperience(minutes*IdleExperienceRate); member.Restore(); }
+            idleClaimTicks=now-elapsed%TimeSpan.TicksPerMinute;
+            return true;
+        }
         public int Crystals { get; private set; }
         public int RareMisses { get; private set; }
         public int LegendaryMisses { get; private set; }
@@ -152,7 +173,7 @@ namespace Ashlight {
         public bool HeroDefended(int index) { return defendedHeroes[index]; }
         public Battle() : this(HeroClass.Knight) { }
         public Battle(HeroClass kind) { unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset(); }
-        public Battle(bool recruitmentCampaign, bool enableWaves=false, bool enableClassPassives=false, Random criticalRandom=null) { campaign = recruitmentCampaign; waveBattles=enableWaves; ClassPassivesEnabled=enableClassPassives; passiveRandom=criticalRandom??new Random(); Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
+        public Battle(bool recruitmentCampaign, bool enableWaves=false, bool enableClassPassives=false, Random criticalRandom=null, Func<DateTime> utcNow=null) { this.utcNow=utcNow??(()=>DateTime.UtcNow); idleClaimTicks=this.utcNow().Ticks; campaign = recruitmentCampaign; waveBattles=enableWaves; ClassPassivesEnabled=enableClassPassives; passiveRandom=criticalRandom??new Random(); Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
         public void SelectClass(HeroClass kind) {
             if (campaign) throw new InvalidOperationException("Campaign heroes are recruited, not replaced.");
             party.Clear(); recruits.Clear(); unlocked.Clear(); unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset();
@@ -231,7 +252,7 @@ namespace Ashlight {
                     if(!known) { AddRecruit(candidate,true); break; }
                 }
                 Crystals+=Summoning.VictoryCrystals;
-                encounter++;
+                encounter++; furthestStage=Math.Max(furthestStage,encounter);
                 foreach(var hero in recruits) {
                     if(party.Count>=PartyLimit) break;
                     bool active=false; foreach(var member in party) if(member.Identity.Id==hero.Id) active=true;
@@ -306,7 +327,7 @@ namespace Ashlight {
             member.SetGear(slot,item); member.Restore(); return true;
         }
         public ProgressData ExportProgress() {
-            var data = new ProgressData { crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
@@ -325,11 +346,12 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
                 data.activeIndex < 0 || data.activeIndex >= data.party.Length) return false;
+            if(data.version>=7 && (data.idleClaimTicks<=0 || data.idleClaimTicks>DateTime.MaxValue.Ticks || data.furthestStage<0 || data.furthestStage>ChapterDefinition.TotalStages)) return false;
             if(data.version>=2 && (data.crystals<0 || data.crystals>1000000 || data.rareMisses<0 || data.rareMisses>=Summoning.RareGuarantee || data.legendaryMisses<0 || data.legendaryMisses>=Summoning.LegendaryGuarantee)) return false;
             var restoredInventory=new Dictionary<string,int>();
             if(data.version>=4) {
@@ -399,6 +421,8 @@ namespace Ashlight {
             foreach (var id in data.party) { if(party.Count<restoredLimit) party.Add(restored[id]); }
             Crystals=data.version==1?Summoning.StarterCrystals:data.crystals;
             RareMisses=data.version==1?0:data.rareMisses; LegendaryMisses=data.version==1?0:data.legendaryMisses;
+            idleClaimTicks=data.version>=7?data.idleClaimTicks:utcNow().Ticks;
+            furthestStage=data.version>=7?Math.Max(data.furthestStage,data.encounter):data.encounter;
             encounter = data.encounter; Reset(); ActiveIndex = Math.Min(data.activeIndex,party.Count-1);
             if (data.pendingVictory) {
                 WaveIndex=WaveCount-1; LoadWaveEnemies();

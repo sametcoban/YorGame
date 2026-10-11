@@ -13,7 +13,9 @@ namespace Ashlight {
     public sealed class GearStackData { public string id; public int count; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 6;
+        public int version = 7;
+        public long idleClaimTicks;
+        public int furthestStage;
         public PendingResultsData results;
         public GearStackData[] inventory = new GearStackData[0];
         public int crystals;

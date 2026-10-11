@@ -476,3 +476,14 @@ Enemy roles now drive actions in wave battles: archers target rear heroes, caste
 Existing saves remain compatible and unfinished stages restart from wave one. Copy updated **Assets/Scripts** into Unity. **6,706 engine-independent checks passed**, including previews, role-specific skills, actual healer/support actions, save reloads and full campaign runs. Unity compilation, UI layout, animation playback and balance need local testing.
 
 The intended direction is now an AFK Arena-inspired team-building RPG: five heroes, front/back formation, automatic combat and energy ultimates, with our own roster and visual style. Idle rewards and faction synergies are planned follow-ups, not implemented in this update.
+
+
+## Idle rewards
+
+The chapter screen now has an **Idle** reward button showing stored minutes, crystals and XP per hero. Rewards accumulate while the game is open or closed, up to **12 hours**. Claiming grants XP to every currently recruited named hero, including reserves, and adds crystals to the shared wallet. Claims are available before combat and after campaign completion; they do not interfere with unclaimed victory results.
+
+Each full minute grants **1 + floor(furthest cleared stage / 5) crystals** and **2 + floor(furthest cleared stage / 5) XP per hero**. Finishing more stages raises the rate; restarting the campaign preserves the highest stage reached. Fractional minutes carry forward after a claim. Time above the 12-hour cap is discarded when claimed. Currency stays within the existing one-million limit, and heroes retain their level-20 cap.
+
+Save version **7** preserves the claim timestamp and furthest stage. Versions 1–6 migrate with a fresh timer when first loaded; they receive no retroactive rewards for time before this feature. Loading a current save retains accumulated time and cannot duplicate an already saved claim. A backward clock change gives no rewards until time catches up. This prototype uses the device UTC clock and local storage; server-authoritative timing would be needed for an online economy.
+
+Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **6,735 engine-independent checks passed**, covering elapsed time boundaries, the storage cap, fractional carryover, repeat claims, reloads, migration, reserve XP, campaign replay, invalid timestamps and wallet limits. The Unity serialization diagnostic checks timestamp preservation, but Unity compilation, actual offline/resume behavior and chapter-button layout still require local testing.
