@@ -636,3 +636,11 @@ Collection cards separate the hero name and level/rarity from class, element, fa
 During battle preparation, a hero already in the team can use **Arrange in Formation**, which opens Formation with that hero selected for a swap. Formation cards show rarity, element, level, and power, and the header names the selected hero and explains cancellation. **Collection** is accessible directly from Formation alongside presets and Done. No progression, combat, save, or party-limit rules changed.
 
 Unity checks still required: one/five-hero teams, locked destinations, an empty filter, reserve assignment, arranging an active hero, cancelling a swap, shared-level and ascension labels, and long names on landscape phone aspect ratios.
+
+### Summoning reveal polish
+
+Single and ten-pull summons briefly show sealed cards, then reveal them in sequence using unscaled UI time. Revealed cards pulse in their rarity color; Epic and Legendary pulls use stronger flashes and distinct existing sound cues. Cards show name, quality, class, element, and either new-hero collection status or exact duplicate shard/crystal rewards. The final summary lists new/duplicate counts, spending, refunds, and total hero shards.
+
+**Skip Reveal** immediately displays the complete result. **Done** can close during the reveal. Repeat summons are disabled while revealing, with a method-level guard against duplicate taps. The complete pull is resolved once and saved before the presentation begins; reveal, skip, close, and interruption only update presentation. The tutorial's summon tip appears after the reveal instead of hiding it.
+
+Unity testing remains required for single/ten pulls, Rare/Epic/Legendary cues, duplicates, Skip during the first or last card, Done during a reveal, rapid taps, muted sound, and application interruption. Summon odds, pity, prices, and grants remain unchanged.
