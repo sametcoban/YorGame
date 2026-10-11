@@ -15,6 +15,13 @@ public static class SaveSerializationChecks {
         var battle=new Battle(true); var fresh=RoundTrip(battle);
         if(fresh.ExportProgress().idleClaimTicks!=battle.ExportProgress().idleClaimTicks || fresh.FurthestStage!=battle.FurthestStage)
             throw new InvalidOperationException("Idle reward timestamp changed during Unity serialization.");
+        var sharedTest=new Battle(true); var sharedSave=sharedTest.ExportProgress();
+        sharedSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common","Cleric_Common"};
+        sharedSave.loadouts=new HeroLoadoutData[6];
+        for(int i=0;i<6;i++) sharedSave.loadouts[i]=new HeroLoadoutData{id=sharedSave.recruited[i],secondSkill=1,level=i<5?15:1};
+        if(!sharedTest.RestoreProgress(sharedSave) || !sharedTest.SetShared("Cleric_Common",true)) throw new InvalidOperationException("Could not prepare shared level fixture.");
+        var sharedRoundTrip=RoundTrip(sharedTest);
+        if(sharedRoundTrip.SharedCount!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").Level!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").CombatLevel!=15) throw new InvalidOperationException("Shared levels changed during Unity serialization.");
         battle.Attack(); RoundTrip(battle);
         battle.Reset(); var progress=battle.ExportProgress(); progress.loadouts[0].experience=90;
         if(!battle.RestoreProgress(progress)) throw new InvalidOperationException("Could not prepare serialization test battle.");

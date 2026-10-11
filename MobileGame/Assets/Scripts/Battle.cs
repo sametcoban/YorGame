@@ -17,6 +17,9 @@ namespace Ashlight {
         public double CriticalChance { get { return .25+(HasTalent(0,0)?.10:0)+(HasTalent(2,0)?.15:0); } }
         public double CriticalMultiplier { get { return 1.5+(HasTalent(0,1)?.25:0)+(HasTalent(2,1)?.25:0); } }
         public int Level { get; internal set; } = 1;
+        internal int SharedLevel;
+        public int CombatLevel { get { return Math.Max(Level,SharedLevel); } }
+        public string LevelLabel { get { return CombatLevel>Level?CombatLevel+" (own "+Level+")":Level.ToString(); } }
         public int Experience { get; internal set; }
         public int UpgradeRank { get; internal set; }
         public int Shards { get; internal set; }
@@ -26,7 +29,7 @@ namespace Ashlight {
         public int AscensionStars { get { return Math.Max(0,(int)Identity.Quality+UpgradeRank-4); } }
         public string RarityLabel { get { return Quality+(AscensionStars>0?" ★"+AscensionStars:""); } }
         public string NextAscension { get { int rank=UpgradeRank+1; int stars=Math.Max(0,(int)Identity.Quality+rank-4); return ((HeroQuality)Math.Min(4,(int)Identity.Quality+rank))+(stars>0?" ★"+stars:""); } }
-        public float Growth { get { return (1f+(Level-1)*.05f)*HeroDefinition.Multiplier(Quality)/HeroDefinition.Multiplier(Identity.Quality)*(1f+AscensionStars*.10f); } }
+        public float Growth { get { return (1f+(CombatLevel-1)*.05f)*HeroDefinition.Multiplier(Quality)/HeroDefinition.Multiplier(Identity.Quality)*(1f+AscensionStars*.10f); } }
         readonly GearDefinition[] gear=new GearDefinition[3];
         public GearDefinition Gear(GearSlot slot) { return gear[(int)slot]; }
         internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; RefreshStats(); }
@@ -97,6 +100,23 @@ namespace Ashlight {
         public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
         public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
+        readonly List<string> sharedHeroes=new List<string>();
+        public const int SharedSlots=5;
+        public bool CrystalUnlocked { get { return recruits.Count>=5; } }
+        public int SharedCount { get { return sharedHeroes.Count; } }
+        public bool IsShared(string id) { return sharedHeroes.Contains(id); }
+        public int CrystalLevel { get { if(!CrystalUnlocked) return 1; var levels=new List<int>(); foreach(var recruit in recruits) levels.Add(HeroProgress(recruit.Id).Level); levels.Sort((a,b)=>b.CompareTo(a)); return levels[4]; } }
+        void RefreshSharedLevels() {
+            int level=CrystalLevel;
+            foreach(var recruit in recruits) { var member=HeroProgress(recruit.Id); member.SharedLevel=IsShared(recruit.Id)?level:0; member.RefreshStats(); }
+        }
+        public bool SetShared(string id,bool enabled) {
+            if(!campaign || (!CanChangeParty && !CampaignComplete)) return false;
+            var member=HeroProgress(id); if(member==null || IsShared(id)==enabled) return false;
+            if(enabled) { if(!CrystalUnlocked || SharedCount>=SharedSlots || member.Level>=CrystalLevel) return false; sharedHeroes.Add(id); }
+            else sharedHeroes.Remove(id);
+            RefreshSharedLevels(); foreach(var recruit in recruits) HeroProgress(recruit.Id).Restore(); return true;
+        }
         readonly Func<DateTime> utcNow;
         long idleClaimTicks;
         int furthestStage;
@@ -115,6 +135,7 @@ namespace Ashlight {
             if(minutes==0) return false;
             Crystals=Math.Min(1000000,Crystals+minutes*IdleCrystalRate);
             foreach(var recruit in recruits) { var member=HeroProgress(recruit.Id); member.GainExperience(minutes*IdleExperienceRate); member.Restore(); }
+            RefreshSharedLevels(); foreach(var recruit in recruits) HeroProgress(recruit.Id).Restore();
             idleClaimTicks=now-elapsed%TimeSpan.TicksPerMinute;
             return true;
         }
@@ -342,7 +363,7 @@ namespace Ashlight {
             member.SetGear(slot,item); member.Restore(); return true;
         }
         public ProgressData ExportProgress() {
-            var data = new ProgressData { idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
@@ -361,7 +382,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -411,6 +432,11 @@ namespace Ashlight {
                 member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
                 restored.Add(member.Identity.Id, member);
             }
+            var restoredShared=new HashSet<string>();
+            if(data.version>=9) {
+                if(data.sharedHeroes==null || data.sharedHeroes.Length>SharedSlots || (data.sharedHeroes.Length>0 && restored.Count<5)) return false;
+                foreach(var id in data.sharedHeroes) if(id==null || !restored.ContainsKey(id) || !restoredShared.Add(id)) return false;
+            }
             var chosen = new HashSet<string>();
             foreach (var id in data.party) if (id == null || !restored.ContainsKey(id) || !chosen.Add(id)) return false;
             int restoredLimit=Math.Min(MaxPartySize,Math.Min(data.encounter/ChapterDefinition.StagesPerChapter,ChapterDefinition.Catalog.Count-1)+1);
@@ -426,6 +452,7 @@ namespace Ashlight {
                     (data.results.damage!=null && data.results.damage.Length>0) ||
                     (data.results.healing!=null && data.results.healing.Length>0))) return false;
             }
+            sharedHeroes.Clear(); foreach(var id in restoredShared) sharedHeroes.Add(id);
             inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();
             for (int i = 0; i < data.recruited.Length; i++) {
@@ -451,7 +478,7 @@ namespace Ashlight {
         }
         public void Reset() {
             LastOffensivePassive=null; ClearPassiveReports();
-            RefreshFactionStats();
+            RefreshSharedLevels(); RefreshFactionStats();
             Results=null; LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
             foreach (var member in party) member.Restore();
             Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null; LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);

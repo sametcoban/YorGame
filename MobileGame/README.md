@@ -509,3 +509,15 @@ Ascension replaces the former shard-rank upgrade presentation. Each named hero h
 Save version **8** retains the existing rank field as ascension steps. Older purchased ranks and remaining shards carry over automatically; the new growth formula preserves or improves old maximum HP at every level and rank. No hero or gear sacrifice is required. The Skills screen now offers the same Ascend action rather than a second shard upgrade system. Collection stats include faction bonuses for active heroes; reserves show their own stats.
 
 Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **11,084 engine-independent checks passed**, covering all 30 heroes and 150 ascensions, costs, caps, identity preservation, reserve upgrades, migration, reloads and all previous-level/rank HP comparisons. The Unity serialization diagnostic now checks ascended rarity too. Unity compilation, diagnostic execution, collection layout and progression balance still require local testing.
+
+## Shared hero levels
+
+Once you own **five heroes**, the Collection screen unlocks five shared-level slots. The shared crystal level is the **lowest personally earned level among your five highest-level recruited heroes**, whether those heroes are active or in reserve. Select a lower-level hero and press **Link · Lv N**; press **Unlink** to release its slot. Linking, unlinking and changing slots are free before combat and after campaign completion.
+
+Linked heroes fight at the higher of their own level and the shared level. Health, attacks, skills and ultimate growth use this combat level, alongside their existing rarity, ascension, gear and faction bonuses. Collection, selection and the battle roster show boosted levels as `10 (own 1)`. A linked hero keeps the boost when placed in the party. Linked heroes' boosts never contribute to calculating the shared level, preventing feedback loops.
+
+Each hero still earns their own XP from battles and idle rewards. Removing a link retains earned XP, levels, equipment, ascension and skill choices; talent unlocks continue to require the hero's own level. Slots stay linked as heroes catch up and can be released manually. Higher mentor levels automatically update the crystal after rewards are claimed. Campaign replay preserves mentors and links. Linking locks once combat starts and cannot be used to refill health mid-fight.
+
+Save version **9** stores the five linked hero IDs; saves from versions 1–8 migrate with empty slots and preserve all previous progress. Duplicate, unknown, excessive or malformed link data is rejected before modifying progress.
+
+Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **11,119 engine-independent checks passed**, including the five-leader calculation, slot capacity, stats, own XP preservation, party swaps, unlinking, mentor growth, idle rewards, migration, invalid saves and a full 90-wave campaign using shared slots. The Unity serialization diagnostic includes a level-1 reserve fighting at shared level 15. Unity compilation, diagnostics, Collection layout and live balance still require local testing.

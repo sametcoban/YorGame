@@ -330,7 +330,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==8);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==9);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1068,7 +1068,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==8 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==9 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1100,6 +1100,8 @@ class BattleChecks {
   var chosenCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(321),enableFactions:true); int chosenSteps=0,chosenCount=0;
   while(!chosenCampaign.CampaignComplete && chosenSteps++<6000) {
    if(chosenCampaign.Current==Phase.Player) {
+    if(chosenCampaign.CanChangeParty) foreach(var recruit in chosenCampaign.Recruits)
+     if(chosenCampaign.SharedCount<Battle.SharedSlots && !chosenCampaign.IsShared(recruit.Id) && chosenCampaign.HeroProgress(recruit.Id).Level<chosenCampaign.CrystalLevel) Check(chosenCampaign.SetShared(recruit.Id,true));
     if(chosenCampaign.CanChangeParty) foreach(var hero in chosenCampaign.Party)
      for(int tier=0;tier<3;tier++) if(hero.Level>=ClassTalents.UnlockLevel(tier) && hero.TalentChoice(tier)<0) {
       Check(chosenCampaign.ChooseTalent(hero.Identity.Id,tier,((int)hero.Identity.Class+tier)%2)); chosenCount++;
@@ -1113,7 +1115,7 @@ class BattleChecks {
    } else if(chosenCampaign.Current==Phase.WaveCleared) Check(chosenCampaign.AdvanceWave());
    else if(chosenCampaign.Current==Phase.Won) {
     var selectedSave=chosenCampaign.ExportProgress(); var selectedReload=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true);
-    Check(selectedReload.RestoreProgress(selectedSave) && selectedReload.Results.Loot.Id==chosenCampaign.Results.Loot.Id);
+    Check(selectedReload.RestoreProgress(selectedSave) && selectedReload.Results.Loot.Id==chosenCampaign.Results.Loot.Id && selectedReload.SharedCount==chosenCampaign.SharedCount);
     foreach(var hero in chosenCampaign.Party) for(int tier=0;tier<3;tier++) Check(selectedReload.HeroProgress(hero.Identity.Id).TalentChoice(tier)==hero.TalentChoice(tier));
     Check(chosenCampaign.ContinueAfterVictory());
    } else throw new Exception("Unexpected talent campaign phase: "+chosenCampaign.Current);
@@ -1172,7 +1174,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==8);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==9);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1246,6 +1248,40 @@ class BattleChecks {
    var grown=new PartyHero(definition); grown.UpgradeRank=rank; grown.Level=level; grown.RefreshStats();
    Check(grown.Definition.MaxHealth>=definition.Stats.Scaled(1f+(level-1)*.05f+rank*.1f).MaxHealth);
   }
+  // Shared combat levels derive exclusively from earned levels, never other linked boosts.
+  var crystal=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"});
+  var crystalSave=crystal.ExportProgress(); int[] leaderLevels={20,18,15,12,10};
+  for(int leader=0;leader<5;leader++) crystalSave.loadouts[leader].level=leaderLevels[leader];
+  Check(crystal.RestoreProgress(crystalSave) && crystal.CrystalUnlocked && crystal.CrystalLevel==10);
+  string linkedId=HeroDefinition.Catalog[5].Id; var linkedHero=crystal.HeroProgress(linkedId); string linkedUltimate=linkedHero.Ultimate.Name;
+  Check(crystal.SetShared(linkedId,true) && crystal.SharedCount==1 && linkedHero.Level==1 && linkedHero.CombatLevel==10);
+  Check(linkedHero.Definition.MaxHealth==linkedHero.Identity.Stats.Scaled(1.45f).MaxHealth && linkedHero.Experience==0 && linkedHero.Ultimate.Name==linkedUltimate);
+  Check(!crystal.ChooseTalent(linkedId,0,0)); // Talent unlocks continue to use personally earned levels.
+  Check(!crystal.SetShared(linkedId,true) && !crystal.SetShared("missing",true) && !crystal.SetShared("Knight_Common",true));
+  for(int entry=6;entry<10;entry++) Check(crystal.SetShared(HeroDefinition.Catalog[entry].Id,true));
+  Check(crystal.SharedCount==5 && crystal.CrystalLevel==10 && !crystal.SetShared(HeroDefinition.Catalog[10].Id,true));
+  var crystalReload=new Battle(true,enableFactions:true); Check(crystalReload.RestoreProgress(crystal.ExportProgress()));
+  Check(crystalReload.SharedCount==5 && crystalReload.HeroProgress(linkedId).Level==1 && crystalReload.HeroProgress(linkedId).CombatLevel==10);
+  Check(crystalReload.SetShared(linkedId,false) && crystalReload.HeroProgress(linkedId).CombatLevel==1 && crystalReload.HeroProgress(linkedId).Experience==0);
+  Check(crystal.SelectHero(4) && crystal.EquipHero(linkedId) && crystal.HeroProgress(linkedId).CombatLevel==10);
+  crystal.Attack(); Check(!crystal.SetShared(linkedId,false)); crystal.Reset();
+  var improvedCrystal=crystal.ExportProgress(); improvedCrystal.loadouts[4].level=11; Check(crystal.RestoreProgress(improvedCrystal) && crystal.CrystalLevel==11 && crystal.HeroProgress(linkedId).CombatLevel==11);
+  Check(crystal.HeroProgress(linkedId).Level==1 && crystal.SharedCount==5);
+  var migratedCrystal=crystal.ExportProgress(); migratedCrystal.version=8; Check(crystalReload.RestoreProgress(migratedCrystal) && crystalReload.SharedCount==0 && crystalReload.HeroProgress(linkedId).CombatLevel==1);
+  var badCrystal=crystal.ExportProgress(); int originalCrystalLevel=crystalReload.CrystalLevel;
+  foreach(var invalidLinks in new[]{new[]{linkedId,linkedId},new[]{"unknown"},new string[]{null},new[]{linkedId,HeroDefinition.Catalog[6].Id,HeroDefinition.Catalog[7].Id,HeroDefinition.Catalog[8].Id,HeroDefinition.Catalog[9].Id,HeroDefinition.Catalog[10].Id}}) {
+   badCrystal.sharedHeroes=invalidLinks; Check(!crystalReload.RestoreProgress(badCrystal) && crystalReload.CrystalLevel==originalCrystalLevel);
+  }
+  badCrystal.sharedHeroes=null; Check(!crystalReload.RestoreProgress(badCrystal));
+  var starterCrystal=new Battle(true); Check(!starterCrystal.CrystalUnlocked && starterCrystal.CrystalLevel==1 && !starterCrystal.SetShared("Knight_Common",true));
+  var replayCrystal=crystal.ExportProgress(); replayCrystal.encounter=30;
+  Check(crystalReload.RestoreProgress(replayCrystal) && crystalReload.RestartCampaign() && crystalReload.SharedCount==5 && crystalReload.CrystalLevel==11);
+  Check(crystalReload.HeroProgress(linkedId).CombatLevel==11);
+  var sharedClock=new DateTime(2026,10,11,12,0,0,DateTimeKind.Utc); var idleCrystal=new Battle(true,utcNow:()=>sharedClock);
+  var idleCrystalSave=crystal.ExportProgress(); idleCrystalSave.idleClaimTicks=sharedClock.Ticks;
+  Check(idleCrystal.RestoreProgress(idleCrystalSave)); sharedClock=sharedClock.AddHours(1);
+  Check(idleCrystal.ClaimIdleRewards() && idleCrystal.HeroProgress(linkedId).Level>1 && idleCrystal.HeroProgress(linkedId).CombatLevel>=idleCrystal.HeroProgress(linkedId).Level);
+  Check(idleCrystal.SetShared(linkedId,false) && idleCrystal.HeroProgress(linkedId).CombatLevel==idleCrystal.HeroProgress(linkedId).Level);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
