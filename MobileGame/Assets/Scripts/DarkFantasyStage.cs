@@ -10,9 +10,12 @@ namespace Ashlight {
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
         readonly List<Material> ownedMaterials = new List<Material>();
         Light[] torches;
-        public static void Create(Transform parent, Camera camera) {
-            var root = new GameObject("The Lantern Courtyard"); root.transform.SetParent(parent, false);
-            root.AddComponent<DarkFantasyStage>().Build(camera);
+        ChapterStageDefinition theme;
+        int chapter;
+        static Color Tint(string hex) { Color color; ColorUtility.TryParseHtmlString(hex,out color); return color; }
+        public static DarkFantasyStage Create(Transform parent, Camera camera, int chapter=0) {
+            var root = new GameObject(ChapterStageDefinition.For(chapter).Name); root.transform.SetParent(parent, false);
+            var stage=root.AddComponent<DarkFantasyStage>(); stage.chapter=chapter; stage.theme=ChapterStageDefinition.For(chapter); stage.Build(camera); return stage;
         }
         public static void Frame(Camera camera) {
             camera.transform.position = CameraPosition; camera.transform.LookAt(CameraTarget);
@@ -35,31 +38,37 @@ namespace Ashlight {
         }
         Material Material(string name) {
             var asset = Resources.Load<Material>("DarkFantasy/Materials/" + name);
-            if (asset != null) return asset;
+            if (asset != null) {
+                var themed=new Material(asset); ownedMaterials.Add(themed);
+                if(name=="Stone") themed.color=Tint(theme.Stone);
+                if(name=="PaleStone") themed.color=Tint(theme.Accent);
+                if(name=="Ember") { themed.color=Tint(theme.Flame); themed.EnableKeyword("_EMISSION"); themed.SetColor("_EmissionColor",Tint(theme.Flame)*1.5f); }
+                return themed;
+            }
             Debug.LogWarning("Dark fantasy material missing: " + name + ". Run Ashlight > Prepare Mobile Project.");
-            var fallback = new Material(Shader.Find("Standard")); fallback.color = new Color(.14f,.16f,.19f);
+            var fallback = new Material(Shader.Find("Standard")); fallback.color = name=="PaleStone"?Tint(theme.Accent):name=="Ember"?Tint(theme.Flame):Tint(theme.Stone);
             ownedMaterials.Add(fallback); return fallback;
         }
         void Build(Camera camera) {
-            Frame(camera); camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.025f,.035f,.052f);
+            Frame(camera); camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Tint(theme.Sky);
             camera.allowHDR = false; camera.allowMSAA = true;
             // One shadow-casting sun plus two small, shadowless torch lights.
             QualitySettings.pixelLightCount = 3; QualitySettings.shadowDistance = 18;
             QualitySettings.shadows = ShadowQuality.All; QualitySettings.shadowResolution = ShadowResolution.Medium;
             QualitySettings.antiAliasing = 2;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(.24f,.29f,.38f);
+            RenderSettings.ambientSkyColor = Color.Lerp(Tint(theme.Moon),Color.black,.64f);
             RenderSettings.ambientEquatorColor = new Color(.10f,.12f,.16f);
             RenderSettings.ambientGroundColor = new Color(.035f,.04f,.05f);
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Exponential;
-            RenderSettings.fogColor = camera.backgroundColor; RenderSettings.fogDensity = .024f;
+            RenderSettings.fogColor = camera.backgroundColor; RenderSettings.fogDensity = theme.Fog;
             var sun = new GameObject("Cold moonlight").AddComponent<Light>(); sun.transform.SetParent(transform, false);
-            sun.type = LightType.Directional; sun.color = new Color(.70f,.79f,.94f); sun.intensity = 1.05f;
+            sun.type = LightType.Directional; sun.color = Tint(theme.Moon); sun.intensity = 1.05f;
             sun.shadows = LightShadows.Soft; sun.shadowStrength = .7f; sun.shadowBias = .045f;
             sun.transform.localRotation = Quaternion.Euler(40,-28,0);
             Stone(new Vector3(0,-.20f,0),new Vector3(14,.25f,11));
             // Deterministic flagstones: no random state shared with summon rolls.
-            var random = new System.Random(2401);
+            var random = new System.Random(2401+chapter*71);
             for (int x = 0; x < 12; x++) for (int z = 0; z < 10; z++) {
                 float yaw = (float)(random.NextDouble()-.5)*2;
                 Stone(new Vector3((x-5.5f)*.86f,-.07f,(z-4.5f)*.86f),new Vector3(.82f,.14f,.82f), (x+z)%4==0, new Vector3(0,yaw,0));
@@ -94,9 +103,11 @@ namespace Ashlight {
                 Piece("Ember",PrimitiveType.Sphere,new Vector3(x,2.12f,3.2f),new Vector3(.2f,.42f,.2f));
                 var light = new GameObject("Torch " + (i+1)).AddComponent<Light>(); light.transform.SetParent(transform,false);
                 light.transform.localPosition = new Vector3(x,2.2f,3); light.type = LightType.Point;
-                light.range = 6; light.color = new Color(1,.53f,.22f); light.intensity = 2.7f; light.shadows = LightShadows.None;
+                light.range = 6; light.color = Tint(theme.Flame); light.intensity = 2.7f; light.shadows = LightShadows.None;
                 torches[i] = light;
             }
+            ChapterLandmarks();
+            Atmosphere();
             foreach (var batch in batches) {
                 var mesh = new Mesh { name = "Courtyard " + batch.Key, indexFormat = IndexFormat.UInt32 };
                 mesh.CombineMeshes(batch.Value.ToArray(),true,true); mesh.RecalculateBounds(); ownedMeshes.Add(mesh);
@@ -105,6 +116,55 @@ namespace Ashlight {
                 if (batch.Key == "Ember") obj.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
             batches.Clear();
+        }
+        void ChapterLandmarks() {
+            // Landmarks stay at the perimeter, outside party/boss movement lanes.
+            if(chapter==1) {
+                for(int side=-1;side<=1;side+=2) {
+                    for(int i=0;i<5;i++) {
+                        Piece("PaleStone",PrimitiveType.Sphere,new Vector3(side*4.9f,.07f,-2+i*1.5f),new Vector3(1.4f,.35f,1.9f));
+                        Stone(new Vector3(side*5.5f,1.2f+i*.14f,1+i*.7f),new Vector3(.5f,2.6f,.7f),true,new Vector3(0,25+i*11,side*18));
+                    }
+                }
+            } else if(chapter==2) {
+                for(int side=-1;side<=1;side+=2) {
+                    Piece("Ember",PrimitiveType.Cube,new Vector3(side*4.8f,-.035f,0),new Vector3(.24f,.035f,7));
+                    Stone(new Vector3(side*4.2f,2.5f,4.9f),new Vector3(1.2f,5.1f,1.2f));
+                    for(int i=0;i<4;i++) Piece("Ember",PrimitiveType.Cube,new Vector3(side*4.2f,.6f+i*.85f,4.24f),new Vector3(.55f,.13f,.025f));
+                }
+            } else if(chapter==3) {
+                for(int side=-1;side<=1;side+=2) for(int i=0;i<3;i++) {
+                    Stone(new Vector3(side*(4.2f+i*.4f),1.8f+i*.6f,3.7f+i*.6f),new Vector3(.6f,3.6f+i*1.2f,.6f),true,new Vector3(0,45,0));
+                    Piece("Ember",PrimitiveType.Sphere,new Vector3(side*(4.2f+i*.4f),3.8f+i*1.2f,3.7f+i*.6f),Vector3.one*.28f);
+                }
+            } else if(chapter==4) {
+                for(int side=-1;side<=1;side+=2) for(int i=0;i<4;i++) {
+                    Piece("Leather",PrimitiveType.Cylinder,new Vector3(side*(4.8f-i*.13f),.8f+i*.15f,-1+i*1.6f),new Vector3(.22f,1.25f,.22f),new Vector3(20,0,side*(22+i*5)));
+                    for(int j=0;j<3;j++) Piece("Ember",PrimitiveType.Sphere,new Vector3(side*(4.6f+j*.25f),1.2f+j*.35f,-1+i*1.6f),new Vector3(.15f,.2f,.15f));
+                    Piece("Wool",PrimitiveType.Sphere,new Vector3(side*4.7f,.2f,-1+i*1.6f),new Vector3(.9f,.3f,.8f));
+                }
+            } else if(chapter==5) {
+                for(int i=0;i<4;i++) Stone(new Vector3(0,.13f+i*.12f,5.25f+i*.3f),new Vector3(3.1f-i*.4f,.24f,1.7f));
+                Stone(new Vector3(0,1.15f,6.1f),new Vector3(1.25f,1.2f,.6f),true);
+                Stone(new Vector3(0,2.35f,6.4f),new Vector3(1.5f,2.6f,.35f),true);
+                for(int i=0;i<20;i++) {
+                    float angle=i*Mathf.PI*2/20;
+                    Piece("Ember",PrimitiveType.Sphere,new Vector3(Mathf.Cos(angle)*1.1f,4.45f+Mathf.Sin(angle)*1.1f,6.3f),new Vector3(.18f,.18f,.10f));
+                }
+            }
+        }
+        void Atmosphere() {
+            var obj=new GameObject("Chapter atmosphere"); obj.transform.SetParent(transform,false); obj.transform.localPosition=new Vector3(0,4,0);
+            var particles=obj.AddComponent<ParticleSystem>(); particles.Stop(true,ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main=particles.main; main.maxParticles=48; main.startLifetime=6; main.startSpeed=.22f;
+            main.startSize=chapter==1?.04f:.025f; Color particleColor=chapter==1?Tint(theme.Accent):Tint(theme.Flame); particleColor.a=.35f; main.startColor=particleColor;
+            main.gravityModifier=chapter==1?.12f:-.015f; main.simulationSpace=ParticleSystemSimulationSpace.Local;
+            var emission=particles.emission; emission.rateOverTime=chapter==1?7:4;
+            var shape=particles.shape; shape.shapeType=ParticleSystemShapeType.Box; shape.scale=new Vector3(11,1,8);
+            var renderer=obj.GetComponent<ParticleSystemRenderer>(); var template=Resources.Load<Material>("DarkFantasy/Materials/Atmosphere");
+            var material=template!=null?new Material(template):new Material(Shader.Find("Sprites/Default"));
+            ownedMaterials.Add(material); renderer.sharedMaterial=material; renderer.shadowCastingMode=ShadowCastingMode.Off; renderer.receiveShadows=false;
+            particles.Play();
         }
         void Update() {
             if (torches == null) return;

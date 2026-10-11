@@ -14,6 +14,8 @@ namespace Ashlight {
         readonly System.Random summonRandom = new System.Random();
         Transform battleStage;
         Camera battleCamera;
+        DarkFantasyStage chapterStage;
+        int stageChapter=-1;
         CombatEffects effects;
         CombatAudio sounds;
         Button soundButton;
@@ -100,7 +102,7 @@ namespace Ashlight {
             effects.transform.SetParent(battleStage, false); effects.Initialize(camera);
             cameraObject.AddComponent<AudioListener>();
             sounds = new GameObject("Combat Audio").AddComponent<CombatAudio>();
-            DarkFantasyStage.Create(battleStage, camera);
+            chapterStage=DarkFantasyStage.Create(battleStage,camera,battle.ChapterIndex); stageChapter=battle.ChapterIndex;
             CreateEnemy();
             var canvas = new GameObject("Touch HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -178,6 +180,12 @@ namespace Ashlight {
                 var definition = battle.Enemies[i].Definition;
                 var art = EnemyVisualDefinition.For(definition.Name);
                 var prefab = art == null ? null : Resources.Load<GameObject>(art.ResourcePath);
+                if(prefab==null && art!=null) {
+                    prefab=Resources.Load<GameObject>("Enemies/"+art.SourceModel);
+                    if(prefab==null) foreach(var reference in EnemyVisualDefinition.Catalog) if(reference.SourceModel==art.SourceModel) { prefab=Resources.Load<GameObject>(reference.ResourcePath); if(prefab!=null) break; }
+                    if(prefab==null) prefab=Resources.Load<GameObject>("Enemies/"+(art.IsRanged?"CinderScout":"LanternWarden"));
+                    Debug.LogWarning("Enemy visual variant missing: "+art.ResourcePath+". Using an animated reference if available. Run Ashlight > Art > Build Enemy Roster.");
+                }
                 if (prefab != null) foes[i] = Instantiate(prefab,FoeHome(i),Quaternion.identity,battleStage).transform;
                 else {
                     if (art != null) Debug.LogWarning("Missing enemy model: " + art.ResourcePath + ". Run Ashlight > Art > Build Enemy Roster.");
@@ -632,6 +640,10 @@ namespace Ashlight {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
             CancelActionPresentation(); sounds.Clear(); effects.Clear();
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true);
+            if(stageChapter!=battle.ChapterIndex) {
+                if(chapterStage!=null) { chapterStage.gameObject.SetActive(false); Destroy(chapterStage.gameObject); }
+                chapterStage=DarkFantasyStage.Create(battleStage,battleCamera,battle.ChapterIndex); stageChapter=battle.ChapterIndex;
+            }
             DarkFantasyStage.Frame(battleCamera);
             CreateEnemy();
             message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";

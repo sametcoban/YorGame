@@ -129,7 +129,7 @@ The engine-independent combat model passes 1,513 checks covering party turns, th
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Assets/Scripts/ChapterStageDefinition.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -348,3 +348,14 @@ Party capacity is **1 hero in chapter 1, 2 in chapter 2 and 3 in chapters 3–6*
 Copy updated `Assets/Scripts` into Unity and press Play. Check results after a normal attack, ultimate and counter; Continue claiming; restarting Unity with rewards unclaimed; and party expansion at chapters 2 and 3. Unity compilation, screen layout and playback still require local validation.
 
 Validated here: **2,453 engine-independent checks**, including reward previews/claims, pending-result reloads, damage/healing attribution across all 30 ultimates, chapter party caps, chapter transitions and legacy roster migration.
+
+
+## Chapter environments and complete enemy visuals
+
+All six chapters now select their own environment at runtime: lantern-lit ruins; a blue frozen pass with snowdrifts, ice formations and snowfall; an ember citadel with furnace towers and glowing channels; a violet storm spire with charged obelisks; a green blighted garden with twisted roots and glowing growths; and an eclipse throne with steps, a throne and a luminous halo. Each has its own stone palette, sky, fog, directional light and torch glow. Atmosphere is capped at 48 particles, geometry is combined by material, and lighting keeps one shadow-casting directional light plus two shadowless points. Chapter transitions deactivate the old stage immediately and dispose its generated meshes/materials.
+
+The missing visuals were unassigned chapter 2–6 enemies. The visual catalog now covers **all 34 named campaign enemies**, including the four companion bosses. Enemy prefabs use the existing six animated source models with matching palette, glow and size variants. These are shared humanoid/canine silhouettes; creatures such as Flame Drake, Thunder Hawk and Venom Bloom currently use those animated proxies rather than bespoke dragon, bird or plant meshes. Missing generated variants prefer an existing animated source/reference prefab before using a primitive fallback.
+
+Update **`Assets/Scripts` and `Assets/Editor`**, keeping `Assets/Art/DarkFantasy` present. Wait for Unity import/compilation, then run **Ashlight > Art > Build Enemy Roster**. This rebuilds enemy prefabs/controllers for every chapter and creates the atmosphere material so its shader is included in builds. Then press Play. Existing cubes/placeholders at the generated enemy paths are replaced by that rebuild. If source models are missing locally, copy `Assets/Art` from the repository first.
+
+Validated here: **2,570 engine-independent checks**, complete encounter-to-visual coverage, unique resource paths, all six referenced FBX files present, and six distinct stage themes. Unity compilation/import, chapter appearance, camera framing, animation playback and mobile performance require local testing. Test each chapter, both bosses, chapter transitions, replay returning to chapter one and background/resume.

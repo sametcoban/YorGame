@@ -651,6 +651,20 @@ class BattleChecks {
   limitedSave.version=4; var legacyLimits=new Battle(true);
   Check(legacyLimits.RestoreProgress(limitedSave) && legacyLimits.Party.Count==1 && legacyLimits.Recruits.Count==11);
   Check(legacyLimits.HeroProgress(limitedSave.party[1]).Identity.Id==limitedSave.party[1]);
+  var visualCoverageNames=new System.Collections.Generic.HashSet<string>();
+  var enemyPaths=new System.Collections.Generic.HashSet<string>();
+  var sources=new System.Collections.Generic.HashSet<string>(new[]{"LanternWarden","AshHound","CinderScout","IronWatcher","Roadkeeper","HollowMatron"});
+  Check(EnemyVisualDefinition.Catalog.Count==34 && ChapterStageDefinition.Catalog.Length==6);
+  foreach(var visual in EnemyVisualDefinition.Catalog) Check(visualCoverageNames.Add(visual.EnemyName) && enemyPaths.Add(visual.ResourcePath) && sources.Contains(visual.SourceModel));
+  for(int encounter=0;encounter<30;encounter++) foreach(var campaignEnemy in ChapterDefinition.EnemiesAt(encounter)) {
+   var visual=EnemyVisualDefinition.For(campaignEnemy.Name);
+   Check(visual!=null && visual.IsBoss==campaignEnemy.IsBoss && visual.Height>0 && visual.Height<=2.8f);
+  }
+  var skies=new System.Collections.Generic.HashSet<string>();
+  for(int chapter=0;chapter<6;chapter++) {
+   var stage=ChapterStageDefinition.For(chapter);
+   Check(skies.Add(stage.Sky) && stage.Fog>0 && stage.Fog<=.04f && stage.Stone.StartsWith("#") && stage.Flame.StartsWith("#"));
+  }
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

@@ -71,6 +71,16 @@ public static class DarkFantasySetup {
         if (EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode) return;
         Directory.CreateDirectory(Generated + "/Materials"); Directory.CreateDirectory(Generated + "/Controllers");
         AssetDatabase.Refresh();
+        string atmospherePath=Generated+"/Materials/Atmosphere.mat";
+        var atmosphere=AssetDatabase.LoadAssetAtPath<Material>(atmospherePath);
+        if(atmosphere==null) {
+            var shader=Shader.Find("Particles/Standard Unlit");
+            if(shader==null) throw new InvalidOperationException("Missing built-in particle shader.");
+            atmosphere=new Material(shader); AssetDatabase.CreateAsset(atmosphere,atmospherePath);
+        }
+        atmosphere.SetFloat("_Mode",2); atmosphere.SetInt("_SrcBlend",(int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        atmosphere.SetInt("_DstBlend",(int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha); atmosphere.SetInt("_ZWrite",0);
+        atmosphere.EnableKeyword("_ALPHABLEND_ON"); atmosphere.renderQueue=3000; EditorUtility.SetDirty(atmosphere);
         foreach (string name in new[] { "Stone", "PaleStone", "Iron", "Blade", "Brass", "Leather", "Wool", "RustWool", "WineWool", "VioletWool", "MossWool", "SootWool", "AshWool", "Recess", "Ember", "Arcane", "Venom", "Light", "Bone", "RustIron", "Frost" }) Material(name);
         BuildActor("Rowan", "Assets/Resources/Heroes/Named/Knight_Common.prefab", 2f, 1f, 145f, rebuild);
         BuildActor("LanternWarden", "Assets/Resources/Enemies/LanternWarden.prefab", 2.35f, 1.3f, -145f, rebuild);
@@ -155,7 +165,7 @@ public static class DarkFantasySetup {
                     string role = materials[i] == null ? "Iron" : materials[i].name.Split('.')[0];
                     if (enemyStyle != null && enemyStyle.ClothRole != null && role.EndsWith("Wool",StringComparison.Ordinal)) role = enemyStyle.ClothRole;
                     if (enemyStyle != null && enemyStyle.ClothRole != null && (role == "Frost" || role == "Ember"))
-                        role = enemyStyle.EffectElement == Element.Lightning ? "Arcane" : enemyStyle.EffectElement == Element.Poison ? "Venom" : enemyStyle.EffectElement == Element.Light ? "Light" : "Ember";
+                        role = enemyStyle.EffectElement == Element.Cold ? "Frost" : enemyStyle.EffectElement == Element.Lightning ? "Arcane" : enemyStyle.EffectElement == Element.Poison ? "Venom" : enemyStyle.EffectElement == Element.Light ? "Light" : "Ember";
                     materials[i] = Material((name == "LanternWarden" || name == "Roadkeeper") && role == "Wool" ? "RustWool" : name == "IronWatcher" && role == "Wool" ? "SootWool" : role);
                 }
                 renderer.sharedMaterials = materials;

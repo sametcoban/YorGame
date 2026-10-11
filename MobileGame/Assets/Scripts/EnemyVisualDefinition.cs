@@ -29,9 +29,32 @@ namespace Ashlight {
             new EnemyVisualDefinition("Veiled Monarch", "VeiledMonarch", "ECLIPSE HEX", 2.5f, Element.Light, true, true, "CinderScout", "SootWool"),
             new EnemyVisualDefinition("Eclipse Harbinger", "EclipseHarbinger", "ECLIPSE SLAM", 2.65f, Element.Light, true, sourceModel:"Roadkeeper", clothRole:"SootWool")
         });
+        public static readonly IReadOnlyList<EnemyVisualDefinition> ChapterEnemies = Array.AsReadOnly(new[] {
+            new EnemyVisualDefinition("Frost Sentinel","FrostSentinel","FROST CLEAVE",2.35f,Element.Cold,sourceModel:"LanternWarden",clothRole:"AshWool"),
+            new EnemyVisualDefinition("Icefang","Icefang","FROZEN BITE",1.5f,Element.Cold,sourceModel:"AshHound",clothRole:"AshWool"),
+            new EnemyVisualDefinition("Snowbound Knight","SnowboundKnight","ICE CLEAVE",2.4f,Element.Cold,sourceModel:"IronWatcher",clothRole:"AshWool"),
+            new EnemyVisualDefinition("Glacier Spirit","GlacierSpirit","GLACIER HEX",2.2f,Element.Cold,ranged:true,sourceModel:"CinderScout",clothRole:"AshWool"),
+            new EnemyVisualDefinition("Winter Matriarch","WinterMatriarch","WINTER TEMPEST",2.6f,Element.Cold,boss:true,ranged:true,sourceModel:"HollowMatron",clothRole:"AshWool"),
+            new EnemyVisualDefinition("Ember Guard","EmberGuard","EMBER CLEAVE",2.35f,Element.Fire,sourceModel:"LanternWarden",clothRole:"WineWool"),
+            new EnemyVisualDefinition("Flame Drake","FlameDrake","FLAME BITE",1.65f,Element.Fire,sourceModel:"AshHound",clothRole:"WineWool"),
+            new EnemyVisualDefinition("Coal Colossus","CoalColossus","COAL CRUSH",2.7f,Element.Fire,sourceModel:"IronWatcher",clothRole:"SootWool"),
+            new EnemyVisualDefinition("Furnace Keeper","FurnaceKeeper","FURNACE HEX",2.35f,Element.Fire,ranged:true,sourceModel:"CinderScout",clothRole:"WineWool"),
+            new EnemyVisualDefinition("Storm Revenant","StormRevenant","STORM CLEAVE",2.4f,Element.Lightning,sourceModel:"LanternWarden",clothRole:"VioletWool"),
+            new EnemyVisualDefinition("Thunder Hawk","ThunderHawk","THUNDER HEX",2.2f,Element.Lightning,ranged:true,sourceModel:"CinderScout",clothRole:"VioletWool"),
+            new EnemyVisualDefinition("Charged Construct","ChargedConstruct","CHARGED CRUSH",2.6f,Element.Lightning,sourceModel:"IronWatcher",clothRole:"VioletWool"),
+            new EnemyVisualDefinition("Tempest Herald","TempestHerald","TEMPEST HEX",2.3f,Element.Lightning,ranged:true,sourceModel:"HollowMatron",clothRole:"VioletWool"),
+            new EnemyVisualDefinition("Blight Guardian","BlightGuardian","BLIGHT CLEAVE",2.4f,Element.Poison,sourceModel:"LanternWarden",clothRole:"MossWool"),
+            new EnemyVisualDefinition("Venom Bloom","VenomBloom","VENOM HEX",2.15f,Element.Poison,ranged:true,sourceModel:"HollowMatron",clothRole:"MossWool"),
+            new EnemyVisualDefinition("Rootbound Golem","RootboundGolem","ROOT CRUSH",2.7f,Element.Poison,sourceModel:"IronWatcher",clothRole:"MossWool"),
+            new EnemyVisualDefinition("Plague Weaver","PlagueWeaver","PLAGUE HEX",2.3f,Element.Poison,ranged:true,sourceModel:"CinderScout",clothRole:"MossWool"),
+            new EnemyVisualDefinition("Dusk Shade","DuskShade","DUSK HEX",2.2f,Element.Light,ranged:true,sourceModel:"CinderScout",clothRole:"SootWool"),
+            new EnemyVisualDefinition("Hollow Templar","HollowTemplar","HOLLOW CLEAVE",2.4f,Element.Light,sourceModel:"LanternWarden",clothRole:"SootWool"),
+            new EnemyVisualDefinition("Nightbound Oracle","NightboundOracle","NIGHT HEX",2.3f,Element.Light,ranged:true,sourceModel:"HollowMatron",clothRole:"SootWool"),
+            new EnemyVisualDefinition("Eclipse Warden","EclipseWarden","ECLIPSE CRUSH",2.6f,Element.Light,sourceModel:"IronWatcher",clothRole:"SootWool")
+        });
         public static readonly IReadOnlyList<EnemyVisualDefinition> Catalog = All();
         static IReadOnlyList<EnemyVisualDefinition> All() {
-            var all = new List<EnemyVisualDefinition>(ChapterOne); all.AddRange(PairedBosses); return all.AsReadOnly();
+            var all = new List<EnemyVisualDefinition>(ChapterOne); all.AddRange(ChapterEnemies); all.AddRange(PairedBosses); return all.AsReadOnly();
         }
         public static EnemyVisualDefinition For(string name) {
             foreach (var entry in Catalog) if (entry.EnemyName == name) return entry;
