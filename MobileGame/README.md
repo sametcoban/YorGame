@@ -628,3 +628,11 @@ Chapter cards now show Current/Cleared/Locked status, completed-stage count, par
 The victory screen separates crystals/XP and gear into larger reward cards, with recruitment or Tower shards below them. Hero contribution rows include damage and healing numbers, projected level/XP, and separate gold/green meters showing each hero's fraction of party damage/healing. Unoccupied rows are hidden, and zero totals show empty meters. Continue still claims the prepared rewards once. This is presentation-only and does not alter combat, progression, or saves.
 
 Unity validation remains local: check both chapter pages, five-hero story/Tower wins, one-hero wins, no-healing results, level-ups, new recruits, and long gear descriptions. Cloud syntax inspection cannot verify Unity import, layout, or touch interaction.
+
+### Collection and formation polish
+
+Collection cards separate the hero name and level/rarity from class, element, faction, power, and team position. Borders and headings use effective ascended rarity colors; element labels use combat element colors. Reserve/Front/Back, shared-level links, and available ascension are visible on each card. Five direct destination buttons replace the cycling target button, with locked slots disabled. The assignment button names the exact front/back slot and replaced hero, while the existing stat/faction comparison remains above the cards.
+
+During battle preparation, a hero already in the team can use **Arrange in Formation**, which opens Formation with that hero selected for a swap. Formation cards show rarity, element, level, and power, and the header names the selected hero and explains cancellation. **Collection** is accessible directly from Formation alongside presets and Done. No progression, combat, save, or party-limit rules changed.
+
+Unity checks still required: one/five-hero teams, locked destinations, an empty filter, reserve assignment, arranging an active hero, cancelling a swap, shared-level and ascension labels, and long names on landscape phone aspect ratios.

@@ -17,8 +17,10 @@ namespace Ashlight {
         GameObject teamPresetRoot; Text teamPresetTitle; Text[] teamPresetLabels; Button[] teamPresetLoads, teamPresetClears; string presetNotice="";
         GameObject dailyRoot; Button[] dailyButtons;
         GameObject collectionRoot; Text collectionTitle; Button[] collectionCards; Button collectionAscend, collectionShared; int collectionPage, collectionTarget, classFilter=-1, factionFilter=-1, rarityFilter=-1; CollectionSort collectionSort; string collectionHero;
-        List<PartyHero> collectionItems=new List<PartyHero>(); Button[] collectionFilters; Button collectionTargetButton, collectionAssign, collectionBattleButton; Text collectionCompare;
-        Text factionStatus, formationFaction;
+        List<PartyHero> collectionItems=new List<PartyHero>(); Button[] collectionFilters; Button collectionAssign, collectionBattleButton;
+        readonly Button[] collectionTargets=new Button[Battle.MaxPartySize];
+        readonly Text[] collectionTraits=new Text[4], collectionMeta=new Text[4]; Text collectionCompare;
+        Text factionStatus, formationFaction, formationHint;
         Text chapterTitle;
         Button idleRewardsButton;
         Button[] chapterChoices;
@@ -704,7 +706,7 @@ namespace Ashlight {
             formationRoot.transform.SetParent(safe,false);
             var rect=formationRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
             formationRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
-            Label(formationRoot.transform,"FORMATION · 2 FRONT / 3 BACK\nTap a hero, then another hero to swap positions.",new Vector2(.05f,.90f),new Vector2(.95f,.98f),24);
+            formationHint=Label(formationRoot.transform,"",new Vector2(.05f,.90f),new Vector2(.95f,.98f),24);
             formationFaction=Label(formationRoot.transform,"",new Vector2(.05f,.8f),new Vector2(.95f,.89f),20);
             Label(formationRoot.transform,"FRONT · draws more normal attacks",new Vector2(.1f,.72f),new Vector2(.9f,.79f),20);
             Label(formationRoot.transform,"BACK · protected from most attacks; vulnerable to back-row strikes",new Vector2(.05f,.41f),new Vector2(.95f,.48f),19);
@@ -723,9 +725,10 @@ namespace Ashlight {
                 });
                 PlaceGearControl(formationSlots[i],left,bottom,left+.28f,bottom+.20f);
             }
-            var presets=MakeButton(formationRoot.transform,"TEAM PRESETS",.05f,.45f,OpenTeamPresets); PlaceGearControl(presets,.05f,.035f,.45f,.12f);
-            var done=MakeButton(formationRoot.transform,"DONE",.55f,.95f,()=>formationRoot.SetActive(false));
-            PlaceGearControl(done,.55f,.035f,.95f,.12f);
+            var presets=MakeButton(formationRoot.transform,"TEAM PRESETS",.05f,.33f,OpenTeamPresets); PlaceGearControl(presets,.05f,.035f,.33f,.12f);
+            var collection=MakeButton(formationRoot.transform,"COLLECTION",.36f,.64f,OpenCollection); PlaceGearControl(collection,.36f,.035f,.64f,.12f);
+            var done=MakeButton(formationRoot.transform,"DONE",.67f,.95f,()=>formationRoot.SetActive(false));
+            PlaceGearControl(done,.67f,.035f,.95f,.12f);
             formationRoot.SetActive(false);
         }
         void OpenFormation() {
@@ -734,12 +737,16 @@ namespace Ashlight {
             formationRoot.transform.SetAsLastSibling(); formationRoot.SetActive(true); RefreshFormation();
         }
         void RefreshFormation() {
+            formationHint.text="FORMATION · 2 FRONT / 3 BACK\n"+(formationSelected<0?"Tap two heroes to swap · Collection replaces a hero.":"Selected "+battle.Party[formationSelected].Identity.Name+" · Tap a destination, or tap again to cancel.");
             formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\n5 matching: +20% HP & damage. Bonuses apply to the whole party.";
             for(int i=0;i<formationSlots.Length;i++) {
                 var button=formationSlots[i]; bool occupied=i<battle.Party.Count;
                 button.interactable=occupied && battle.CanChangeParty;
                 button.GetComponentInChildren<Text>().text=(i<Battle.FrontSlots?"FRONT "+(i+1):"BACK "+(i-Battle.FrontSlots+1))+"\n"+
-                    (occupied?battle.Party[i].Identity.Name+" · "+battle.Party[i].Identity.DisplayClass+" · "+battle.Party[i].Identity.FactionName+"\nHP "+battle.Party[i].Definition.MaxHealth+" · Attack "+battle.Party[i].Definition.AttackDamage:"Unlocks in chapter "+(i+1));
+                    (occupied?battle.Party[i].Identity.Name+" · "+battle.Party[i].RarityLabel+"\n"+battle.Party[i].Identity.DisplayClass+" · "+battle.Party[i].Identity.Affinity+"\nLv "+battle.Party[i].LevelLabel+" · Power "+battle.Party[i].Power:"LOCKED · Chapter "+(i+1));
+                button.GetComponentInChildren<Text>().resizeTextMaxSize=22;
+                button.GetComponent<Outline>().effectColor=occupied?RarityTint(battle.Party[i].Quality):new Color(.25f,.28f,.32f);
+                button.GetComponentInChildren<Text>().color=occupied?RarityTint(battle.Party[i].Quality):new Color(.55f,.58f,.63f);
                 button.GetComponent<Image>().color=formationSelected==i?new Color(.31f,.25f,.15f):new Color(.075f,.085f,.105f);
             }
         }
@@ -928,11 +935,29 @@ namespace Ashlight {
             for(int i=0;i<4;i++) { int filter=i; float x=.04f+i*.235f; collectionFilters[i]=MakeButton(collectionRoot.transform,"",x,x+.215f,()=> { if(filter==0) classFilter=(classFilter+2)%7-1; else if(filter==1) factionFilter=(factionFilter+2)%4-1; else if(filter==2) rarityFilter=(rarityFilter+2)%6-1; else collectionSort=(CollectionSort)(((int)collectionSort+1)%3); collectionPage=0; collectionHero=null; RefreshCollection(); }); PlaceGearControl(collectionFilters[i],x,.735f,x+.215f,.80f); collectionFilters[i].GetComponentInChildren<Text>().fontSize=17; }
             collectionCompare=Label(collectionRoot.transform,"",new Vector2(.04f,.62f),new Vector2(.96f,.72f),19);
             collectionCards=new Button[4];
-            for(int i=0;i<4;i++) { int index=i; float x=i%2==0?.05f:.52f,y=.45f-(i/2)*.17f; collectionCards[i]=MakeButton(collectionRoot.transform,"",x,x+.43f,()=> { int entry=collectionPage*4+index; if(entry<collectionItems.Count) { collectionHero=collectionItems[entry].Identity.Id; RefreshCollection(); } }); PlaceGearControl(collectionCards[i],x,y,x+.43f,y+.16f); collectionCards[i].GetComponentInChildren<Text>().fontSize=18; }
-            collectionTargetButton=MakeButton(collectionRoot.transform,"",.04f,.36f,()=> { collectionTarget=(collectionTarget+1)%battle.Party.Count; RefreshCollection(); }); PlaceGearControl(collectionTargetButton,.04f,.18f,.36f,.26f); collectionTargetButton.GetComponentInChildren<Text>().fontSize=18;
-            collectionAssign=MakeButton(collectionRoot.transform,"ASSIGN",.40f,.72f,()=> { if(battle.EquipHeroAt(collectionHero,collectionTarget)) { RefreshAppearance(); SaveProgress(); RefreshCollection(); } }); PlaceGearControl(collectionAssign,.40f,.18f,.72f,.26f); collectionAssign.GetComponentInChildren<Text>().fontSize=18;
-            var prev=MakeButton(collectionRoot.transform,"<",.76f,.85f,()=> { collectionPage=System.Math.Max(0,collectionPage-1); collectionHero=null; RefreshCollection(); }); PlaceGearControl(prev,.76f,.18f,.85f,.26f);
-            var next=MakeButton(collectionRoot.transform,">",.87f,.96f,()=> { collectionPage=System.Math.Min(System.Math.Max(0,(collectionItems.Count-1)/4),collectionPage+1); collectionHero=null; RefreshCollection(); }); PlaceGearControl(next,.87f,.18f,.96f,.26f);
+            for(int i=0;i<4;i++) {
+                int index=i; float x=i%2==0?.05f:.52f,y=.45f-(i/2)*.17f;
+                collectionCards[i]=MakeButton(collectionRoot.transform,"",x,x+.43f,()=> {
+                    int entry=collectionPage*4+index;
+                    if(entry<collectionItems.Count) { collectionHero=collectionItems[entry].Identity.Id; RefreshCollection(); }
+                });
+                PlaceGearControl(collectionCards[i],x,y,x+.43f,y+.16f);
+                var caption=collectionCards[i].GetComponentInChildren<Text>();
+                var captionRect=caption.GetComponent<RectTransform>(); captionRect.anchorMin=new Vector2(.03f,.49f); captionRect.anchorMax=new Vector2(.97f,.97f);
+                captionRect.offsetMin=new Vector2(4,0); captionRect.offsetMax=new Vector2(-4,0);
+                caption.resizeTextMinSize=18; caption.resizeTextMaxSize=24;
+                collectionTraits[i]=Label(collectionCards[i].transform,"",new Vector2(.04f,.23f),new Vector2(.96f,.48f),18);
+                collectionMeta[i]=Label(collectionCards[i].transform,"",new Vector2(.04f,.025f),new Vector2(.96f,.22f),17);
+            }
+            for(int i=0;i<collectionTargets.Length;i++) {
+                int slot=i; float x=.04f+i*.187f;
+                collectionTargets[i]=MakeButton(collectionRoot.transform,"",x,x+.175f,()=> { collectionTarget=slot; RefreshCollection(); });
+                PlaceGearControl(collectionTargets[i],x,.195f,x+.175f,.26f);
+                collectionTargets[i].GetComponentInChildren<Text>().resizeTextMaxSize=18;
+            }
+            collectionAssign=MakeButton(collectionRoot.transform,"ASSIGN",.04f,.70f,AssignCollectionHero); PlaceGearControl(collectionAssign,.04f,.125f,.70f,.185f); collectionAssign.GetComponentInChildren<Text>().resizeTextMaxSize=20;
+            var prev=MakeButton(collectionRoot.transform,"<",.74f,.84f,()=> { collectionPage=System.Math.Max(0,collectionPage-1); collectionHero=null; RefreshCollection(); }); PlaceGearControl(prev,.74f,.125f,.84f,.185f);
+            var next=MakeButton(collectionRoot.transform,">",.86f,.96f,()=> { collectionPage=System.Math.Min(System.Math.Max(0,(collectionItems.Count-1)/4),collectionPage+1); collectionHero=null; RefreshCollection(); }); PlaceGearControl(next,.86f,.125f,.96f,.185f);
             collectionShared=MakeButton(collectionRoot.transform,"LINK",.04f,.30f,()=> { if(battle.SetShared(collectionHero,!battle.IsShared(collectionHero))) { SaveProgress(); RefreshCollection(); } }); PlaceGearControl(collectionShared,.04f,.025f,.30f,.12f); collectionShared.GetComponentInChildren<Text>().fontSize=17;
             collectionAscend=MakeButton(collectionRoot.transform,"ASCEND",.33f,.70f,()=> { if(battle.UpgradeHero(collectionHero)) { SaveProgress(); RefreshCollection(); } }); PlaceGearControl(collectionAscend,.33f,.025f,.70f,.12f); collectionAscend.GetComponentInChildren<Text>().fontSize=18;
             var done=MakeButton(collectionRoot.transform,"DONE",.74f,.96f,()=>collectionRoot.SetActive(false)); PlaceGearControl(done,.74f,.025f,.96f,.12f); collectionRoot.SetActive(false);
@@ -944,6 +969,23 @@ namespace Ashlight {
             selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false); previewRoot.SetActive(false);
             collectionPage=0; collectionHero=null; collectionTarget=System.Math.Min(battle.ActiveIndex,battle.Party.Count-1); collectionRoot.transform.SetAsLastSibling(); collectionRoot.SetActive(true); RefreshCollection();
         }
+        static Color RarityTint(HeroQuality quality) {
+            switch(quality) {
+                case HeroQuality.Legendary: return new Color(1,.8f,.25f);
+                case HeroQuality.Epic: return new Color(.8f,.5f,1);
+                case HeroQuality.Rare: return new Color(.4f,.75f,1);
+                case HeroQuality.Uncommon: return new Color(.5f,.85f,.6f);
+                default: return new Color(.86f,.87f,.89f);
+            }
+        }
+        void AssignCollectionHero() {
+            if(!battle.CanChangeParty || collectionHero==null) return;
+            if(battle.EquipHeroAt(collectionHero,collectionTarget)) { RefreshAppearance(); SaveProgress(); RefreshCollection(); return; }
+            if(atChapters) return;
+            for(int i=0;i<battle.Party.Count;i++) if(battle.Party[i].Identity.Id==collectionHero) {
+                collectionRoot.SetActive(false); OpenFormation(); battle.SelectHero(i); formationSelected=i; RefreshFormation(); return;
+            }
+        }
         static string Signed(int value) { return value>0?"+"+value:value.ToString(); }
         void RefreshCollection() {
             collectionItems=battle.Collection(classFilter<0?(HeroClass?)null:(HeroClass)classFilter,factionFilter<0?(HeroFaction?)null:(HeroFaction)factionFilter,rarityFilter<0?(HeroQuality?)null:(HeroQuality)rarityFilter,collectionSort);
@@ -952,14 +994,31 @@ namespace Ashlight {
             if(!onPage) collectionHero=collectionItems.Count>0?collectionItems[collectionPage*4].Identity.Id:null;
             collectionFilters[0].GetComponentInChildren<Text>().text="CLASS · "+(classFilter<0?"ALL":((HeroClass)classFilter).ToString()); collectionFilters[1].GetComponentInChildren<Text>().text="FACTION · "+(factionFilter<0?"ALL":HeroDefinition.FactionDisplay((HeroFaction)factionFilter)); collectionFilters[2].GetComponentInChildren<Text>().text="RARITY · "+(rarityFilter<0?"ALL":((HeroQuality)rarityFilter).ToString()); collectionFilters[3].GetComponentInChildren<Text>().text="SORT · "+collectionSort;
             var hero=collectionHero==null?null:battle.HeroProgress(collectionHero); var preview=hero==null?null:battle.PreviewReplacement(collectionHero,collectionTarget); var target=battle.Party[collectionTarget];
-            collectionTitle.text="COLLECTION · "+collectionItems.Count+" matches · Page "+(collectionPage+1)+" · Shared Lv "+battle.CrystalLevel+" · "+battle.SharedCount+"/5 slots"+(hero==null?"\nNo heroes match. Cycle a filter to ALL.":"\n"+hero.Identity.Name+" · "+hero.RarityLabel+" · "+hero.Identity.FactionName+" · "+hero.Identity.DisplayClass+"\nLv "+hero.LevelLabel+" · HP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · Power "+hero.Power+"\nULT: "+hero.Ultimate.Description);
-            collectionTargetButton.GetComponentInChildren<Text>().text="TARGET "+(collectionTarget+1)+" · "+(battle.IsFrontRow(collectionTarget)?"FRONT":"BACK")+"\n"+target.Identity.Name;
-            collectionCompare.text=hero==null?"":preview==null?"Already in party · use Formation to swap positions.":"Replace "+target.Identity.Name+" → "+hero.Identity.Name+" · HP "+Signed(preview.HealthDelta)+" · ATK "+Signed(preview.AttackDelta)+"\nTeam Power "+battle.TeamPower+" → "+preview.TeamPower+" ("+Signed(preview.PowerDelta)+") · Includes faction changes.";
-            collectionAssign.interactable=preview!=null && battle.CanChangeParty; collectionAssign.GetComponentInChildren<Text>().text=!battle.CanChangeParty?"START A FIGHT TO PREPARE":"ASSIGN TO SLOT "+(collectionTarget+1);
+            collectionTitle.text="COLLECTION · "+collectionItems.Count+" heroes · Page "+(collectionPage+1)+"/"+System.Math.Max(1,(collectionItems.Count+3)/4)+" · Shared Lv "+battle.CrystalLevel+" ("+battle.SharedCount+"/5)"+
+                (hero==null?"\nNo heroes match. Cycle a filter to ALL.":"\n"+hero.Identity.Name+" · "+hero.RarityLabel+" · "+hero.Identity.FactionName+" · "+hero.Identity.Affinity+"\nHP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · ULT: "+hero.Ultimate.Description);
+            for(int i=0;i<collectionTargets.Length;i++) {
+                bool occupied=i<battle.Party.Count;
+                collectionTargets[i].interactable=occupied;
+                collectionTargets[i].GetComponentInChildren<Text>().text=(i<Battle.FrontSlots?"FRONT "+(i+1):"BACK "+(i-Battle.FrontSlots+1))+"\n"+(occupied?battle.Party[i].Identity.Name:"LOCKED");
+                collectionTargets[i].GetComponent<Image>().color=i==collectionTarget?new Color(.31f,.25f,.15f):new Color(.075f,.085f,.105f);
+            }
+            collectionCompare.text=hero==null?"":preview==null?(atChapters?"Already in your team · Enter a chapter to arrange Formation.":"Already in your team · Arrange in Formation to move this hero."):"Replace "+target.Identity.Name+" → "+hero.Identity.Name+" · HP "+Signed(preview.HealthDelta)+" · ATK "+Signed(preview.AttackDelta)+"\nTeam Power "+battle.TeamPower+" → "+preview.TeamPower+" ("+Signed(preview.PowerDelta)+") · Includes faction changes.";
+            collectionAssign.interactable=hero!=null && battle.CanChangeParty && (preview!=null || !atChapters);
+            collectionAssign.GetComponentInChildren<Text>().text=hero==null?"SELECT A HERO":!battle.CanChangeParty?"AVAILABLE BEFORE COMBAT":preview==null?(atChapters?"IN YOUR TEAM":"ARRANGE IN FORMATION"):"ASSIGN TO "+(battle.IsFrontRow(collectionTarget)?"FRONT "+(collectionTarget+1):"BACK "+(collectionTarget-Battle.FrontSlots+1))+" · Replace "+target.Identity.Name;
             collectionShared.interactable=hero!=null && (battle.IsShared(collectionHero) || (battle.CrystalUnlocked && battle.SharedCount<5 && hero.Level<battle.CrystalLevel)); collectionShared.GetComponentInChildren<Text>().text=battle.IsShared(collectionHero)?"UNLINK":battle.CrystalUnlocked?"LINK · LV "+battle.CrystalLevel:"OWN 5 TO UNLOCK";
             collectionAscend.interactable=hero!=null && hero.UpgradeRank<5 && hero.Shards>=hero.UpgradeCost; collectionAscend.GetComponentInChildren<Text>().text=hero==null?"ASCEND":hero.UpgradeRank==5?"ASCENSION MAX":"ASCEND → "+hero.NextAscension+"\n"+hero.Shards+"/"+hero.UpgradeCost+" shards";
-            for(int i=0;i<4;i++) { int entry=collectionPage*4+i; collectionCards[i].gameObject.SetActive(entry<collectionItems.Count); if(entry>=collectionItems.Count) continue; var member=collectionItems[entry]; bool active=false; foreach(var ally in battle.Party) if(ally==member) active=true;
-                collectionCards[i].GetComponentInChildren<Text>().text=member.Identity.Name+" · "+member.RarityLabel+"\n"+member.Identity.DisplayClass+" · "+member.Identity.FactionName+"\nLv "+member.LevelLabel+" · Power "+member.Power+"\n"+(active?"PARTY":"RESERVE")+(battle.IsShared(member.Identity.Id)?" · LINKED":"")+(member.UpgradeRank<5 && member.Shards>=member.UpgradeCost?" · CAN ASCEND":""); collectionCards[i].GetComponent<Image>().color=member.Identity.Id==collectionHero?new Color(.28f,.23f,.14f):new Color(.08f,.1f,.15f);
+            for(int i=0;i<4;i++) {
+                int entry=collectionPage*4+i; collectionCards[i].gameObject.SetActive(entry<collectionItems.Count); if(entry>=collectionItems.Count) continue;
+                var member=collectionItems[entry]; int partySlot=-1;
+                for(int slot=0;slot<battle.Party.Count;slot++) if(battle.Party[slot].Identity.Id==member.Identity.Id) partySlot=slot;
+                collectionCards[i].GetComponentInChildren<Text>().text=member.Identity.Name+"\n"+member.RarityLabel+" · Lv "+member.LevelLabel;
+                collectionCards[i].GetComponentInChildren<Text>().color=RarityTint(member.Quality);
+                collectionCards[i].GetComponent<Outline>().effectColor=RarityTint(member.Quality);
+                collectionTraits[i].text=member.Identity.DisplayClass+" · "+member.Identity.Affinity+" · "+member.Identity.FactionName;
+                collectionTraits[i].color=CombatEffects.Tint(member.Identity.Affinity);
+                string role=partySlot<0?"RESERVE":partySlot<Battle.FrontSlots?"FRONT "+(partySlot+1):"BACK "+(partySlot-Battle.FrontSlots+1);
+                collectionMeta[i].text="POWER "+member.Power+" · "+role+(battle.IsShared(member.Identity.Id)?" · LINKED":"")+(member.UpgradeRank<5 && member.Shards>=member.UpgradeCost?" · ASCEND READY":"");
+                collectionCards[i].GetComponent<Image>().color=member.Identity.Id==collectionHero?new Color(.28f,.23f,.14f):new Color(.08f,.1f,.15f);
             }
         }
         void CreateStagePreview() {
