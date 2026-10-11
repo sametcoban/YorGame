@@ -27,6 +27,10 @@ public static class SaveSerializationChecks {
         if(!dailyTest.RestoreProgress(dailySave) || !dailyTest.ClaimDaily(0)) throw new InvalidOperationException("Could not prepare daily quest fixture.");
         var dailyRoundTrip=new Battle(true,utcNow:()=>dailyClock);
         if(!dailyRoundTrip.RestoreProgress(JsonUtility.FromJson<ProgressData>(JsonUtility.ToJson(dailyTest.ExportProgress()))) || !dailyRoundTrip.DailyClaimed(0) || dailyRoundTrip.ClaimDaily(0) || dailyRoundTrip.DailyProgress(1)!=1) throw new InvalidOperationException("Daily quest claims changed during Unity serialization.");
+        var tenTest=new Battle(true); var tenSave=tenTest.ExportProgress(); tenSave.crystals=1000;
+        if(!tenTest.RestoreProgress(tenSave) || tenTest.SummonTen(new double[10],new int[10])==null) throw new InvalidOperationException("Could not prepare ten-pull fixture.");
+        var tenRoundTrip=RoundTrip(tenTest);
+        if(tenRoundTrip.Crystals!=tenTest.Crystals || tenRoundTrip.Recruits.Count!=tenTest.Recruits.Count || tenRoundTrip.RareMisses!=tenTest.RareMisses || tenRoundTrip.LegendaryMisses!=tenTest.LegendaryMisses || tenRoundTrip.HeroProgress("Knight_Common").Shards!=tenTest.HeroProgress("Knight_Common").Shards) throw new InvalidOperationException("Ten-pull rewards changed during Unity serialization.");
         battle.Attack(); RoundTrip(battle);
         battle.Reset(); var progress=battle.ExportProgress(); progress.loadouts[0].experience=90;
         if(!battle.RestoreProgress(progress)) throw new InvalidOperationException("Could not prepare serialization test battle.");

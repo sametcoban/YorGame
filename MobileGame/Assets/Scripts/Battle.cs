@@ -348,6 +348,14 @@ namespace Ashlight {
             if(addToParty && party.Count<PartyLimit) party.Add(member);
         }
         public bool CanSummon { get { return campaign && (CanChangeParty || CampaignComplete) && Crystals>=Summoning.Cost; } }
+        public bool CanSummonTen { get { return CanSummon && Crystals>=Summoning.Cost*10; } }
+        public SummonResult[] SummonTen(double[] rolls,int[] classIndexes) {
+            if(!CanSummonTen || rolls==null || classIndexes==null || rolls.Length!=10 || classIndexes.Length!=10) return null;
+            for(int i=0;i<10;i++) if(double.IsNaN(rolls[i]) || double.IsInfinity(rolls[i]) || rolls[i]<0 || rolls[i]>=1 || classIndexes[i]<0 || classIndexes[i]>=6) return null;
+            var results=new SummonResult[10];
+            for(int i=0;i<10;i++) results[i]=Summon(rolls[i],classIndexes[i]);
+            return results;
+        }
         public SummonResult Summon(double rarityRoll, int classIndex) {
             if(!CanSummon || classIndex<0 || classIndex>=6 || double.IsNaN(rarityRoll) || double.IsInfinity(rarityRoll) || rarityRoll<0 || rarityRoll>=1) return null;
             var quality=Summoning.Quality(rarityRoll,RareMisses,LegendaryMisses);
@@ -360,10 +368,11 @@ namespace Ashlight {
             Crystals=Crystals-Summoning.Cost+refund;
             RareMisses=quality>=HeroQuality.Rare?0:RareMisses+1;
             LegendaryMisses=quality==HeroQuality.Legendary?0:LegendaryMisses+1;
+            int shards=0;
             if(!duplicate) AddRecruit(candidate,false);
-            else { var member=HeroProgress(candidate.Id); member.Shards=Math.Min(1000000,member.Shards+10+(int)quality*5); }
+            else { var member=HeroProgress(candidate.Id); int before=member.Shards; member.Shards=Math.Min(1000000,member.Shards+10+(int)quality*5); shards=member.Shards-before; }
             RecordDaily(2);
-            return new SummonResult(candidate,duplicate,refund);
+            return new SummonResult(candidate,duplicate,refund,shards);
         }
         public PartyHero HeroProgress(string id) {
             foreach(var member in party) if(member.Identity.Id==id) return member;

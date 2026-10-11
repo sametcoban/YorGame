@@ -1349,6 +1349,32 @@ class BattleChecks {
   questInvalid=questReload.ExportProgress(); questInvalid.dailyClaimed=new bool[3]; Check(!questReload.RestoreProgress(questInvalid));
   var questLegacy=quests.ExportProgress(); questLegacy.version=9; questLegacy.dailyProgress=null;
   Check(questReload.RestoreProgress(questLegacy) && questReload.DailyProgress(0)==0 && !questReload.DailyClaimed(3));
+  // Ten pulls are atomic on invalid input and match ten sequential single pulls exactly.
+  var tenSummon=new Battle(true); var tenSave=tenSummon.ExportProgress(); tenSave.crystals=1000; Check(tenSummon.RestoreProgress(tenSave));
+  var singlesSummon=new Battle(true); Check(singlesSummon.RestoreProgress(tenSave));
+  var tenRolls=new double[10]; var tenClasses=new int[10]; for(int pull=0;pull<10;pull++) tenClasses[pull]=1;
+  var batchResults=tenSummon.SummonTen(tenRolls,tenClasses); Check(batchResults!=null && batchResults.Length==10);
+  Check(!batchResults[0].Duplicate && batchResults[1].Duplicate && batchResults[1].Shards==10);
+  Check(batchResults[4].Hero.Quality>=HeroQuality.Rare && batchResults[9].Hero.Quality>=HeroQuality.Rare && batchResults[9].Duplicate);
+  for(int pull=0;pull<10;pull++) {
+   var singleResult=singlesSummon.Summon(tenRolls[pull],tenClasses[pull]);
+   Check(singleResult.Hero.Id==batchResults[pull].Hero.Id && singleResult.Refund==batchResults[pull].Refund && singleResult.Shards==batchResults[pull].Shards && singleResult.Duplicate==batchResults[pull].Duplicate);
+  }
+  Check(tenSummon.Crystals==singlesSummon.Crystals && tenSummon.RareMisses==singlesSummon.RareMisses && tenSummon.LegendaryMisses==singlesSummon.LegendaryMisses && tenSummon.DailyProgress(2)==1);
+  foreach(var recruit in tenSummon.Recruits) Check(tenSummon.HeroProgress(recruit.Id).Shards==singlesSummon.HeroProgress(recruit.Id).Shards);
+  var tenReload=new Battle(true); Check(tenReload.RestoreProgress(tenSummon.ExportProgress()) && tenReload.Crystals==tenSummon.Crystals && tenReload.RareMisses==tenSummon.RareMisses);
+  var invalidBatch=new Battle(true); Check(invalidBatch.RestoreProgress(tenSave));
+  tenRolls[9]=double.NaN; Check(invalidBatch.SummonTen(tenRolls,tenClasses)==null && invalidBatch.Crystals==1000 && invalidBatch.Recruits.Count==1 && invalidBatch.DailyProgress(2)==0);
+  tenRolls[9]=0; tenClasses[9]=6; Check(invalidBatch.SummonTen(tenRolls,tenClasses)==null && invalidBatch.Crystals==1000 && invalidBatch.LegendaryMisses==0);
+  tenClasses[9]=1; Check(invalidBatch.SummonTen(null,tenClasses)==null && invalidBatch.SummonTen(new double[9],tenClasses)==null);
+  var lowBatch=tenSave; lowBatch.crystals=999; Check(invalidBatch.RestoreProgress(lowBatch) && !invalidBatch.CanSummonTen && invalidBatch.SummonTen(tenRolls,tenClasses)==null && invalidBatch.Crystals==999);
+  var pityBatch=invalidBatch.ExportProgress(); pityBatch.crystals=1000; pityBatch.legendaryMisses=14;
+  Check(invalidBatch.RestoreProgress(pityBatch)); var pityResults=invalidBatch.SummonTen(tenRolls,tenClasses);
+  Check(pityResults[0].Hero.Quality==HeroQuality.Legendary && invalidBatch.LegendaryMisses==9);
+  var capBatch=new Battle(true); var capBatchSave=capBatch.ExportProgress(); capBatchSave.loadouts[0].shards=999999;
+  Check(capBatch.RestoreProgress(capBatchSave)); var cappedDuplicate=capBatch.Summon(0,0); Check(cappedDuplicate.Shards==1 && capBatch.HeroProgress("Knight_Common").Shards==1000000);
+  var lockedBatch=new Battle(true); var lockedBatchSave=lockedBatch.ExportProgress(); lockedBatchSave.crystals=1000; Check(lockedBatch.RestoreProgress(lockedBatchSave));
+  lockedBatch.Attack(); Check(!lockedBatch.CanSummonTen && lockedBatch.SummonTen(tenRolls,tenClasses)==null);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

@@ -3,8 +3,8 @@ namespace Ashlight {
     public sealed class SummonResult {
         public readonly HeroDefinition Hero;
         public readonly bool Duplicate;
-        public readonly int Refund;
-        public SummonResult(HeroDefinition hero, bool duplicate, int refund) { Hero=hero; Duplicate=duplicate; Refund=refund; }
+        public readonly int Refund, Shards;
+        public SummonResult(HeroDefinition hero, bool duplicate, int refund, int shards=0) { Hero=hero; Duplicate=duplicate; Refund=refund; Shards=shards; }
     }
     public static class Summoning {
         public const int Cost=100, StarterCrystals=300, VictoryCrystals=50;

@@ -14,7 +14,8 @@ namespace Ashlight {
         Button idleRewardsButton;
         Button[] chapterChoices;
         Button restartCampaignButton;
-        Button summonButton;
+        Button summonButton, summonTenButton;
+        GameObject summonRoot; Text summonTitle; Text[] summonCards; GameObject[] summonCardPanels; Button repeatSingle, repeatTen;
         readonly System.Random summonRandom = new System.Random();
         Transform battleStage;
         Camera battleCamera;
@@ -200,7 +201,7 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateDaily();
+            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateDaily(); CreateSummonResults();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
             CreateResultsPanel();
@@ -855,8 +856,10 @@ namespace Ashlight {
                 chapterChoices[i]=MakeButton(chapterRoot.transform,"",left,left+.43f,()=>StartChapter(index));
                 var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.17f);
             }
-            summonButton=MakeButton(chapterRoot.transform,"SUMMON — 100",.05f,.37f,SummonHero);
-            var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.37f,.135f);
+            summonButton=MakeButton(chapterRoot.transform,"SUMMON x1",.05f,.20f,SummonHero);
+            var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.20f,.135f);
+            summonButton.GetComponentInChildren<Text>().fontSize=18;
+            summonTenButton=MakeButton(chapterRoot.transform,"SUMMON x10\n1,000",.22f,.37f,()=>SummonHeroes(10)); PlaceGearControl(summonTenButton,.22f,.025f,.37f,.135f); summonTenButton.GetComponentInChildren<Text>().fontSize=18;
             restartCampaignButton=MakeButton(chapterRoot.transform,"RESTART CAMPAIGN\nKeep heroes, skills & crystals",.24f,.76f,RestartCampaign);
             var replayRect=restartCampaignButton.GetComponent<RectTransform>();
             replayRect.anchorMin=new Vector2(.24f,.43f); replayRect.anchorMax=new Vector2(.76f,.61f);
@@ -878,19 +881,34 @@ namespace Ashlight {
         string SummonWallet() {
             return "Crystals "+battle.Crystals+" | Rare+ in "+(Summoning.RareGuarantee-battle.RareMisses)+" | Legendary in "+(Summoning.LegendaryGuarantee-battle.LegendaryMisses);
         }
-        void SummonHero() {
-            if(!atChapters) return;
-            var result=battle.Summon(summonRandom.NextDouble(),summonRandom.Next(6));
-            if(result==null) return;
-            SaveProgress();
-            var hero=result.Hero;
-            chapterTitle.color=hero.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):hero.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):hero.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
-            chapterTitle.text="SUMMON: "+hero.Name+" — "+hero.Quality+" "+hero.DisplayClass+" / "+hero.Affinity+"\n"+
-                (result.Duplicate?"Duplicate: +"+result.Refund+" crystals and +"+(10+(int)hero.Quality*5)+" "+hero.Name+" shards.":"New hero added to reserves! Choose them before battle.")+"\n"+SummonWallet()+" | "+saveNotice;
+        void CreateSummonResults() {
+            summonRoot=new GameObject("Summon Results",typeof(RectTransform),typeof(Image)); summonRoot.transform.SetParent(safe,false);
+            var rect=summonRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; summonRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            summonTitle=Label(summonRoot.transform,"",new Vector2(.04f,.83f),new Vector2(.96f,.98f),23); summonCards=new Text[10]; summonCardPanels=new GameObject[10];
+            for(int i=0;i<10;i++) { float x=i%2==0?.05f:.52f, y=.70f-(i/2)*.115f; Panel(summonRoot.transform,new Vector2(x,y),new Vector2(x+.43f,y+.10f),new Color(.08f,.10f,.15f)); summonCardPanels[i]=summonRoot.transform.GetChild(summonRoot.transform.childCount-1).gameObject; summonCards[i]=Label(summonRoot.transform,"",new Vector2(x+.01f,y),new Vector2(x+.42f,y+.10f),18); }
+            Label(summonRoot.transform,Summoning.Odds+"\nRare+ within 5 pulls · Legendary within 15 · Guarantees carry between batches.",new Vector2(.04f,.14f),new Vector2(.96f,.22f),17);
+            repeatSingle=MakeButton(summonRoot.transform,"SUMMON x1 · 100",.05f,.35f,()=>SummonHeroes(1)); PlaceGearControl(repeatSingle,.05f,.025f,.35f,.12f);
+            repeatTen=MakeButton(summonRoot.transform,"SUMMON x10 · 1,000",.38f,.68f,()=>SummonHeroes(10)); PlaceGearControl(repeatTen,.38f,.025f,.68f,.12f);
+            var done=MakeButton(summonRoot.transform,"DONE",.73f,.95f,()=> { summonRoot.SetActive(false); chapterTitle.color=Color.white; chapterTitle.text="ASHLIGHT — Chapters\n"+SummonWallet()+" | "+saveNotice; }); PlaceGearControl(done,.73f,.025f,.95f,.12f); summonRoot.SetActive(false);
+        }
+        void SummonHero() { SummonHeroes(1); }
+        void SummonHeroes(int count) {
+            if(!atChapters || (count==10?!battle.CanSummonTen:!battle.CanSummon)) return;
+            SummonResult[] results;
+            if(count==10) { var rolls=new double[10]; var classes=new int[10]; for(int i=0;i<10;i++) { rolls[i]=summonRandom.NextDouble(); classes[i]=summonRandom.Next(6); } results=battle.SummonTen(rolls,classes); }
+            else { var result=battle.Summon(summonRandom.NextDouble(),summonRandom.Next(6)); if(result==null) return; results=new[]{result}; }
+            if(results==null) return; SaveProgress(); int refunds=0,added=0;
+            for(int i=0;i<10;i++) { summonCards[i].gameObject.SetActive(i<results.Length); summonCardPanels[i].SetActive(i<results.Length); if(i>=results.Length) continue;
+                float x=i%2==0?.05f:.52f, y=.70f-(i/2)*.115f; var cardRect=summonCardPanels[i].GetComponent<RectTransform>(); var textRect=summonCards[i].GetComponent<RectTransform>(); cardRect.anchorMin=new Vector2(count==1?.2f:x,count==1?.35f:y); cardRect.anchorMax=new Vector2(count==1?.8f:x+.43f,count==1?.70f:y+.10f); textRect.anchorMin=cardRect.anchorMin+Vector2.right*.01f; textRect.anchorMax=cardRect.anchorMax-Vector2.right*.01f; summonCards[i].fontSize=count==1?28:18; var result=results[i]; var hero=result.Hero; refunds+=result.Refund; if(!result.Duplicate) added++;
+                summonCards[i].text=hero.Name+" · "+hero.Quality+"\n"+hero.DisplayClass+" · "+hero.FactionName+"\n"+(result.Duplicate?"DUPLICATE · +"+result.Refund+" crystals · +"+result.Shards+" shards":"NEW HERO · added to reserves");
+                summonCards[i].color=hero.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):hero.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):hero.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
+            }
+            summonTitle.text="SUMMON RESULTS · "+count+" pulls · "+added+" new heroes\nSpent "+(count*Summoning.Cost)+" · Refunded "+refunds+"\n"+SummonWallet()+" | "+saveNotice;
+            summonRoot.transform.SetAsLastSibling(); summonRoot.SetActive(true);
         }
         void StartChapter(int index) {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
-            collectionRoot.SetActive(false); dailyRoot.SetActive(false);
+            collectionRoot.SetActive(false); dailyRoot.SetActive(false); summonRoot.SetActive(false);
             CancelActionPresentation(); sounds.Clear(); effects.Clear();
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true);
             if(stageChapter!=battle.ChapterIndex) {
@@ -1032,7 +1050,7 @@ namespace Ashlight {
                 else if (battle.Current == Phase.Lost) sounds.Play("Defeat",.8f);
                 lastSoundPhase = battle.Current;
             }
-            if(atChapters) { if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
+            if(atChapters) { summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=battle.CanSummon; repeatTen.interactable=battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
             if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
