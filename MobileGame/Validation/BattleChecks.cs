@@ -27,6 +27,11 @@ class BattleChecks {
   for(int i=0;i<save.loadouts.Length;i++) save.loadouts[i]=new HeroLoadoutData{id=save.recruited[i],firstSkill=0,secondSkill=1};
   Check(battle.RestoreProgress(save)); return battle;
  }
+ static Battle TalentBattle(string[] heroes,int level=15,int encounter=24,double roll=.99) {
+  var battle=PassiveBattle(encounter,heroes,roll); var save=battle.ExportProgress();
+  foreach(var loadout in save.loadouts) { loadout.level=level; loadout.experience=0; }
+  Check(battle.RestoreProgress(save)); return battle;
+ }
  static void Main() {
   var b = new Battle();
   Check(b.Current == Phase.Player && b.HeroHealth == 100);
@@ -318,7 +323,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==5);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==6);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1004,6 +1009,109 @@ class BattleChecks {
   Check(shieldAndGuard.Enemies[0].Health==protectedHealth && shieldAndGuard.LastShieldAbsorbed==11 && shieldAndGuard.Enemies[0].Shield==49);
   var roleReload=new Battle(true); Check(roleReload.RestoreProgress(singleGuard.ExportProgress()) && roleReload.EnemyProtected(0));
   Check(roleReload.Enemies[0].Definition.Role==EnemyRole.Healer && roleReload.Enemies[0].Definition.Row==EnemyRow.Back);
+  // All 36 upgrade choices are gated by level, exclusive within a tier and free to reset.
+  foreach(HeroClass kind in Enum.GetValues(typeof(HeroClass))) {
+   string talentHero=HeroDefinition.Common(kind).Id;
+   var locked=TalentBattle(new[]{talentHero},4);
+   Check(!locked.ChooseTalent(talentHero,0,0) && !locked.ChooseTalent(talentHero,1,0) && !locked.ChooseTalent(talentHero,2,0));
+   for(int tier=0;tier<3;tier++) {
+    var atThreshold=TalentBattle(new[]{talentHero},ClassTalents.UnlockLevel(tier)); int currency=atThreshold.Crystals;
+    for(int choice=0;choice<2;choice++) {
+     Check(!string.IsNullOrEmpty(ClassTalents.Name(kind,tier,choice)) && !string.IsNullOrEmpty(ClassTalents.Description(kind,tier,choice)));
+     Check(atThreshold.ChooseTalent(talentHero,tier,choice) && atThreshold.Party[0].TalentChoice(tier)==choice && atThreshold.Party[0].HasTalent(tier,choice));
+     Check(!atThreshold.Party[0].HasTalent(tier,1-choice) && !atThreshold.ChooseTalent(talentHero,tier,choice));
+    }
+    Check(atThreshold.ResetTalents(talentHero) && atThreshold.Party[0].TalentChoice(tier)==-1 && atThreshold.Crystals==currency && !atThreshold.ResetTalents(talentHero));
+   }
+  }
+  var talentedKnight=TalentBattle(new[]{"Knight_Common"});
+  Check(talentedKnight.ChooseTalent("Knight_Common",0,1) && talentedKnight.ChooseTalent("Knight_Common",2,1));
+  Check(talentedKnight.Attack() && !talentedKnight.ResetTalents("Knight_Common") && !talentedKnight.ChooseTalent("Knight_Common",1,0));
+  talentedKnight.BeginStrike(); Check(talentedKnight.Defend(true,.1f) && talentedKnight.LastDamage==20); // 25 Fire counter reduced by rear Defender.
+  talentedKnight.FinishStrike(); ResolveEnemies(talentedKnight); talentedKnight.Reset();
+  Check(!talentedKnight.ChooseTalent("unknown",0,0) && !talentedKnight.ChooseTalent("Knight_Common",-1,0) && !talentedKnight.ChooseTalent("Knight_Common",0,2));
+  var enhancedGuard=TalentBattle(new[]{"Knight_Common","Paladin_Common","Cleric_Common"});
+  Check(enhancedGuard.ChooseTalent("Paladin_Common",0,0) && enhancedGuard.ChooseTalent("Paladin_Common",2,0));
+  for(int i=0;i<3;i++) Check(enhancedGuard.Attack());
+  Check(enhancedGuard.Party[0].Guard==20 && enhancedGuard.LastPassiveGuard[2]==20);
+  var fastEnergy=TalentBattle(new[]{"Sorceress_Common"},10,10);
+  Check(fastEnergy.ChooseTalent("Sorceress_Common",1,0) && fastEnergy.Party[0].EnergyGain==35);
+  for(int i=0;i<3;i++) { fastEnergy.Enemies[0].Health=fastEnergy.Enemies[0].Definition.MaxHealth; Check(fastEnergy.Attack()); if(i<2) ResolveEnemies(fastEnergy); }
+  Check(fastEnergy.LastUltimate!=null && fastEnergy.Party[0].Energy==0);
+  var ultimateTalent=TalentBattle(new[]{"Ranger_Common"}); int baseUltimate=ultimateTalent.Party[0].Ultimate.Damage;
+  Check(ultimateTalent.ChooseTalent("Ranger_Common",2,1) && ultimateTalent.Party[0].Ultimate.Damage==(baseUltimate*120+99)/100);
+  Check(ultimateTalent.ChooseTalent("Ranger_Common",0,0) && ultimateTalent.ChooseTalent("Ranger_Common",2,0));
+  Check(ultimateTalent.PassiveDamageMultiplier(ultimateTalent.Party[0],ultimateTalent.Enemy,ultimateTalent.Party[0].Identity.Affinity)==1.5);
+  var healingTalent=TalentBattle(new[]{"Knight_Common","Paladin_Common","Cleric_Common"});
+  Check(healingTalent.ChooseTalent("Cleric_Common",0,1) && healingTalent.ChooseTalent("Cleric_Common",2,1));
+  healingTalent.Party[0].Health=100; healingTalent.Party[0].Status=Debuff.Poison; healingTalent.Party[0].StatusRounds=2;
+  healingTalent.Party[1].Status=Debuff.Burn; healingTalent.Party[1].StatusRounds=2;
+  for(int i=0;i<3;i++) Check(healingTalent.Attack()); ResolveEnemies(healingTalent);
+  Check(healingTalent.Party[0].Status==Debuff.None && healingTalent.Party[1].Status==Debuff.None && healingTalent.LastPassiveCleanse[0]==Debuff.Poison && healingTalent.LastPassiveCleanse[1]==Debuff.Burn);
+  Check(healingTalent.Party[0].Health>100-8 && healingTalent.Party[2].EncounterHealing>0);
+  healingTalent.Reset(); Check(healingTalent.LastPassiveCleanse[0]==Debuff.None);
+  var auraTalent=TalentBattle(new[]{"Knight_Common","Paladin_Common"});
+  Check(auraTalent.ChooseTalent("Paladin_Common",2,1)); auraTalent.Party[0].Health-=20;
+  Check(auraTalent.Attack() && auraTalent.Attack()); ResolveEnemies(auraTalent);
+  Check(auraTalent.LastPassiveHealing[0]>0 && auraTalent.Party[1].EncounterHealing==auraTalent.LastPassiveHealing[0]);
+  var criticalTalent=TalentBattle(new[]{"Rogue_Common"},15,20,.4);
+  Check(criticalTalent.ChooseTalent("Rogue_Common",0,0) && criticalTalent.ChooseTalent("Rogue_Common",2,0));
+  Check(criticalTalent.Party[0].CriticalChance==.5 && criticalTalent.Attack() && criticalTalent.LastOffensivePassive=="CRITICAL STRIKE");
+  criticalTalent.Reset(); Check(criticalTalent.ChooseTalent("Rogue_Common",0,1) && criticalTalent.ChooseTalent("Rogue_Common",2,1));
+  Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
+  // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
+  var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
+  Check(talentSave.version==6 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
+  Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
+  talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
+  talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents=null; Check(!talentLoad.RestoreProgress(talentSave));
+  talentSave.version=5; Check(talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==-1 && talentLoad.Party[0].TalentChoice(2)==-1 && talentLoad.Party[0].Level==15);
+  var reserveTalent=TalentBattle(new[]{"Paladin_Common"});
+  Check(reserveTalent.ChooseTalent("Knight_Common",0,0));
+  var reserveLoad=new Battle(true); Check(reserveLoad.RestoreProgress(reserveTalent.ExportProgress()) && reserveLoad.HeroProgress("Knight_Common").TalentChoice(0)==0);
+  var wallTalent=TalentBattle(new[]{"Knight_Common","Sorceress_Common","Cleric_Common"});
+  Check(wallTalent.ChooseTalent("Knight_Common",0,0) && wallTalent.ChooseTalent("Knight_Common",2,0));
+  for(int i=0;i<3;i++) wallTalent.Attack(); wallTalent.BeginStrike(); wallTalent.Defend(false,.1f); wallTalent.FinishStrike();
+  wallTalent.BeginStrike(); wallTalent.FinishStrike(); Check(wallTalent.LastIncomingDamage[1]==21 && wallTalent.LastPassiveProtection[1]==14);
+  var strongPrayer=TalentBattle(new[]{"Knight_Common","Cleric_Common"});
+  Check(strongPrayer.ChooseTalent("Cleric_Common",0,0) && strongPrayer.ChooseTalent("Cleric_Common",2,0));
+  strongPrayer.Party[0].Health=100; Check(strongPrayer.Attack() && strongPrayer.Attack()); ResolveEnemies(strongPrayer);
+  Check(strongPrayer.LastPassiveHealing[0]==41 && strongPrayer.Party[1].EncounterHealing==41);
+  var merciful=TalentBattle(new[]{"Paladin_Common"},5);
+  Check(merciful.ChooseTalent("Paladin_Common",0,1)); merciful.Party[0].Health=50;
+  Check(merciful.UseAbility() && merciful.HeroHealth==94 && merciful.Party[0].EncounterHealing==44);
+  var gearTalent=TalentBattle(new[]{"Knight_Common"},10); var gearTalentSave=gearTalent.ExportProgress();
+  gearTalentSave.inventory=new[]{new GearStackData{id="Weapon_Common_Physical",count=1}};
+  gearTalentSave.loadouts[0].gear=new[]{"Weapon_Common_Physical",null,null};
+  Check(gearTalent.RestoreProgress(gearTalentSave));
+  Check(gearTalent.ChooseTalent("Knight_Common",1,1) && gearTalent.Party[0].Skill(0).Damage==67);
+  Check(gearTalent.ChooseTalent("Knight_Common",1,0) && gearTalent.Party[0].Definition.MaxHealth==167 && gearTalent.Party[0].Skill(0).Damage==61);
+  Check(gearTalent.ResetTalents("Knight_Common") && gearTalent.Party[0].Definition.MaxHealth==145 && gearTalent.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Common_Physical");
+  var malformedTalent=talentedKnight.ExportProgress(); malformedTalent.loadouts[0].talents=new[]{-1,-1}; Check(!talentLoad.RestoreProgress(malformedTalent));
+  malformedTalent=talentedKnight.ExportProgress(); malformedTalent.loadouts[0].talents[0]=-2; Check(!talentLoad.RestoreProgress(malformedTalent));
+  var chosenCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(321)); int chosenSteps=0,chosenCount=0;
+  while(!chosenCampaign.CampaignComplete && chosenSteps++<6000) {
+   if(chosenCampaign.Current==Phase.Player) {
+    if(chosenCampaign.CanChangeParty) foreach(var hero in chosenCampaign.Party)
+     for(int tier=0;tier<3;tier++) if(hero.Level>=ClassTalents.UnlockLevel(tier) && hero.TalentChoice(tier)<0) {
+      Check(chosenCampaign.ChooseTalent(hero.Identity.Id,tier,((int)hero.Identity.Class+tier)%2)); chosenCount++;
+     }
+    chosenCampaign.SelectEnemy(AutoBattlePlanner.ChooseTarget(chosenCampaign)); int skill=AutoBattlePlanner.ChooseSkill(chosenCampaign);
+    Check(skill<0?chosenCampaign.Attack():chosenCampaign.UseAbility(skill));
+   } else if(chosenCampaign.Current==Phase.EnemyWindup) {
+    chosenCampaign.BeginStrike(); if(chosenCampaign.IncomingSkill.Action==EnemyAction.Attack)
+     for(int i=0;i<chosenCampaign.Party.Count;i++) if(chosenCampaign.Party[i].Health>0 && (chosenCampaign.IncomingSkill.PartyWide || i==chosenCampaign.ActiveIndex)) Check(chosenCampaign.DefendHero(i,false,.1f));
+    chosenCampaign.FinishStrike();
+   } else if(chosenCampaign.Current==Phase.WaveCleared) Check(chosenCampaign.AdvanceWave());
+   else if(chosenCampaign.Current==Phase.Won) {
+    var selectedSave=chosenCampaign.ExportProgress(); var selectedReload=new Battle(true,enableWaves:true,enableClassPassives:true);
+    Check(selectedReload.RestoreProgress(selectedSave) && selectedReload.Results.Loot.Id==chosenCampaign.Results.Loot.Id);
+    foreach(var hero in chosenCampaign.Party) for(int tier=0;tier<3;tier++) Check(selectedReload.HeroProgress(hero.Identity.Id).TalentChoice(tier)==hero.TalentChoice(tier));
+    Check(chosenCampaign.ContinueAfterVictory());
+   } else throw new Exception("Unexpected talent campaign phase: "+chosenCampaign.Current);
+  }
+  Check(chosenCampaign.CampaignComplete && chosenCount>0);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

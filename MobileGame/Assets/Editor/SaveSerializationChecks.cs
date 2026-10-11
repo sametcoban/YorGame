@@ -39,9 +39,11 @@ public static class SaveSerializationChecks {
         var team=new Battle(true); var teamSave=team.ExportProgress(); teamSave.encounter=24;
         teamSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"};
         teamSave.party=(string[])teamSave.recruited.Clone(); teamSave.loadouts=new HeroLoadoutData[teamSave.recruited.Length];
-        for(int i=0;i<teamSave.loadouts.Length;i++) teamSave.loadouts[i]=new HeroLoadoutData{id=teamSave.recruited[i],firstSkill=0,secondSkill=1};
+        for(int i=0;i<teamSave.loadouts.Length;i++) teamSave.loadouts[i]=new HeroLoadoutData{id=teamSave.recruited[i],firstSkill=0,secondSkill=1,level=15};
         if(!team.RestoreProgress(teamSave) || !team.SwapFormation(0,4)) throw new InvalidOperationException("Could not prepare five-hero formation.");
+        foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(!team.ChooseTalent(hero.Identity.Id,tier,tier%2)) throw new InvalidOperationException("Could not prepare saved progression choices.");
         var teamRoundTrip=RoundTrip(team);
+        foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(teamRoundTrip.HeroProgress(hero.Identity.Id).TalentChoice(tier)!=hero.TalentChoice(tier)) throw new InvalidOperationException("Progression choices changed during Unity serialization.");
         for(int i=0;i<team.Party.Count;i++) if(team.Party[i].Identity.Id!=teamRoundTrip.Party[i].Identity.Id)
             throw new InvalidOperationException("Formation changed during Unity serialization.");
         turns=0;
@@ -63,6 +65,6 @@ public static class SaveSerializationChecks {
             throw new InvalidOperationException("Five-hero results changed during Unity serialization.");
         for(int i=0;i<5;i++) if(teamResults.Results.Heroes[i].Damage!=team.Results.Heroes[i].Damage || teamResults.Results.Heroes[i].Healing!=team.Results.Heroes[i].Healing)
             throw new InvalidOperationException("Five-hero contributions changed during Unity serialization.");
-        Debug.Log("PASS: Unity save serialization for fresh progress, combat, pending results, reward claims, equipped gear and five-hero formations/results. Player saves untouched.");
+        Debug.Log("PASS: Unity save serialization for fresh progress, combat, pending results, reward claims, equipped gear and five-hero formations/results and progression choices. Player saves untouched.");
     }
 }

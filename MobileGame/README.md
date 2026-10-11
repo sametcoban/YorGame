@@ -444,3 +444,22 @@ A living front Defender reduces damage to back enemies by **20%** (remaining dam
 The Ranger’s **Hunter’s Mark** now grants +20% damage to actual back-row enemies. Auto Play prioritizes healers and support enemies, gives Rangers and Rogues priority on other rear threats, and accounts for Defender protection when choosing a skill. Formation and roles derive from the existing enemy roster, so saves remain compatible and no art imports are required.
 
 Copy updated **Assets/Scripts** into Unity. Test chapter 2 wave 2, then the chapter 5/6 boss pairs: attack a protected rear enemy, defeat its Defender, compare Ranger/Rogue damage and try an area ultimate. Pure C# checks cover all enemy roles, mixed waves, protection removal, shield interaction, single/area ultimates and the full campaign. Unity rendering, target-button readability and difficulty still require playtesting.
+
+## Hero progression choices
+
+Before combat, open **Skills > Progression** and select a hero. Every class has two choices at each of **levels 5, 10 and 15**; select one per tier. Choices belong to each named hero, including reserves, and survive reloads and campaign replay. Changing choices and **Free Reset** cost nothing while testing. Choices lock once fighting begins.
+
+| Class | Level 5 | Level 10 | Level 15 |
+| --- | --- | --- | --- |
+| Knight | Stronger front protection / stronger counters | More health / stronger damaging skills | More protection / stronger counters |
+| Paladin | More party Guard / stronger skill healing | More health / stronger damaging skills | More Guard / party healing after enemy rounds |
+| Sorceress | Stronger weakness bonus / stronger damaging skills | Faster energy / more health | Stronger weakness bonus / stronger ultimate |
+| Ranger | Stronger rear damage / stronger damaging skills | Faster energy / more health | Stronger rear damage / stronger ultimate |
+| Rogue | Higher critical chance / stronger critical hits | Faster energy / more health | Higher critical chance / stronger critical hits |
+| Cleric | Stronger prayer / prayer cleanses burn or poison | Faster energy / more health | Stronger prayer / party burn and poison cleanse |
+
+The screen shows exact bonuses and level locks. Faster energy gives 35 energy per attack or skill, triggering an ultimate after three actions. Healing and cleansing happen after enemy actions and damage-over-time ticks; fallen heroes stay defeated. Bonuses work with equipment, class passives and Auto Play.
+
+Save version **6** migrates existing saves with no choices selected, preserving hero growth, equipment, formations and pending victory rewards. Invalid choices or choices below their unlock level are rejected before changing progress.
+
+Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **6,316 engine-independent checks passed**, including all 36 choices, free resets, save migration, combat interactions and the complete 90-wave campaign. **Ashlight > Diagnostics > Check Save Serialization** now also checks progression choices. Unity compilation, serialization diagnostics and progression screen layout still need local testing.

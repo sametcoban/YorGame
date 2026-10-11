@@ -7,6 +7,14 @@ namespace Ashlight {
         ClassDefinition stats;
         public ClassDefinition Definition { get { return stats; } }
         public const int MaxLevel=20, MaxUpgradeRank=5;
+        readonly int[] talents={-1,-1,-1};
+        public int TalentChoice(int tier) { return talents[tier]; }
+        public bool HasTalent(int tier,int choice) { return Level>=ClassTalents.UnlockLevel(tier) && talents[tier]==choice; }
+        internal void SetTalent(int tier,int choice) { talents[tier]=choice; }
+        public int EnergyGain { get { return ActionEnergy+(Identity.Class!=HeroClass.Knight && Identity.Class!=HeroClass.Paladin && HasTalent(1,0)?10:0); } }
+        public double HealingMultiplier { get { return Identity.Class==HeroClass.Paladin && HasTalent(0,1)?1.2:1; } }
+        public double CriticalChance { get { return .25+(HasTalent(0,0)?.10:0)+(HasTalent(2,0)?.15:0); } }
+        public double CriticalMultiplier { get { return 1.5+(HasTalent(0,1)?.25:0)+(HasTalent(2,1)?.25:0); } }
         public int Level { get; internal set; } = 1;
         public int Experience { get; internal set; }
         public int UpgradeRank { get; internal set; }
@@ -19,10 +27,13 @@ namespace Ashlight {
         internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; RefreshStats(); }
         public int Protection { get { var armor=Gear(GearSlot.Armor); return armor==null?0:armor.Protection; } }
         public float DamageBoost(Element element) { var accessory=Gear(GearSlot.Accessory); return accessory!=null && accessory.Element==element?1+accessory.ElementBoost:1; }
-        public UltimateDefinition Ultimate { get { var weapon=Gear(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithDamageBonus(weapon==null?0:weapon.SkillDamage); } }
+        public UltimateDefinition Ultimate { get { var weapon=Gear(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithTalentDamage((Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger) && HasTalent(2,1)?20:0).WithDamageBonus(weapon==null?0:weapon.SkillDamage); } }
         internal void RefreshStats() {
             var weapon=Gear(GearSlot.Weapon); var armor=Gear(GearSlot.Armor);
-            stats=Identity.Stats.Scaled(Growth).WithEquipment(armor==null?0:armor.Health,weapon==null?0:weapon.Attack,weapon==null?0:weapon.SkillDamage);
+            bool tank=Identity.Class==HeroClass.Knight || Identity.Class==HeroClass.Paladin;
+            bool health=HasTalent(1,tank?0:1);
+            bool skill=HasTalent(tank?1:0,1) && (tank || Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger);
+            stats=Identity.Stats.Scaled(Growth).WithTalentBonuses(health?15:0,skill?10:0).WithEquipment(armor==null?0:armor.Health,weapon==null?0:weapon.Attack,weapon==null?0:weapon.SkillDamage);
         }
         internal void GainExperience(int amount) {
             if(Level==MaxLevel) return;
@@ -68,6 +79,7 @@ namespace Ashlight {
         public bool ClassPassivesEnabled { get; private set; }
         readonly Random passiveRandom;
         public string LastOffensivePassive { get; private set; }
+        public readonly Debuff[] LastPassiveCleanse=new Debuff[MaxPartySize];
         public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
         public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
@@ -269,6 +281,19 @@ namespace Ashlight {
             if(member==null || member.UpgradeRank>=PartyHero.MaxUpgradeRank || member.Shards<member.UpgradeCost) return false;
             member.Shards-=member.UpgradeCost; member.UpgradeRank++; member.RefreshStats(); member.Restore(); return true;
         }
+        public bool ChooseTalent(string id,int tier,int choice) {
+            if(!campaign || (!CanChangeParty && !CampaignComplete) || tier<0 || tier>2 || choice<0 || choice>1) return false;
+            var hero=HeroProgress(id);
+            if(hero==null || hero.Level<ClassTalents.UnlockLevel(tier) || hero.TalentChoice(tier)==choice) return false;
+            hero.SetTalent(tier,choice); hero.RefreshStats(); hero.Restore(); return true;
+        }
+        public bool ResetTalents(string id) {
+            if(!campaign || (!CanChangeParty && !CampaignComplete)) return false;
+            var hero=HeroProgress(id); if(hero==null) return false; bool changed=false;
+            for(int i=0;i<3;i++) if(hero.TalentChoice(i)>=0) { hero.SetTalent(i,-1); changed=true; }
+            if(!changed) return false;
+            hero.RefreshStats(); hero.Restore(); return true;
+        }
         public bool EquipGear(string heroId,GearSlot slot,string itemId) {
             if(!campaign || (!CanChangeParty && !CampaignComplete) || (int)slot<0 || (int)slot>2) return false;
             var member=HeroProgress(heroId); var item=itemId==null?null:GearDefinition.Find(itemId);
@@ -290,7 +315,7 @@ namespace Ashlight {
                 PartyHero member = null;
                 foreach (var ally in party) if (ally.Identity.Id == recruits[i].Id) member = ally;
                 if (member == null) savedHeroes.TryGetValue(recruits[i].Id, out member);
-                data.loadouts[i] = new HeroLoadoutData { id = recruits[i].Id, firstSkill = member == null ? 0 : member.SkillIndex(0), secondSkill = member == null ? 1 : member.SkillIndex(1), level=member==null?1:member.Level, experience=member==null?0:member.Experience, upgradeRank=member==null?0:member.UpgradeRank, shards=member==null?0:member.Shards, gear=new[]{member==null || member.Gear(GearSlot.Weapon)==null?null:member.Gear(GearSlot.Weapon).Id,member==null || member.Gear(GearSlot.Armor)==null?null:member.Gear(GearSlot.Armor).Id,member==null || member.Gear(GearSlot.Accessory)==null?null:member.Gear(GearSlot.Accessory).Id} };
+                data.loadouts[i] = new HeroLoadoutData { id = recruits[i].Id, firstSkill = member == null ? 0 : member.SkillIndex(0), secondSkill = member == null ? 1 : member.SkillIndex(1), level=member==null?1:member.Level, experience=member==null?0:member.Experience, upgradeRank=member==null?0:member.UpgradeRank, shards=member==null?0:member.Shards, talents=member==null?new[]{-1,-1,-1}:new[]{member.TalentChoice(0),member.TalentChoice(1),member.TalentChoice(2)}, gear=new[]{member==null || member.Gear(GearSlot.Weapon)==null?null:member.Gear(GearSlot.Weapon).Id,member==null || member.Gear(GearSlot.Armor)==null?null:member.Gear(GearSlot.Armor).Id,member==null || member.Gear(GearSlot.Accessory)==null?null:member.Gear(GearSlot.Accessory).Id} };
             }
             if(Current==Phase.Won && Results!=null) {
                 data.results=new PendingResultsData { lootId=Results.Loot==null?null:Results.Loot.Id,damage=new int[party.Count],healing=new int[party.Count] };
@@ -300,7 +325,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -328,6 +353,15 @@ namespace Ashlight {
                     if(loadout.level<1 || loadout.level>PartyHero.MaxLevel || loadout.upgradeRank<0 || loadout.upgradeRank>PartyHero.MaxUpgradeRank || loadout.shards<0 || loadout.shards>1000000 || loadout.experience<0 || loadout.experience>=100+(loadout.level-1)*25 || (loadout.level==PartyHero.MaxLevel && loadout.experience!=0)) return false;
                     member.Level=loadout.level; member.Experience=loadout.experience; member.UpgradeRank=loadout.upgradeRank; member.Shards=loadout.shards; member.RefreshStats();
                 }
+                if(data.version>=6) {
+                    if(loadout.talents==null || loadout.talents.Length!=3) return false;
+                    for(int tier=0;tier<3;tier++) {
+                        int choice=loadout.talents[tier];
+                        if(choice< -1 || choice>1 || (choice>=0 && member.Level<ClassTalents.UnlockLevel(tier))) return false;
+                        member.SetTalent(tier,choice);
+                    }
+                    member.RefreshStats();
+                }
                 if(data.version>=4 && loadout.gear!=null) {
                     if(loadout.gear.Length!=3) return false;
                     for(int slot=0;slot<3;slot++) if(!string.IsNullOrEmpty(loadout.gear[slot])) {
@@ -343,9 +377,9 @@ namespace Ashlight {
             var chosen = new HashSet<string>();
             foreach (var id in data.party) if (id == null || !restored.ContainsKey(id) || !chosen.Add(id)) return false;
             int restoredLimit=Math.Min(MaxPartySize,Math.Min(data.encounter/ChapterDefinition.StagesPerChapter,ChapterDefinition.Catalog.Count-1)+1);
-            if(data.version==5 && data.party.Length>restoredLimit) return false;
+            if(data.version>=5 && data.party.Length>restoredLimit) return false;
             GearDefinition pendingLoot=null;
-            if(data.version==5) {
+            if(data.version>=5) {
                 if(data.pendingVictory) {
                     var result=data.results;
                     if(result==null || result.damage==null || result.healing==null || result.damage.Length!=data.party.Length || result.healing.Length!=data.party.Length) return false;
@@ -369,7 +403,7 @@ namespace Ashlight {
             if (data.pendingVictory) {
                 WaveIndex=WaveCount-1; LoadWaveEnemies();
                 foreach (var enemy in enemies) enemy.Health = 0;
-                if(data.version==5) {
+                if(data.version>=5) {
                     for(int i=0;i<party.Count;i++) { party[i].EncounterDamage=data.results.damage[i]; party[i].EncounterHealing=data.results.healing[i]; }
                     Current=Phase.Won; BuildResults(pendingLoot);
                 } else Victory();
@@ -418,12 +452,13 @@ namespace Ashlight {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0 || slot < 0 || slot > 1 || Active.SkillCharges(slot) == 0) return false;
             LastOffensivePassive=null;
             var skill = Active.Skill(slot);
+            int skillHealing=(int)Math.Ceiling(skill.Healing*Active.HealingMultiplier);
             int healingBefore=0; foreach(var member in party) healingBefore+=member.Health;
             Active.Consume(slot);
             if (skill.PartyHealing) {
                 foreach (var member in party)
-                    if (member.Health > 0) member.Health = Math.Min(member.Definition.MaxHealth, member.Health + skill.Healing);
-            } else Active.Health = Math.Min(Hero.MaxHealth, Active.Health + skill.Healing);
+                    if (member.Health > 0) member.Health = Math.Min(member.Definition.MaxHealth, member.Health + skillHealing);
+            } else Active.Health = Math.Min(Hero.MaxHealth, Active.Health + skillHealing);
             int healingAfter=0; foreach(var member in party) healingAfter+=member.Health;
             Active.EncounterHealing=Math.Min(1000000,Active.EncounterHealing+healingAfter-healingBefore);
             Active.Guard = Math.Max(Active.Guard, skill.Guard);
@@ -444,7 +479,7 @@ namespace Ashlight {
             if(ClassPassivesEnabled && Current==Phase.Player && damage>0) {
                 double bonus=PassiveDamageMultiplier(Active,definition,LastElement);
                 if(bonus>1) { damage=(int)Math.Ceiling(damage*bonus); LastOffensivePassive=Active.Identity.Class==HeroClass.Sorceress?"ARCANE EXPOSURE":"HUNTER'S MARK"; }
-                if(Active.Identity.Class==HeroClass.Rogue && passiveRandom.NextDouble()<.25) { damage=(int)Math.Ceiling(damage*1.5); LastOffensivePassive="CRITICAL STRIKE"; }
+                if(Active.Identity.Class==HeroClass.Rogue && passiveRandom.NextDouble()<Active.CriticalChance) { damage=(int)Math.Ceiling(damage*Active.CriticalMultiplier); LastOffensivePassive="CRITICAL STRIKE"; }
             }
             damage=(int)Math.Ceiling(damage*Active.DamageBoost(LastElement));
             if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
@@ -467,7 +502,7 @@ namespace Ashlight {
         void CompleteAction() {
             LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
             Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
-            Active.Energy=Math.Min(PartyHero.MaxEnergy,Active.Energy+PartyHero.ActionEnergy);
+            Active.Energy=Math.Min(PartyHero.MaxEnergy,Active.Energy+Active.EnergyGain);
             if(Active.Energy==PartyHero.MaxEnergy && !AllEnemiesDefeated) {
                 LastUltimate=Active.Ultimate; UltimateTarget=SelectedEnemyIndex;
                 int normalDamage=LastDamage; Element normalElement=LastElement; float normalMultiplier=LastElementMultiplier;
@@ -496,35 +531,53 @@ namespace Ashlight {
         }
         void ClearPassiveReports() {
             Array.Clear(LastPassiveGuard,0,LastPassiveGuard.Length);
+            Array.Clear(LastPassiveCleanse,0,LastPassiveCleanse.Length);
             Array.Clear(LastPassiveHealing,0,LastPassiveHealing.Length);
             Array.Clear(LastPassiveProtection,0,LastPassiveProtection.Length);
         }
         public double PassiveDamageMultiplier(PartyHero hero,EnemyDefinition foe,Element element) {
             if(!ClassPassivesEnabled) return 1;
-            if(hero.Identity.Class==HeroClass.Sorceress && foe.Multiplier(element)>1) return 1.2;
-            if(hero.Identity.Class==HeroClass.Ranger && foe.Row==EnemyRow.Back) return 1.2;
+            if(hero.Identity.Class==HeroClass.Sorceress && foe.Multiplier(element)>1) return 1.2+(hero.HasTalent(0,0)?.1:0)+(hero.HasTalent(2,0)?.2:0);
+            if(hero.Identity.Class==HeroClass.Ranger && foe.Row==EnemyRow.Back) return 1.2+(hero.HasTalent(0,0)?.1:0)+(hero.HasTalent(2,0)?.2:0);
             return 1;
         }
         void ApplyPaladinGuard() {
             Array.Clear(LastPassiveGuard,0,LastPassiveGuard.Length);
             if(!ClassPassivesEnabled) return;
-            bool paladin=false;
-            foreach(var member in party) if(member.Health>0 && member.Identity.Class==HeroClass.Paladin) paladin=true;
-            if(!paladin) return;
+            int guard=0;
+            foreach(var member in party) if(member.Health>0 && member.Identity.Class==HeroClass.Paladin) guard=Math.Max(guard,8+(member.HasTalent(0,0)?4:0)+(member.HasTalent(2,0)?8:0));
+            if(guard==0) return;
             for(int i=0;i<party.Count;i++) if(party[i].Health>0) {
-                int before=party[i].Guard; party[i].Guard=Math.Max(before,8); LastPassiveGuard[i]=party[i].Guard-before;
+                int before=party[i].Guard; party[i].Guard=Math.Max(before,guard); LastPassiveGuard[i]=party[i].Guard-before;
+            }
+        }
+        void CleansePassive(int target) {
+            var ally=party[target];
+            if(ally.Health>0 && (ally.Status==Debuff.Burn || ally.Status==Debuff.Poison)) {
+                LastPassiveCleanse[target]=ally.Status; ally.Status=Debuff.None; ally.StatusRounds=0;
             }
         }
         void ApplyClericHealing() {
             if(!ClassPassivesEnabled) return;
-            foreach(var healer in party) if(healer.Health>0 && healer.Identity.Class==HeroClass.Cleric) {
+            foreach(var healer in party) if(healer.Health>0) {
+                if(healer.Identity.Class==HeroClass.Paladin && healer.HasTalent(2,1)) {
+                    for(int i=0;i<party.Count;i++) if(party[i].Health>0) {
+                        int healed=Math.Min(party[i].Definition.MaxHealth-party[i].Health,(healer.Definition.MaxHealth*3+99)/100);
+                        party[i].Health+=healed; LastPassiveHealing[i]+=healed; healer.EncounterHealing=Math.Min(1000000,healer.EncounterHealing+healed);
+                    }
+                }
+                if(healer.Identity.Class!=HeroClass.Cleric) continue;
                 int target=-1;
                 for(int i=0;i<party.Count;i++) if(party[i].Health>0 && party[i].Health<party[i].Definition.MaxHealth &&
                     (target<0 || (long)party[i].Health*party[target].Definition.MaxHealth<(long)party[target].Health*party[i].Definition.MaxHealth)) target=i;
-                if(target<0) continue;
-                int healed=Math.Min(party[target].Definition.MaxHealth-party[target].Health,(int)Math.Ceiling(healer.Definition.MaxHealth*.1));
-                party[target].Health+=healed; LastPassiveHealing[target]+=healed;
-                healer.EncounterHealing=Math.Min(1000000,healer.EncounterHealing+healed);
+                if(target>=0) {
+                    int percentage=10+(healer.HasTalent(0,0)?5:0)+(healer.HasTalent(2,0)?10:0);
+                    int healed=Math.Min(party[target].Definition.MaxHealth-party[target].Health,(healer.Definition.MaxHealth*percentage+99)/100);
+                    party[target].Health+=healed; LastPassiveHealing[target]+=healed;
+                    healer.EncounterHealing=Math.Min(1000000,healer.EncounterHealing+healed);
+                    if(healer.HasTalent(0,1)) CleansePassive(target);
+                }
+                if(healer.HasTalent(2,1)) for(int i=0;i<party.Count;i++) CleansePassive(i);
             }
         }
         void PrepareEnemyStrike() {
@@ -559,6 +612,7 @@ namespace Ashlight {
             if (Current != Phase.EnemyWindup) return false;
             Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
             LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
+            Array.Clear(LastPassiveCleanse,0,LastPassiveCleanse.Length);
             Array.Clear(LastPassiveHealing,0,LastPassiveHealing.Length); Array.Clear(LastPassiveProtection,0,LastPassiveProtection.Length);
             Current = Phase.EnemyStrike; return true;
         }
@@ -570,7 +624,7 @@ namespace Ashlight {
             if(index==ActiveIndex) Defended=true;
             if (parry) {
                 int previous=ActiveIndex; ActiveIndex=index;
-                DealDamage(10,null,AttackingEnemyIndex); ActiveIndex=previous;
+                DealDamage(10+(ClassPassivesEnabled && Active.Identity.Class==HeroClass.Knight?(Active.HasTalent(0,1)?5:0)+(Active.HasTalent(2,1)?10:0):0),null,AttackingEnemyIndex); ActiveIndex=previous;
             }
             if (AllEnemiesDefeated) Victory();
             return true;
@@ -607,7 +661,8 @@ namespace Ashlight {
                 if(ClassPassivesEnabled && IsFrontRow(i))
                     for(int protector=0;protector<Math.Min(FrontSlots,party.Count);protector++)
                         if(protector!=i && livingKnights[protector]) {
-                            int reduced=(int)Math.Ceiling(damage*.8); LastPassiveProtection[i]=damage-reduced; damage=reduced; break;
+                            int reduction=20+(party[protector].HasTalent(0,0)?10:0)+(party[protector].HasTalent(2,0)?10:0);
+                            int reduced=(int)Math.Ceiling(damage*(100-reduction)/100.0); LastPassiveProtection[i]=damage-reduced; damage=reduced; break;
                         }
                 damage=Math.Max(0,damage-member.Guard-member.Protection); member.Guard=0;
                 LastIncomingDamage[i]=Math.Min(member.Health,damage);

@@ -83,6 +83,9 @@ namespace Ashlight {
         readonly Button[] gearHeroes=new Button[Battle.MaxPartySize],gearSlots=new Button[3],gearChoices=new Button[6];
         readonly System.Collections.Generic.List<GearDefinition> gearCandidates=new System.Collections.Generic.List<GearDefinition>();
         GearSlot browsingSlot;
+        GameObject progressionRoot;
+        Text progressionTitle;
+        readonly Button[] progressionHeroes=new Button[Battle.MaxPartySize], progressionChoices=new Button[6];
         GameObject formationRoot;
         Button formationButton;
         readonly Button[] formationSlots=new Button[Battle.MaxPartySize];
@@ -189,7 +192,7 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            CreateFormationPanel();
+            CreateFormationPanel(); CreateProgressionPanel();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
             CreateResultsPanel();
@@ -284,9 +287,12 @@ namespace Ashlight {
             transitioningWave=false;
         }
         void PresentPassiveHealing() {
-            for(int i=0;i<battle.Party.Count;i++) if(battle.LastPassiveHealing[i]>0) {
-                effects.Heal(allies[i].position,battle.LastPassiveHealing[i]);
-                effects.Floating(allies[i].position,"MENDING PRAYER",Element.Light); sounds.Play("Heal",.7f);
+            for(int i=0;i<battle.Party.Count;i++) {
+                if(battle.LastPassiveHealing[i]>0) {
+                    effects.Heal(allies[i].position,battle.LastPassiveHealing[i]);
+                    effects.Floating(allies[i].position,"PASSIVE HEAL",Element.Light); sounds.Play("Heal",.7f);
+                }
+                if(battle.LastPassiveCleanse[i]!=Debuff.None) effects.Floating(allies[i].position,"CLEANSED "+battle.LastPassiveCleanse[i].ToString().ToUpperInvariant(),Element.Light);
             }
         }
         IEnumerator EnemyTurn() {
@@ -406,13 +412,13 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || presentingAction) return;
+            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
             int oldGuard = members[actingIndex].Guard;
             for(int i=0;i<battle.Enemies.Count;i++) { actionEnemyBefore[i]=battle.Enemies[i].Health; shownEnemyDamage[i]=0; }
-            actionHero=actingIndex; actionEnergy=Mathf.Min(PartyHero.MaxEnergy,members[actingIndex].Energy+PartyHero.ActionEnergy);
+            actionHero=actingIndex; actionEnergy=Mathf.Min(PartyHero.MaxEnergy,members[actingIndex].Energy+members[actingIndex].EnergyGain);
             string name = skillSlot >= 0 ? members[actingIndex].Skill(skillSlot).Name : "Attack";
             if (!(skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack())) return;
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health-healing[i]-battle.LastUltimateHealing[i];
@@ -499,9 +505,10 @@ namespace Ashlight {
                 choices[i].GetComponentInChildren<Text>(true).fontSize = 21;
             }
             upgradeButton=MakeButton(selectionRoot.transform,"UPGRADE",.55f,.95f,()=> { if(battle.UpgradeHero(battle.Party[battle.ActiveIndex].Identity.Id)) { SaveProgress(); RefreshSelection(); } });
-            var upgradeRect=upgradeButton.GetComponent<RectTransform>(); upgradeRect.anchorMin=new Vector2(.55f,.02f); upgradeRect.anchorMax=new Vector2(.95f,.12f);
+            var upgradeRect=upgradeButton.GetComponent<RectTransform>(); upgradeRect.anchorMin=new Vector2(.70f,.02f); upgradeRect.anchorMax=new Vector2(.95f,.12f);
+            var progression=MakeButton(selectionRoot.transform,"PROGRESSION",.35f,.65f,OpenProgression); PlaceGearControl(progression,.35f,.02f,.65f,.12f);
             var close = MakeButton(selectionRoot.transform, "DONE", .05f, .45f, CloseSelection);
-            var cr = close.GetComponent<RectTransform>(); cr.anchorMin = new Vector2(.05f, .02f); cr.anchorMax = new Vector2(.45f, .12f);
+            var cr = close.GetComponent<RectTransform>(); cr.anchorMin = new Vector2(.05f, .02f); cr.anchorMax = new Vector2(.30f, .12f);
             selectionRoot.SetActive(false);
         }
         void OpenSelection(bool skills, HeroClass kind) {
@@ -556,6 +563,49 @@ namespace Ashlight {
                     choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.Affinity + "\nHP " + stats.MaxHealth + " | Attack " + stats.AttackDamage + " | Lv " + (progress==null?1:progress.Level) + " / +" + (progress==null?0:progress.UpgradeRank) + "\nULT: " + ult.Description + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
+            }
+        }
+        void CreateProgressionPanel() {
+            progressionRoot=new GameObject("Hero Progression",typeof(RectTransform),typeof(Image));
+            progressionRoot.transform.SetParent(safe,false);
+            var rect=progressionRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
+            progressionRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            progressionTitle=Label(progressionRoot.transform,"",new Vector2(.04f,.81f),new Vector2(.96f,.98f),25);
+            for(int i=0;i<progressionHeroes.Length;i++) {
+                int index=i; float left=.025f+i*.194f;
+                progressionHeroes[i]=MakeButton(progressionRoot.transform,"",left,left+.18f,()=> { if(battle.SelectHero(index)) RefreshProgression(); });
+                PlaceGearControl(progressionHeroes[i],left,.71f,left+.18f,.79f);
+            }
+            for(int i=0;i<progressionChoices.Length;i++) {
+                int tier=i/2,choice=i%2; float left=choice==0?.05f:.52f; float bottom=.50f-tier*.18f;
+                progressionChoices[i]=MakeButton(progressionRoot.transform,"",left,left+.43f,()=> {
+                    if(battle.ChooseTalent(battle.Party[battle.ActiveIndex].Identity.Id,tier,choice)) { SaveProgress(); RefreshProgression(); }
+                });
+                PlaceGearControl(progressionChoices[i],left,bottom,left+.43f,bottom+.16f);
+                progressionChoices[i].GetComponentInChildren<Text>().resizeTextMaxSize=22;
+            }
+            var reset=MakeButton(progressionRoot.transform,"FREE RESET",.05f,.45f,()=> { if(battle.ResetTalents(battle.Party[battle.ActiveIndex].Identity.Id)) { SaveProgress(); RefreshProgression(); } });
+            PlaceGearControl(reset,.05f,.025f,.45f,.11f);
+            var done=MakeButton(progressionRoot.transform,"DONE",.55f,.95f,()=>progressionRoot.SetActive(false)); PlaceGearControl(done,.55f,.025f,.95f,.11f);
+            progressionRoot.SetActive(false);
+        }
+        void OpenProgression() {
+            if(atChapters || !battle.CanChangeParty) return;
+            selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false);
+            progressionRoot.transform.SetAsLastSibling(); progressionRoot.SetActive(true); RefreshProgression();
+        }
+        void RefreshProgression() {
+            var hero=battle.Party[battle.ActiveIndex];
+            progressionTitle.text=hero.Identity.Name+" · "+hero.Identity.DisplayClass+" · LEVEL "+hero.Level+"\nChoose one upgrade at levels 5, 10 and 15. Changes and resets are free before combat.\nHP "+hero.Definition.MaxHealth+" · Energy gain "+hero.EnergyGain+" · Ultimate damage "+hero.Ultimate.Damage;
+            for(int i=0;i<progressionHeroes.Length;i++) {
+                progressionHeroes[i].gameObject.SetActive(i<battle.Party.Count);
+                if(i<battle.Party.Count) progressionHeroes[i].GetComponentInChildren<Text>().text=(i==battle.ActiveIndex?"▶ ":"")+battle.Party[i].Identity.Name;
+            }
+            for(int i=0;i<progressionChoices.Length;i++) {
+                int tier=i/2,choice=i%2; bool unlocked=hero.Level>=ClassTalents.UnlockLevel(tier),selected=hero.TalentChoice(tier)==choice;
+                progressionChoices[i].interactable=battle.CanChangeParty && unlocked && !selected;
+                progressionChoices[i].GetComponentInChildren<Text>().text="LEVEL "+ClassTalents.UnlockLevel(tier)+" · "+ClassTalents.Name(hero.Identity.Class,tier,choice)+"\n"+ClassTalents.Description(hero.Identity.Class,tier,choice)+"\n"+(selected?"SELECTED":unlocked?"CHOOSE":"LOCKED");
+                progressionChoices[i].GetComponent<Image>().color=selected?new Color(.31f,.25f,.15f):new Color(.075f,.085f,.105f);
             }
         }
         void CreateFormationPanel() {
@@ -614,7 +664,7 @@ namespace Ashlight {
         void ShowResults() {
             Time.timeScale=1;
             var result=battle.Results; if(result==null) return;
-            autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false);
+            autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
             resultsTitle.text="VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
             resultsRewards.text="+"+result.Experience+" XP per participating hero · +"+result.Crystals+" crystals"+(result.RecruitName==null?"":"\nNew recruit: "+result.RecruitName)+"\nPress Continue to claim these rewards.";
             resultsLoot.text=result.Loot==null?"No loot":"GEAR DROP\n"+result.Loot.Description;
@@ -787,7 +837,7 @@ namespace Ashlight {
             } else if(!battle.CanChangeParty && !battle.CampaignComplete) battle.Reset();
             effects.Clear();
             atChapters=true; attackTime=-10; feedbackUntil=0; parried=false;
-            selectionRoot.SetActive(false); formationRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
+            selectionRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
             SaveProgress();
             chapterTitle.color=Color.white;
             chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All six chapters completed!":"Continue your journey.")+"\n"+SummonWallet()+" | "+saveNotice;
@@ -811,7 +861,7 @@ namespace Ashlight {
         void ApplyBattleSpeed() {
             bool combat=!atChapters && (presentingAction || enemyTurn!=null ||
                 battle.Current==Phase.Player || battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike || battle.Current==Phase.WaveCleared);
-            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf);
+            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf);
             Time.timeScale=combat && !menu?battleSpeed:1;
         }
         void OnDisable() { Time.timeScale=1; }
@@ -845,7 +895,7 @@ namespace Ashlight {
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
             reset.gameObject.SetActive(finished && battle.Current!=Phase.Won);
             loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing); formationButton.gameObject.SetActive(preparing);
-            if(!preparing) formationRoot.SetActive(false);
+            if(!preparing) { formationRoot.SetActive(false); progressionRoot.SetActive(false); }
             if(!preparing) equipmentRoot.SetActive(false);
             if (!preparing) selectionRoot.SetActive(false);
             reset.GetComponentInChildren<Text>(true).text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
@@ -899,7 +949,7 @@ namespace Ashlight {
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
-            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
+            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
                 nextAutoAction = Time.time+1.3f;

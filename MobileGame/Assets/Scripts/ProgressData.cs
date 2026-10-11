@@ -7,12 +7,13 @@ namespace Ashlight {
         public int level = 1;
         public int experience, upgradeRank, shards;
         public string[] gear;
+        public int[] talents={-1,-1,-1};
     }
     [Serializable]
     public sealed class GearStackData { public string id; public int count; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 5;
+        public int version = 6;
         public PendingResultsData results;
         public GearStackData[] inventory = new GearStackData[0];
         public int crystals;
