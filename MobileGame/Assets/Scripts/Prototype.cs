@@ -458,6 +458,7 @@ namespace Ashlight {
             if (casting) sounds.Play("Charge",.7f);
             else if (kind == HeroClass.Ranger) sounds.Play("BowDraw",.75f);
             message = battle.Party[actingIndex].Identity.Name+" — "+name+".";
+            if (casting || kind == HeroClass.Ranger) effects.Windup(actor.position,foes[target].position,element,motion.Impact,kind == HeroClass.Ranger);
             while (Time.time < attackTime+motion.Impact-.10f) yield return null;
             if (!casting) sounds.Play(kind == HeroClass.Ranger ? "BowRelease" : kind == HeroClass.Rogue ? "DaggerSwipe" : kind == HeroClass.Paladin ? "HeavySwing" : "SwordSwing");
             while (Time.time < attackTime+motion.Impact) yield return null;
@@ -484,13 +485,14 @@ namespace Ashlight {
                 effects.Ring(actor.position,ultimate.Affinity,.15f); sounds.Play("Charge");
                 bool ultimateCast=CombatMotion.UsesCast(kind,ultimate.Affinity!=Element.Physical);
                 var ultimateMotion=CombatMotion.For(kind,ultimateCast); float ultimateAt=Time.time;
+                effects.UltimateCharge(actor.position,ultimate.Affinity,ultimateMotion.Impact);
                 actionMotion=ultimateMotion; attackTime=ultimateAt; actionTarget=battle.UltimateTarget;
                 var actorVisual=actor.GetComponent<HeroVisual>(); if(actorVisual!=null) actorVisual.Play(ultimateCast?"Cast":"Attack");
                 while(Time.time<ultimateAt+ultimateMotion.Impact) yield return null;
                 for(int i=0;i<battle.Enemies.Count;i++) if(battle.LastUltimateDamage[i]>0) {
                     float mult=battle.Enemies[i].Definition.Multiplier(ultimate.Affinity);
                     HeroImpact(actor,i,battle.LastUltimateDamage[i],ultimate.Affinity,mult,!ultimateCast);
-                    effects.Ring(foes[i].position,ultimate.Affinity,.15f);
+                    effects.UltimateImpact(foes[i].position,ultimate.Affinity,ultimate.AreaDamage);
                 }
                 actionEnergy=battle.Party[actingIndex].Energy;
                 for(int i=0;i<battle.Party.Count;i++) {

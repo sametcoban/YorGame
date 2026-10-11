@@ -595,3 +595,9 @@ Save version **12** stores three preset records. Earlier saves migrate to three 
 The battle HUD now gives each hero separate green health and blue energy meters, with low health shown in red and the acting hero highlighted in gold. The compact header focuses on the selected enemy, elemental matchups, acting hero, and combat messages. Party meters, action buttons, and combat cues occupy separate rows. Buttons have consistent internal padding and clearer disabled states. Daily quest cards leave room for a larger Done button. Safe-area anchors continue updating when the screen changes.
 
 Validate in Unity at landscape phone aspect ratios, including notched screens: check five heroes, long skill names, status effects, all menus, and touch input. The cloud environment does not include Unity, so on-device readability and layout still need testing.
+
+### Battle feedback polish
+
+Physical hits show sweeping slash arcs; Ranger attacks launch a projectile that arrives on the existing animation impact frame. Spell windups use a contracting charge ring. Ultimates have a larger charge, ground impact and camera pulse, with a focused slash for single-target attacks. Floating damage, healing and status messages stack vertically at each character and stay opaque longer before fading. Effects continue using the existing 48-object pool without Particle System dependencies.
+
+This changes presentation only; damage, healing, energy and combat timing rules remain the same. In Unity, check melee combos, ranged shots, elemental casts, both ultimate types, simultaneous party healing/status messages and Auto Play at 1×/2×/3×. Visual playback and mobile performance cannot be verified in this cloud environment.

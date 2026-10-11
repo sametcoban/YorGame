@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ashlight {
     // Reuses up to 48 simple effect objects. No downloaded art or particle dependencies.
     public sealed class CombatEffects : MonoBehaviour {
-        enum Mode { Spark, Ring, GroundRing, Beam, Text }
+        enum Mode { Spark, Ring, GroundRing, Beam, Text, Slash, Charge, Projectile }
         sealed class Effect {
             public GameObject Root;
             public Renderer Mesh;
@@ -12,7 +12,7 @@ namespace Ashlight {
             public Mode Kind;
             public Element Element;
             public float Age, Duration, Size;
-            public Vector3 Start, Velocity;
+            public Vector3 Start, Velocity, Destination;
         }
         readonly List<Effect> pool = new List<Effect>();
         readonly Dictionary<Element, Material> materials = new Dictionary<Element, Material>();
@@ -64,27 +64,33 @@ namespace Ashlight {
             effect.Root.SetActive(true); effect.Root.transform.position = position; effect.Root.transform.localScale = Vector3.one;
             effect.Root.transform.rotation = Quaternion.identity;
             effect.Kind = mode; effect.Element = element; effect.Start = position; effect.Age = 0; effect.Duration = duration; effect.Size = size; effect.Velocity = Vector3.zero;
-            effect.Mesh.gameObject.SetActive(mode == Mode.Spark);
+            effect.Mesh.gameObject.SetActive(mode == Mode.Spark || mode == Mode.Projectile);
             effect.Text.gameObject.SetActive(mode == Mode.Text);
-            effect.Line.enabled = mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam;
+            effect.Line.enabled = mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam || mode == Mode.Slash || mode == Mode.Charge;
             effect.Mesh.sharedMaterial = materials[element]; effect.Line.sharedMaterial = materials[element]; effect.Text.color = Tint(element);
-            effect.Line.loop = mode == Mode.Ring || mode == Mode.GroundRing;
+            effect.Line.loop = mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge;
             effect.Line.startWidth = effect.Line.endWidth = size;
-            effect.Line.positionCount = (mode == Mode.Ring || mode == Mode.GroundRing) ? 24 : 2;
-            if (mode == Mode.Spark) effect.Mesh.transform.localScale = Vector3.one * size;
+            effect.Line.positionCount = (mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Slash) ? 24 : 2;
+            if (mode == Mode.Spark || mode == Mode.Projectile) effect.Mesh.transform.localScale = Vector3.one * size;
             return effect;
         }
         void Spark(Vector3 position, Element element, Vector3 velocity, float size, float duration) {
             var effect = Get(Mode.Spark, position, element, duration, size); if (effect != null) effect.Velocity = velocity;
         }
         public void Floating(Vector3 position, string text, Element element) {
-            var effect = Get(Mode.Text, position + Vector3.up * 1.2f, element, .9f, 1);
-            if (effect != null) { effect.Text.text = text; effect.Velocity = Vector3.up * .8f; }
+            // Give simultaneous damage, status and defense messages their own vertical lanes.
+            int lane = 0;
+            foreach (var item in pool)
+                if (item.Root.activeSelf && item.Kind == Mode.Text && item.Age < .7f &&
+                    (new Vector2(item.Start.x-position.x,item.Start.z-position.z)).sqrMagnitude < .6f) lane++;
+            var effect = Get(Mode.Text, position + Vector3.up * (1.2f + lane*.38f), element, 1.15f, 1);
+            if (effect != null) { effect.Text.text = text; effect.Text.characterSize = .045f; effect.Velocity = Vector3.up * .65f; }
         }
         public void Ring(Vector3 position, Element element, float size = .06f) { Get(Mode.Ring, position, element, .45f, size); }
         public void Attack(Vector3 from, Vector3 to, Element element, int damage, float multiplier) {
             if (damage <= 0) return;
-            var beam = Get(Mode.Beam, from, element, .18f, element == Element.Lightning ? .09f : .05f);
+            var beam = element == Element.Physical ? null : Get(Mode.Beam, from, element, .18f, element == Element.Lightning ? .09f : .05f);
+            if (element == Element.Physical) Get(Mode.Slash,to,element,.25f,.09f);
             if (beam != null) {
                 beam.Line.SetPosition(0, Vector3.zero); beam.Line.SetPosition(1, to - from);
                 if (element == Element.Lightning) {
@@ -101,6 +107,22 @@ namespace Ashlight {
             }
             Floating(to, "−" + damage + (multiplier > 1 ? " WEAK!" : multiplier < 1 ? " RESIST" : ""), element);
             shakeLeft = Mathf.Max(shakeLeft,.12f);
+        }
+        public void Windup(Vector3 from, Vector3 to, Element element, float duration, bool ranged) {
+            if (ranged) {
+                var shot = Get(Mode.Projectile,from,element,Mathf.Max(.05f,duration),.14f);
+                if (shot != null) shot.Destination = to;
+            } else Get(Mode.Charge,from,element,Mathf.Max(.05f,duration),.055f);
+        }
+        public void UltimateCharge(Vector3 position, Element element, float duration) {
+            Get(Mode.Charge,position,element,Mathf.Max(.05f,duration),.12f);
+            Get(Mode.GroundRing,new Vector3(position.x,.055f,position.z),element,duration,.12f);
+        }
+        public void UltimateImpact(Vector3 position, Element element, bool area) {
+            Get(Mode.GroundRing,new Vector3(position.x,.055f,position.z),element,.7f,area?.14f:.09f);
+            Get(Mode.Ring,position,element,.55f,.15f);
+            if (!area) Get(Mode.Slash,position,element,.35f,.16f);
+            shakeLeft = Mathf.Max(shakeLeft,area?.20f:.24f);
         }
         public void BossImpact(Vector3 position, Element element) {
             var ground = new Vector3(position.x,.055f,position.z);
@@ -129,9 +151,21 @@ namespace Ashlight {
                 if (progress >= 1) { effect.Root.SetActive(false); continue; }
                 effect.Root.transform.position = effect.Start + effect.Velocity * effect.Age;
                 if (effect.Kind == Mode.Spark) effect.Mesh.transform.localScale = (effect.Element == Element.Cold ? new Vector3(.5f,1.8f,.5f) : Vector3.one) * effect.Size * (1-progress);
+                if (effect.Kind == Mode.Projectile) {
+                    effect.Root.transform.position = Vector3.Lerp(effect.Start,effect.Destination,progress) + Vector3.up*Mathf.Sin(progress*Mathf.PI)*.3f;
+                }
+                if (effect.Kind == Mode.Slash || effect.Kind == Mode.Charge) {
+                    effect.Root.transform.rotation = view.transform.rotation;
+                    float radius = effect.Kind == Mode.Charge ? .65f*(1-progress)+.15f : .35f+progress*.7f;
+                    for (int i=0;i<24;i++) {
+                        float angle = effect.Kind == Mode.Charge ? i*Mathf.PI*2/24 : (-.65f+i/23f*1.3f+progress*.7f)*Mathf.PI;
+                        effect.Line.SetPosition(i,new Vector3(Mathf.Cos(angle)*radius,Mathf.Sin(angle)*radius,0));
+                    }
+                    effect.Line.startWidth=effect.Line.endWidth=effect.Size*(1-progress*.8f);
+                }
                 if (effect.Kind == Mode.Text) {
                     effect.Root.transform.rotation = view.transform.rotation;
-                    var color = effect.Text.color; color.a = 1-progress; effect.Text.color = color;
+                    var color = effect.Text.color; color.a = progress < .55f ? 1 : (1-progress)/.45f; effect.Text.color = color;
                 }
                 if (effect.Kind == Mode.Ring || effect.Kind == Mode.GroundRing) {
                     float radius = .15f + progress * .85f;
