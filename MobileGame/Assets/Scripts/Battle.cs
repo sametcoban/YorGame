@@ -116,6 +116,25 @@ namespace Ashlight {
         public readonly Debuff[] LastPassiveCleanse=new Debuff[MaxPartySize];
         public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
+        readonly string[][] teamPresets={new string[0],new string[0],new string[0]};
+        public string[] TeamPreset(int index) { return index<0 || index>=3?new string[0]:(string[])teamPresets[index].Clone(); }
+        public bool SaveTeamPreset(int index) {
+            if(!campaign || index<0 || index>=3 || (!CanChangeParty && !CampaignComplete)) return false;
+            var ids=new string[party.Count]; for(int i=0;i<party.Count;i++) ids[i]=party[i].Identity.Id; teamPresets[index]=ids; return true;
+        }
+        public bool ClearTeamPreset(int index) {
+            if(!campaign || index<0 || index>=3 || teamPresets[index].Length==0 || (!CanChangeParty && !CampaignComplete)) return false;
+            teamPresets[index]=new string[0]; return true;
+        }
+        public bool LoadTeamPreset(int index) {
+            if(!campaign || !CanChangeParty || index<0 || index>=3 || teamPresets[index].Length==0) return false;
+            var lineup=new List<PartyHero>();
+            foreach(var id in teamPresets[index]) { if(lineup.Count>=PartyLimit) break; var member=HeroProgress(id); if(member==null) return false; lineup.Add(member); }
+            foreach(var member in party) if(lineup.Count<PartyLimit && !lineup.Contains(member)) lineup.Add(member);
+            foreach(var recruit in recruits) { var member=HeroProgress(recruit.Id); if(lineup.Count<PartyLimit && !lineup.Contains(member)) lineup.Add(member); }
+            foreach(var member in party) savedHeroes[member.Identity.Id]=member;
+            party.Clear(); party.AddRange(lineup); ActiveIndex=0; RefreshSharedLevels(); RefreshFactionStats(); return true;
+        }
         public bool InTower { get; private set; }
         public int TowerFloor { get; private set; } = 1;
         public const int TowerFloors=100;
@@ -466,7 +485,7 @@ namespace Ashlight {
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
@@ -485,7 +504,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -540,6 +559,15 @@ namespace Ashlight {
                 member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
                 restored.Add(member.Identity.Id, member);
             }
+            var restoredPresets=new string[][]{new string[0],new string[0],new string[0]};
+            if(data.version>=12) {
+                if(data.presets==null || data.presets.Length!=3) return false;
+                for(int preset=0;preset<3;preset++) {
+                    var entry=data.presets[preset]; if(entry==null || entry.heroes==null || entry.heroes.Length>MaxPartySize) return false;
+                    var names=new HashSet<string>(); foreach(var id in entry.heroes) if(id==null || !restored.ContainsKey(id) || !names.Add(id)) return false;
+                    restoredPresets[preset]=(string[])entry.heroes.Clone();
+                }
+            }
             var restoredShared=new HashSet<string>();
             if(data.version>=9) {
                 if(data.sharedHeroes==null || data.sharedHeroes.Length>SharedSlots || (data.sharedHeroes.Length>0 && restored.Count<5)) return false;
@@ -569,6 +597,7 @@ namespace Ashlight {
                     (data.results.damage!=null && data.results.damage.Length>0) ||
                     (data.results.healing!=null && data.results.healing.Length>0))) return false;
             }
+            for(int preset=0;preset<3;preset++) teamPresets[preset]=restoredPresets[preset];
             InTower=restoringTower; TowerFloor=data.version>=11?data.towerFloor:1; towerCampaignParty=restoringTower?(string[])data.towerCampaignParty.Clone():new string[0];
             dailyDay=data.version>=10?data.dailyDay:0; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4);
             if(data.version>=10) { Array.Copy(data.dailyProgress,dailyProgress,3); Array.Copy(data.dailyClaimed,dailyClaimed,4); } RefreshDaily();

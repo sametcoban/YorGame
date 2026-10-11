@@ -8,6 +8,7 @@ namespace Ashlight {
         Battle battle = new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true);
         bool atChapters;
         GameObject chapterRoot;
+        GameObject teamPresetRoot; Text teamPresetTitle; Text[] teamPresetLabels; Button[] teamPresetLoads, teamPresetClears; string presetNotice="";
         GameObject dailyRoot; Button[] dailyButtons;
         GameObject collectionRoot; Text collectionTitle; Button[] collectionCards; Button collectionAscend, collectionShared; int collectionPage, collectionTarget, classFilter=-1, factionFilter=-1, rarityFilter=-1; CollectionSort collectionSort; string collectionHero;
         List<PartyHero> collectionItems=new List<PartyHero>(); Button[] collectionFilters; Button collectionTargetButton, collectionAssign, collectionBattleButton; Text collectionCompare;
@@ -208,7 +209,7 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateDaily(); CreateSummonResults();
+            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
             CreateResultsPanel();
@@ -428,7 +429,7 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || collectionRoot.activeSelf || presentingAction) return;
+            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || collectionRoot.activeSelf || teamPresetRoot.activeSelf || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
@@ -648,8 +649,9 @@ namespace Ashlight {
                 });
                 PlaceGearControl(formationSlots[i],left,bottom,left+.28f,bottom+.20f);
             }
-            var done=MakeButton(formationRoot.transform,"DONE",.25f,.75f,()=>formationRoot.SetActive(false));
-            PlaceGearControl(done,.25f,.035f,.75f,.12f);
+            var presets=MakeButton(formationRoot.transform,"TEAM PRESETS",.05f,.45f,OpenTeamPresets); PlaceGearControl(presets,.05f,.035f,.45f,.12f);
+            var done=MakeButton(formationRoot.transform,"DONE",.55f,.95f,()=>formationRoot.SetActive(false));
+            PlaceGearControl(done,.55f,.035f,.95f,.12f);
             formationRoot.SetActive(false);
         }
         void OpenFormation() {
@@ -788,6 +790,25 @@ namespace Ashlight {
         void OnApplicationPause(bool paused) { if (paused) SaveProgress(); }
         void OnApplicationQuit() { SaveProgress(); }
         void OnApplicationFocus(bool focused) { if (!focused) SaveProgress(); }
+        void CreateTeamPresets() {
+            teamPresetRoot=new GameObject("Team Presets",typeof(RectTransform),typeof(Image)); teamPresetRoot.transform.SetParent(safe,false);
+            var rect=teamPresetRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; teamPresetRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            teamPresetTitle=Label(teamPresetRoot.transform,"",new Vector2(.05f,.83f),new Vector2(.95f,.98f),23); teamPresetLabels=new Text[3]; teamPresetLoads=new Button[3]; teamPresetClears=new Button[3];
+            for(int i=0;i<3;i++) { int index=i; float y=.61f-i*.22f; teamPresetLabels[i]=Label(teamPresetRoot.transform,"",new Vector2(.05f,y+.09f),new Vector2(.95f,y+.20f),20);
+                var save=MakeButton(teamPresetRoot.transform,"SAVE CURRENT",.05f,.28f,()=> { if(battle.SaveTeamPreset(index)) { presetNotice="Preset "+(index+1)+" saved."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(save,.05f,y,.28f,y+.08f); save.GetComponentInChildren<Text>().fontSize=18;
+                teamPresetLoads[i]=MakeButton(teamPresetRoot.transform,"LOAD",.31f,.65f,()=> { if(battle.LoadTeamPreset(index)) { formationSelected=-1; presetNotice="Preset "+(index+1)+" loaded for "+battle.PartyLimit+" available slots."; RefreshAppearance(); SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(teamPresetLoads[i],.31f,y,.65f,y+.08f);
+                teamPresetClears[i]=MakeButton(teamPresetRoot.transform,"CLEAR",.68f,.95f,()=> { if(battle.ClearTeamPreset(index)) { presetNotice="Preset "+(index+1)+" cleared."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(teamPresetClears[i],.68f,y,.95f,y+.08f);
+            }
+            var done=MakeButton(teamPresetRoot.transform,"BACK TO FORMATION",.25f,.75f,()=> { teamPresetRoot.SetActive(false); formationRoot.transform.SetAsLastSibling(); formationRoot.SetActive(true); RefreshFormation(); }); PlaceGearControl(done,.25f,.025f,.75f,.11f); teamPresetRoot.SetActive(false);
+        }
+        void OpenTeamPresets() { if(atChapters || !battle.CanChangeParty) return; formationRoot.SetActive(false); presetNotice="Load uses unlocked slots; remaining spaces fill from your roster."; teamPresetRoot.transform.SetAsLastSibling(); teamPresetRoot.SetActive(true); RefreshTeamPresets(); }
+        void RefreshTeamPresets() {
+            teamPresetTitle.text="TEAM PRESETS · "+battle.PartyLimit+" available slots\n"+presetNotice;
+            for(int i=0;i<3;i++) { var ids=battle.TeamPreset(i); string text="PRESET "+(i+1)+" · "+ids.Length+" heroes\n";
+                for(int slot=0;slot<ids.Length;slot++) text+=(slot<2?"F: ":"B: ")+battle.HeroProgress(ids[slot]).Identity.Name+(slot<ids.Length-1?" · ":"");
+                teamPresetLabels[i].text=text+(ids.Length==0?"Empty · Save your current party here.":""); teamPresetLoads[i].interactable=ids.Length>0 && battle.CanChangeParty; teamPresetClears[i].interactable=ids.Length>0;
+            }
+        }
         void CreateDaily() {
             dailyRoot=new GameObject("Daily Quests",typeof(RectTransform),typeof(Image)); dailyRoot.transform.SetParent(safe,false);
             var rect=dailyRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; dailyRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
@@ -981,7 +1002,7 @@ namespace Ashlight {
         void ApplyBattleSpeed() {
             bool combat=!atChapters && (presentingAction || enemyTurn!=null ||
                 battle.Current==Phase.Player || battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike || battle.Current==Phase.WaveCleared);
-            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf) || (collectionRoot!=null && collectionRoot.activeSelf);
+            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf) || (collectionRoot!=null && collectionRoot.activeSelf) || (teamPresetRoot!=null && teamPresetRoot.activeSelf);
             Time.timeScale=combat && !menu?battleSpeed:1;
         }
         void OnDisable() { Time.timeScale=1; }
@@ -1019,7 +1040,7 @@ namespace Ashlight {
             previewButton.gameObject.SetActive(preparing);
             if(!preparing) previewRoot.SetActive(false);
             loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing); formationButton.gameObject.SetActive(preparing);
-            if(!preparing) { formationRoot.SetActive(false); progressionRoot.SetActive(false); }
+            if(!preparing) { teamPresetRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false); }
             if(!preparing) equipmentRoot.SetActive(false);
             if (!preparing) selectionRoot.SetActive(false);
             reset.GetComponentInChildren<Text>(true).text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
@@ -1073,7 +1094,7 @@ namespace Ashlight {
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { towerButton.interactable=battle.CanEnterTower; towerButton.GetComponentInChildren<Text>().text=battle.TowerComplete?"TOWER COMPLETE · 100 floors":battle.Recruits.Count<5?"TOWER · Recruit 5 heroes to unlock":"TOWER · FLOOR "+battle.TowerFloor+"/100 · Up to 5 heroes"; summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=battle.CanSummon; repeatTen.interactable=battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
-            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
+            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && !teamPresetRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
                 nextAutoAction = Time.time+1.3f;

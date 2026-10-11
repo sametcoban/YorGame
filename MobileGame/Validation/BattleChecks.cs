@@ -330,7 +330,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==11);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==12);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1068,7 +1068,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==11 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==12 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1174,7 +1174,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==11);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==12);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1431,6 +1431,34 @@ class BattleChecks {
   filteredCollection.Attack(); Check(!filteredCollection.EquipHeroAt("Knight_Common",0));
   var slotLimited=new Battle(true); Check(!slotLimited.EquipHeroAt("Paladin_Common",0) && !slotLimited.EquipHeroAt("Knight_Common",1));
   var collectionReload=new Battle(true,enableFactions:true); Check(collectionReload.RestoreProgress(filteredCollection.ExportProgress()) && collectionReload.Party[0].Identity.Id==reserveForPreview);
+  // Saved team presets preserve named heroes and formation order across caps and reloads.
+  var presets=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Rare","Rogue_Uncommon","Cleric_Uncommon"});
+  var presetGrowth=presets.ExportProgress(); presetGrowth.loadouts[0].level=7; presetGrowth.loadouts[0].upgradeRank=2; presetGrowth.loadouts[0].shards=55; presetGrowth.loadouts[0].firstSkill=2; presetGrowth.loadouts[0].secondSkill=3;
+  presetGrowth.inventory=new[]{new GearStackData{id="Weapon_Common_Physical",count=1}}; presetGrowth.loadouts[0].gear=new[]{"Weapon_Common_Physical",null,null}; Check(presets.RestoreProgress(presetGrowth));
+  Check(presets.SaveTeamPreset(0)); var originalPreset=presets.TeamPreset(0); Check(originalPreset.Length==5 && originalPreset[0]=="Knight_Common" && originalPreset[4]=="Cleric_Uncommon");
+  originalPreset[0]="invalid"; Check(presets.TeamPreset(0)[0]=="Knight_Common");
+  Check(presets.SwapFormation(0,4) && presets.SaveTeamPreset(1)); Check(presets.TeamPreset(1)[0]=="Cleric_Uncommon");
+  Check(presets.LoadTeamPreset(0) && presets.Party[0].Identity.Id=="Knight_Common" && presets.Party[4].Identity.Id=="Cleric_Uncommon" && presets.TeamFactionBonus==20);
+  Check(presets.Party[0].Level==7 && presets.Party[0].UpgradeRank==2 && presets.Party[0].Shards==55 && presets.Party[0].SkillIndex(0)==2 && presets.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Common_Physical");
+  var presetSave=presets.ExportProgress(); var presetReload=new Battle(true,enableWaves:true,enableFactions:true); Check(presetReload.RestoreProgress(presetSave));
+  Check(presetReload.LoadTeamPreset(1) && presetReload.Party[0].Identity.Id=="Cleric_Uncommon" && presetReload.TeamPreset(0)[0]=="Knight_Common");
+  Check(presetReload.ClearTeamPreset(1) && !presetReload.LoadTeamPreset(1) && !presetReload.ClearTeamPreset(1));
+  Check(!presetReload.SaveTeamPreset(-1) && !presetReload.SaveTeamPreset(3) && !presetReload.LoadTeamPreset(3));
+  presets.Attack(); Check(!presets.LoadTeamPreset(1) && !presets.SaveTeamPreset(2) && !presets.ClearTeamPreset(0));
+  presetSave=presets.ExportProgress(); presetSave.encounter=0; presetSave.party=new[]{"Knight_Common"}; presetSave.activeIndex=0;
+  Check(presetReload.RestoreProgress(presetSave) && presetReload.LoadTeamPreset(1) && presetReload.Party.Count==1 && presetReload.Party[0].Identity.Id=="Cleric_Uncommon" && presetReload.TeamPreset(1).Length==5);
+  Check(presetReload.EnterTower() && presetReload.LoadTeamPreset(0) && presetReload.Party.Count==5 && presetReload.Party[0].Identity.Id=="Knight_Common" && presetReload.LeaveTower() && presetReload.Party.Count==1 && presetReload.Party[0].Identity.Id=="Cleric_Uncommon");
+  var oneHeroPreset=presetReload.ExportProgress(); oneHeroPreset.encounter=20; Check(presetReload.RestoreProgress(oneHeroPreset) && presetReload.SaveTeamPreset(2) && presetReload.LoadTeamPreset(2) && presetReload.Party.Count==5 && presetReload.Party[0].Identity.Id=="Cleric_Uncommon");
+  Check(presetReload.TeamPreset(2).Length==1);
+  var presetLegacy=presetReload.ExportProgress(); presetLegacy.version=11; Check(presetReload.RestoreProgress(presetLegacy) && presetReload.TeamPreset(0).Length==0);
+  var invalidPresets=presets.ExportProgress(); invalidPresets.presets[0].heroes=new[]{"Knight_Common","Knight_Common"}; Check(!presetReload.RestoreProgress(invalidPresets) && presetReload.TeamPreset(0).Length==0);
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets[0].heroes=new[]{"unknown"}; Check(!presetReload.RestoreProgress(invalidPresets));
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets[0].heroes=new string[]{null}; Check(!presetReload.RestoreProgress(invalidPresets));
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets[0].heroes=new string[6]; Check(!presetReload.RestoreProgress(invalidPresets));
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets=null; Check(!presetReload.RestoreProgress(invalidPresets));
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets=new TeamPresetData[2]; Check(!presetReload.RestoreProgress(invalidPresets));
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets[1]=null; Check(!presetReload.RestoreProgress(invalidPresets));
+  invalidPresets=presets.ExportProgress(); invalidPresets.presets[1].heroes=null; Check(!presetReload.RestoreProgress(invalidPresets));
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

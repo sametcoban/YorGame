@@ -10,10 +10,13 @@ namespace Ashlight {
         public int[] talents={-1,-1,-1};
     }
     [Serializable]
+    public sealed class TeamPresetData { public string[] heroes=new string[0]; }
+    [Serializable]
     public sealed class GearStackData { public string id; public int count; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 11;
+        public int version = 12;
+        public TeamPresetData[] presets={new TeamPresetData(),new TeamPresetData(),new TeamPresetData()};
         public bool inTower;
         public int towerFloor=1;
         public string[] towerCampaignParty=new string[0];
