@@ -31,6 +31,10 @@ public static class SaveSerializationChecks {
         if(!tenTest.RestoreProgress(tenSave) || tenTest.SummonTen(new double[10],new int[10])==null) throw new InvalidOperationException("Could not prepare ten-pull fixture.");
         var tenRoundTrip=RoundTrip(tenTest);
         if(tenRoundTrip.Crystals!=tenTest.Crystals || tenRoundTrip.Recruits.Count!=tenTest.Recruits.Count || tenRoundTrip.RareMisses!=tenTest.RareMisses || tenRoundTrip.LegendaryMisses!=tenTest.LegendaryMisses || tenRoundTrip.HeroProgress("Knight_Common").Shards!=tenTest.HeroProgress("Knight_Common").Shards) throw new InvalidOperationException("Ten-pull rewards changed during Unity serialization.");
+        var towerTest=new Battle(true); var towerSave=sharedTest.ExportProgress();
+        if(!towerTest.RestoreProgress(towerSave) || !towerTest.EnterTower()) throw new InvalidOperationException("Could not prepare Tower fixture.");
+        var towerRoundTrip=RoundTrip(towerTest);
+        if(!towerRoundTrip.InTower || towerRoundTrip.TowerFloor!=1 || towerRoundTrip.Party.Count!=5 || !towerRoundTrip.LeaveTower() || towerRoundTrip.Party.Count!=1 || towerRoundTrip.Encounter!=0) throw new InvalidOperationException("Tower state changed during Unity serialization.");
         battle.Attack(); RoundTrip(battle);
         battle.Reset(); var progress=battle.ExportProgress(); progress.loadouts[0].experience=90;
         if(!battle.RestoreProgress(progress)) throw new InvalidOperationException("Could not prepare serialization test battle.");

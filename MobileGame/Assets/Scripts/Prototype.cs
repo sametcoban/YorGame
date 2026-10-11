@@ -14,6 +14,7 @@ namespace Ashlight {
         Button idleRewardsButton;
         Button[] chapterChoices;
         Button restartCampaignButton;
+        Button towerButton;
         Button summonButton, summonTenButton;
         GameObject summonRoot; Text summonTitle; Text[] summonCards; GameObject[] summonCardPanels; Button repeatSingle, repeatTen;
         readonly System.Random summonRandom = new System.Random();
@@ -676,8 +677,8 @@ namespace Ashlight {
             Time.timeScale=1;
             var result=battle.Results; if(result==null) return;
             autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
-            resultsTitle.text="VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
-            resultsRewards.text="+"+result.Experience+" XP per participating hero · +"+result.Crystals+" crystals"+(result.RecruitName==null?"":"\nNew recruit: "+result.RecruitName)+"\nPress Continue to claim these rewards.";
+            resultsTitle.text=battle.InTower?"VICTORY · TOWER FLOOR "+battle.TowerFloor:"VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
+            resultsRewards.text="+"+result.Experience+" XP per participating hero · +"+result.Crystals+" crystals"+(result.RecruitName==null?"":"\nNew recruit: "+result.RecruitName)+(battle.InTower?"\n+"+battle.TowerShards+" shards per participating hero":"")+"\nPress Continue to claim these rewards.";
             resultsLoot.text=result.Loot==null?"No loot":"GEAR DROP\n"+result.Loot.Description;
             resultsLoot.color=result.Loot==null?Color.white:result.Loot.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):result.Loot.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):result.Loot.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
             for(int i=0;i<resultsHeroes.Length;i++) {
@@ -791,7 +792,7 @@ namespace Ashlight {
             var open=MakeButton(chapterRoot.transform,"DAILY QUESTS",.76f,.98f,()=> { dailyRoot.transform.SetAsLastSibling(); dailyRoot.SetActive(true); RefreshDailyMenu(); }); PlaceGearControl(open,.76f,.025f,.98f,.135f);
         }
         void RefreshDailyMenu() {
-            string[] names={"WIN 3 STAGES","CLAIM IDLE REWARDS","SUMMON A HERO","COMPLETE ALL THREE"}; string[] rewards={"40 crystals + 10 Rowan shards","20 crystals + 5 Rowan shards","30 crystals + 10 Rowan shards","100 crystals + 10 shards for every recruited hero"};
+            string[] names={"WIN 3 BATTLES","CLAIM IDLE REWARDS","SUMMON A HERO","COMPLETE ALL THREE"}; string[] rewards={"40 crystals + 10 Rowan shards","20 crystals + 5 Rowan shards","30 crystals + 10 Rowan shards","100 crystals + 10 shards for every recruited hero"};
             for(int i=0;i<4;i++) { bool claimed=battle.DailyClaimed(i), ready=battle.CanClaimDaily(i); dailyButtons[i].interactable=ready; dailyButtons[i].GetComponentInChildren<Text>().text=names[i]+(i<3?" · "+battle.DailyProgress(i)+"/"+(i==0?3:1):"")+"\n"+rewards[i]+"\n"+(claimed?"CLAIMED":ready?"CLAIM":"IN PROGRESS"); }
         }
         void CreateCollection() {
@@ -839,7 +840,7 @@ namespace Ashlight {
         void OpenStagePreview() {
             if(atChapters || !battle.CanChangeParty) return;
             selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
-            previewText.text="Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1)+"\nTeam "+battle.TeamPower+" vs Stage "+battle.StagePower+" · "+battle.Difficulty+"\nEstimate only · elements and formation matter.\n\n"+ChapterDefinition.Preview(battle.Encounter);
+            previewText.text=(battle.InTower?"TOWER FLOOR "+battle.TowerFloor+" · "+ChapterDefinition.Catalog[battle.ChapterIndex].Name:"Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1))+"\nTeam "+battle.TeamPower+" vs Stage "+battle.StagePower+" · "+battle.Difficulty+"\nEstimate only · elements and formation matter.\n\n"+ChapterDefinition.Preview(battle.EnemyEncounter,battle.TowerPowerScale);
             previewRoot.transform.SetAsLastSibling(); previewRoot.SetActive(true);
         }
         void CreateChapterMenu() {
@@ -847,14 +848,15 @@ namespace Ashlight {
             var rect=chapterRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
             chapterRoot.GetComponent<Image>().color=new Color(.06f,.08f,.13f,.98f);
             chapterTitle=Label(chapterRoot.transform,"",new Vector2(.03f,.8f),new Vector2(.97f,.98f),30);
+            towerButton=MakeButton(chapterRoot.transform,"TOWER",.05f,.78f,()=> { if(battle.EnterTower()) { RefreshAppearance(); StartChapter(battle.ChapterIndex); SaveProgress(); } }); PlaceGearControl(towerButton,.05f,.67f,.78f,.72f); towerButton.GetComponentInChildren<Text>().fontSize=18;
             soundButton=MakeButton(chapterRoot.transform,"SOUND ON",.80f,.97f,()=>sounds.ToggleMute());
             var soundRect=soundButton.GetComponent<RectTransform>(); soundRect.anchorMin=new Vector2(.80f,.747f); soundRect.anchorMax=new Vector2(.97f,.795f);
             idleRewardsButton=MakeButton(chapterRoot.transform,"IDLE REWARDS",.05f,.78f,ClaimIdleRewards); PlaceGearControl(idleRewardsButton,.05f,.735f,.78f,.795f); idleRewardsButton.GetComponentInChildren<Text>(true).fontSize=18;
             chapterChoices=new Button[ChapterDefinition.Catalog.Count];
             for(int i=0;i<chapterChoices.Length;i++) {
-                int index=i; float left=i%2==0?.05f:.52f; float bottom=.57f-(i/2)*.2f;
+                int index=i; float left=i%2==0?.05f:.52f; float bottom=.49f-(i/2)*.16f;
                 chapterChoices[i]=MakeButton(chapterRoot.transform,"",left,left+.43f,()=>StartChapter(index));
-                var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.17f);
+                var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.14f);
             }
             summonButton=MakeButton(chapterRoot.transform,"SUMMON x1",.05f,.20f,SummonHero);
             var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.20f,.135f);
@@ -917,7 +919,7 @@ namespace Ashlight {
             }
             DarkFantasyStage.Frame(battleCamera);
             CreateEnemy();
-            message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";
+            message=(battle.InTower?"Tower floor "+battle.TowerFloor:"Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1))+": choose your heroes, then attack.";
             OpenStagePreview();
         }
         void EnterChapters() {
@@ -928,12 +930,13 @@ namespace Ashlight {
             enemyTurn=null;
             string reward="";
             if(battle.Current==Phase.Won) {
-                reward="Party gained "+(40+battle.ChapterIndex*10+(battle.Enemies[0].Definition.IsBoss?20:0))+" XP each! ";
+                reward="Party gained "+battle.Results.Experience+" XP each! ";
                 int previous=battle.Recruits.Count;
                 battle.ContinueAfterVictory(); RefreshAppearance();
                 if(battle.LastLoot!=null) reward+="Loot: "+battle.LastLoot.Description+". ";
                 if(battle.Recruits.Count>previous) reward+=battle.Recruits[battle.Recruits.Count-1].Name+" recruited! ";
             } else if(!battle.CanChangeParty && !battle.CampaignComplete) battle.Reset();
+            if(battle.InTower) { battle.LeaveTower(); RefreshAppearance(); }
             effects.Clear();
             atChapters=true; attackTime=-10; feedbackUntil=0; parried=false;
             selectionRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
@@ -977,7 +980,7 @@ namespace Ashlight {
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].LevelLabel + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = "ASHLIGHT — Wave "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" · Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " · "+visibleEnemy.Row+" "+visibleEnemy.Role+" " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
+            status.text = (battle.InTower?"TOWER "+battle.TowerFloor:"ASHLIGHT")+" — Wave "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" · Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " · "+visibleEnemy.Row+" "+visibleEnemy.Role+" " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
@@ -1050,7 +1053,7 @@ namespace Ashlight {
                 else if (battle.Current == Phase.Lost) sounds.Play("Defeat",.8f);
                 lastSoundPhase = battle.Current;
             }
-            if(atChapters) { summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=battle.CanSummon; repeatTen.interactable=battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
+            if(atChapters) { towerButton.interactable=battle.CanEnterTower; towerButton.GetComponentInChildren<Text>().text=battle.TowerComplete?"TOWER COMPLETE · 100 floors":battle.Recruits.Count<5?"TOWER · Recruit 5 heroes to unlock":"TOWER · FLOOR "+battle.TowerFloor+"/100 · Up to 5 heroes"; summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=battle.CanSummon; repeatTen.interactable=battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
             if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));

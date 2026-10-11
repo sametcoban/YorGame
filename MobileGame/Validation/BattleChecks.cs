@@ -330,7 +330,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==10);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==11);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1068,7 +1068,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==10 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==11 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1174,7 +1174,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==10);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==11);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1375,6 +1375,40 @@ class BattleChecks {
   Check(capBatch.RestoreProgress(capBatchSave)); var cappedDuplicate=capBatch.Summon(0,0); Check(cappedDuplicate.Shards==1 && capBatch.HeroProgress("Knight_Common").Shards==1000000);
   var lockedBatch=new Battle(true); var lockedBatchSave=lockedBatch.ExportProgress(); lockedBatchSave.crystals=1000; Check(lockedBatch.RestoreProgress(lockedBatchSave));
   lockedBatch.Attack(); Check(!lockedBatch.CanSummonTen && lockedBatch.SummonTen(tenRolls,tenClasses)==null);
+  // Tower fights preserve campaign position and lineup, and claim each floor exactly once.
+  var tower=FactionBattle(new[]{"Knight_Common"},0); int towerCampaignPosition=tower.Encounter;
+  Check(tower.EnterTower() && tower.InTower && tower.Party.Count==5 && tower.PartyLimit==5 && tower.WaveCount==3 && tower.TowerFloor==1);
+  Check(tower.Enemies[0].Definition.MaxHealth==50); // 30 early-wave HP, scaled for five party slots.
+  var towerSave=tower.ExportProgress(); var towerReload=new Battle(true,enableWaves:true,enableFactions:true);
+  Check(towerReload.RestoreProgress(towerSave) && towerReload.InTower && towerReload.Party.Count==5 && towerReload.Encounter==towerCampaignPosition);
+  Check(towerReload.LeaveTower() && towerReload.Party.Count==1 && towerReload.Party[0].Identity.Id=="Knight_Common" && towerReload.Encounter==0);
+  var invalidTower=tower.ExportProgress(); invalidTower.towerCampaignParty=new[]{"unknown"}; Check(!towerReload.RestoreProgress(invalidTower));
+  invalidTower=tower.ExportProgress(); invalidTower.towerFloor=0; Check(!towerReload.RestoreProgress(invalidTower));
+  invalidTower=tower.ExportProgress(); invalidTower.towerCampaignParty=new[]{"Knight_Common","Knight_Common"}; Check(!towerReload.RestoreProgress(invalidTower));
+  Check(!new Battle(true).EnterTower());
+  var towerStrong=tower.ExportProgress(); foreach(var loadout in towerStrong.loadouts) { loadout.level=20; loadout.experience=0; loadout.upgradeRank=5; }
+  Check(tower.RestoreProgress(towerStrong)); int towerClaimed=0,towerMoves=0;
+  while(!tower.TowerComplete && towerMoves++<100000) {
+   if(tower.Current==Phase.Player) { tower.SelectEnemy(AutoBattlePlanner.ChooseTarget(tower)); int selectedTowerSkill=AutoBattlePlanner.ChooseSkill(tower); Check(selectedTowerSkill<0?tower.Attack():tower.UseAbility(selectedTowerSkill)); }
+   else if(tower.Current==Phase.EnemyWindup) {
+    tower.BeginStrike(); if(tower.IncomingSkill.Action==EnemyAction.Attack) for(int member=0;member<tower.Party.Count;member++) if(tower.Party[member].Health>0 && (tower.IncomingSkill.PartyWide || member==tower.ActiveIndex)) Check(tower.DefendHero(member,false,.1f)); tower.FinishStrike();
+   } else if(tower.Current==Phase.WaveCleared) Check(tower.AdvanceWave());
+   else if(tower.Current==Phase.Won) {
+    int floor=tower.TowerFloor, crystals=tower.Crystals, shards=tower.Party[0].Shards, participants=tower.Party.Count; int shardReward=tower.TowerShards;
+    Check(tower.Results.Crystals==80+floor*5 && tower.Results.Experience==60+floor*2 && tower.Results.RecruitName==null);
+    var pendingTower=new Battle(true,enableWaves:true,enableFactions:true); Check(pendingTower.RestoreProgress(tower.ExportProgress()) && pendingTower.Current==Phase.Won && pendingTower.InTower && pendingTower.Results.Loot.Id==tower.Results.Loot.Id);
+    Check(!pendingTower.LeaveTower());
+    if(floor==1) { var endStoryTower=tower.ExportProgress(); endStoryTower.encounter=30; var endStoryReload=new Battle(true); Check(endStoryReload.RestoreProgress(endStoryTower) && endStoryReload.Current==Phase.Won && endStoryReload.ContinueAfterVictory() && endStoryReload.LeaveTower() && endStoryReload.CampaignComplete); }
+    Check(tower.ContinueAfterVictory() && tower.TowerFloor==floor+1 && tower.Crystals==crystals+80+floor*5 && tower.Party[0].Shards==shards+shardReward && tower.Encounter==0);
+    Check(!tower.ContinueAfterVictory() && tower.Party.Count==participants); towerClaimed++;
+   } else throw new Exception("Unexpected tower phase: "+tower.Current);
+  }
+  Check(tower.TowerComplete && towerClaimed==100 && tower.Current==Phase.Complete && tower.FurthestStage==0);
+  var completedTower=new Battle(true,enableWaves:true); Check(completedTower.RestoreProgress(tower.ExportProgress()) && completedTower.TowerComplete && completedTower.LeaveTower() && !completedTower.CanEnterTower);
+  Check(tower.LeaveTower() && tower.Party.Count==1 && tower.Encounter==0);
+  var legacyTower=tower.ExportProgress(); legacyTower.version=10; Check(towerReload.RestoreProgress(legacyTower) && towerReload.TowerFloor==1 && !towerReload.InTower);
+  var afterStory=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"},30);
+  Check(afterStory.CampaignComplete && afterStory.EnterTower() && !afterStory.CampaignComplete && afterStory.LeaveTower() && afterStory.CampaignComplete);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

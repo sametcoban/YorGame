@@ -84,10 +84,10 @@ namespace Ashlight {
             if(stagePower<=0 || teamPower<0) throw new ArgumentOutOfRangeException("power");
             return teamPower>=stagePower*1.25?"EASY":teamPower<=stagePower*.85?"HARD":"EVEN";
         }
-        public static string Preview(int encounter) {
+        public static string Preview(int encounter,double powerScale=1) {
             var lines=new List<string>();
             for(int wave=0;wave<3;wave++) {
-                lines.Add("WAVE "+(wave+1)+(wave==2?" · FINAL":"")+" · Power "+WavePower(encounter,wave));
+                lines.Add("WAVE "+(wave+1)+(wave==2?" · FINAL":"")+" · Power "+(int)Math.Ceiling(WavePower(encounter,wave)*powerScale));
                 foreach(var enemy in WaveAt(encounter,wave,3))
                     lines.Add(enemy.Name+" · "+enemy.Role+" / "+enemy.Row+" · Weak: "+enemy.Weakness+" · Resists: "+enemy.Resistance);
             }

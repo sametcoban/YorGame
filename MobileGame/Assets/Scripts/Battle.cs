@@ -110,7 +110,26 @@ namespace Ashlight {
         public readonly Debuff[] LastPassiveCleanse=new Debuff[MaxPartySize];
         public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
-        public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
+        public bool InTower { get; private set; }
+        public int TowerFloor { get; private set; } = 1;
+        public const int TowerFloors=100;
+        string[] towerCampaignParty=new string[0];
+        public bool TowerComplete { get { return TowerFloor>TowerFloors; } }
+        public int EnemyEncounter { get { return InTower?(Math.Min(TowerFloor,TowerFloors)-1)%ChapterDefinition.TotalStages:Math.Min(encounter,ChapterDefinition.TotalStages-1); } }
+        public double TowerHealthScale { get { return InTower?1+(TowerFloor-1)*.08:1; } }
+        public int TowerShards { get { return TowerFloor%5==0?10:5; } }
+        public bool CanEnterTower { get { return campaign && !InTower && !TowerComplete && recruits.Count>=5 && (CanChangeParty || CampaignComplete); } }
+        public bool EnterTower() {
+            if(!CanEnterTower) return false;
+            towerCampaignParty=new string[party.Count]; for(int i=0;i<party.Count;i++) towerCampaignParty[i]=party[i].Identity.Id;
+            InTower=true; Reset(); FillAvailableSlots(); Reset(); return true;
+        }
+        public bool LeaveTower() {
+            if(!InTower || (Current!=Phase.Lost && Current!=Phase.Complete && !CanChangeParty)) return false;
+            var restoredParty=new List<PartyHero>(); foreach(var id in towerCampaignParty) restoredParty.Add(HeroProgress(id));
+            InTower=false; party.Clear(); party.AddRange(restoredParty); towerCampaignParty=new string[0]; Reset(); return true;
+        }
+        public int WaveCount { get { return campaign && (waveBattles || InTower) ? 3 : 1; } }
         long dailyDay;
         readonly int[] dailyProgress=new int[3];
         readonly bool[] dailyClaimed=new bool[4];
@@ -175,9 +194,9 @@ namespace Ashlight {
         public int Crystals { get; private set; }
         public int RareMisses { get; private set; }
         public int LegendaryMisses { get; private set; }
-        public bool CampaignComplete { get { return campaign && encounter >= ChapterDefinition.TotalStages; } }
-        public int ChapterIndex { get { return Math.Min(encounter / ChapterDefinition.StagesPerChapter, ChapterDefinition.Catalog.Count - 1); } }
-        public int StageIndex { get { return encounter % ChapterDefinition.StagesPerChapter; } }
+        public bool CampaignComplete { get { return campaign && !InTower && encounter >= ChapterDefinition.TotalStages; } }
+        public int ChapterIndex { get { return Math.Min(EnemyEncounter / ChapterDefinition.StagesPerChapter, ChapterDefinition.Catalog.Count - 1); } }
+        public int StageIndex { get { return EnemyEncounter % ChapterDefinition.StagesPerChapter; } }
         public int Encounter { get { return encounter; } }
         readonly Dictionary<string, PartyHero> savedHeroes = new Dictionary<string, PartyHero>();
         readonly List<HeroDefinition> recruits = new List<HeroDefinition>();
@@ -204,9 +223,10 @@ namespace Ashlight {
             return true;
         }
         public int TeamPower { get { int total=0; foreach(var member in party) total+=member.Power; return total; } }
-        public int StagePower { get { return ChapterDefinition.StagePower(Math.Min(encounter,ChapterDefinition.TotalStages-1),WaveCount); } }
+        public double TowerPowerScale { get { return TowerHealthScale*(InTower?Math.Max(1,PartyLimit/3.0)/Math.Max(1,Math.Min(5,EnemyEncounter/5+1)/3.0):1); } }
+        public int StagePower { get { return (int)Math.Ceiling(ChapterDefinition.StagePower(EnemyEncounter,WaveCount)*TowerPowerScale); } }
         public string Difficulty { get { return ChapterDefinition.Difficulty(TeamPower,StagePower); } }
-        public int PartyLimit { get { return campaign?Math.Min(MaxPartySize,ChapterIndex+1):MaxPartySize; } }
+        public int PartyLimit { get { return InTower?MaxPartySize:campaign?Math.Min(MaxPartySize,ChapterIndex+1):MaxPartySize; } }
         public IReadOnlyList<HeroClass> UnlockedClasses { get { return unlocked.AsReadOnly(); } }
         int targetCursor, encounter;
         readonly List<BattleEnemy> enemies = new List<BattleEnemy>();
@@ -293,10 +313,10 @@ namespace Ashlight {
         public int GearCount(string id) { int count; return inventory.TryGetValue(id,out count)?count:0; }
         public BattleResults Results { get; private set; }
         void BuildResults(GearDefinition loot) {
-            int xp=campaign?40+ChapterIndex*10+(enemies[0].Definition.IsBoss?20:0):0;
+            int xp=InTower?60+TowerFloor*2:campaign?40+ChapterIndex*10+(enemies[0].Definition.IsBoss?20:0):0;
             string recruit=null;
-            if(campaign) foreach(var candidate in HeroDefinition.Catalog) { bool known=false; foreach(var hero in recruits) if(hero.Id==candidate.Id) known=true; if(!known) { recruit=candidate.Name; break; } }
-            Results=new BattleResults(xp,campaign?Summoning.VictoryCrystals:0,loot,recruit,Party);
+            if(campaign && !InTower) foreach(var candidate in HeroDefinition.Catalog) { bool known=false; foreach(var hero in recruits) if(hero.Id==candidate.Id) known=true; if(!known) { recruit=candidate.Name; break; } }
+            Results=new BattleResults(xp,InTower?80+TowerFloor*5:campaign?Summoning.VictoryCrystals:0,loot,recruit,Party);
         }
         void Victory() {
             if(WaveIndex<WaveCount-1) { Current=Phase.WaveCleared; return; }
@@ -313,6 +333,11 @@ namespace Ashlight {
             return ClaimVictory(campaign?GearDefinition.Drop(enemies[0].Definition.IsBoss,lootRoll,variant):null);
         }
         bool ClaimVictory(GearDefinition loot) {
+            if(InTower) {
+                RecordDaily(0); LastLoot=loot; inventory[loot.Id]=Math.Min(1000000,GearCount(loot.Id)+1);
+                foreach(var member in party) { member.GainExperience(Results.Experience); member.Shards=Math.Min(1000000,member.Shards+TowerShards); }
+                Crystals=Math.Min(1000000,Crystals+Results.Crystals); TowerFloor++; Reset(); return true;
+            }
             if (campaign) {
                 RecordDaily(0);
                 LastLoot=loot;
@@ -411,7 +436,7 @@ namespace Ashlight {
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
@@ -430,7 +455,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -490,21 +515,31 @@ namespace Ashlight {
                 if(data.sharedHeroes==null || data.sharedHeroes.Length>SharedSlots || (data.sharedHeroes.Length>0 && restored.Count<5)) return false;
                 foreach(var id in data.sharedHeroes) if(id==null || !restored.ContainsKey(id) || !restoredShared.Add(id)) return false;
             }
+            bool restoringTower=data.version>=11 && data.inTower;
+            var campaignParty=new HashSet<string>();
+            if(data.version>=11) {
+                if(data.towerFloor<1 || data.towerFloor>TowerFloors+1 || data.towerCampaignParty==null || (!data.inTower && data.towerCampaignParty.Length!=0)) return false;
+                if(data.inTower) {
+                    if((data.towerFloor>TowerFloors && data.pendingVictory) || restored.Count<5 || data.towerCampaignParty.Length<1 || data.towerCampaignParty.Length>Math.Min(5,data.encounter/5+1)) return false;
+                    foreach(var id in data.towerCampaignParty) if(id==null || !restored.ContainsKey(id) || !campaignParty.Add(id)) return false;
+                }
+            }
             var chosen = new HashSet<string>();
             foreach (var id in data.party) if (id == null || !restored.ContainsKey(id) || !chosen.Add(id)) return false;
-            int restoredLimit=Math.Min(MaxPartySize,Math.Min(data.encounter/ChapterDefinition.StagesPerChapter,ChapterDefinition.Catalog.Count-1)+1);
+            int restoredLimit=restoringTower?MaxPartySize:Math.Min(MaxPartySize,Math.Min(data.encounter/ChapterDefinition.StagesPerChapter,ChapterDefinition.Catalog.Count-1)+1);
             if(data.version>=5 && data.party.Length>restoredLimit) return false;
             GearDefinition pendingLoot=null;
             if(data.version>=5) {
                 if(data.pendingVictory) {
                     var result=data.results;
                     if(result==null || result.damage==null || result.healing==null || result.damage.Length!=data.party.Length || result.healing.Length!=data.party.Length) return false;
-                    pendingLoot=GearDefinition.Find(result.lootId); if(pendingLoot==null || (ChapterDefinition.EnemiesAt(data.encounter)[0].IsBoss && pendingLoot.Quality<HeroQuality.Rare)) return false;
+                    pendingLoot=GearDefinition.Find(result.lootId); if(pendingLoot==null || (ChapterDefinition.EnemiesAt(restoringTower?(data.towerFloor-1)%30:data.encounter)[0].IsBoss && pendingLoot.Quality<HeroQuality.Rare)) return false;
                     for(int i=0;i<data.party.Length;i++) if(result.damage[i]<0 || result.damage[i]>1000000 || result.healing[i]<0 || result.healing[i]>1000000) return false;
                 } else if(data.results!=null && (!string.IsNullOrEmpty(data.results.lootId) ||
                     (data.results.damage!=null && data.results.damage.Length>0) ||
                     (data.results.healing!=null && data.results.healing.Length>0))) return false;
             }
+            InTower=restoringTower; TowerFloor=data.version>=11?data.towerFloor:1; towerCampaignParty=restoringTower?(string[])data.towerCampaignParty.Clone():new string[0];
             dailyDay=data.version>=10?data.dailyDay:0; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4);
             if(data.version>=10) { Array.Copy(data.dailyProgress,dailyProgress,3); Array.Copy(data.dailyClaimed,dailyClaimed,4); } RefreshDaily();
             sharedHeroes.Clear(); foreach(var id in restoredShared) sharedHeroes.Add(id);
@@ -540,14 +575,14 @@ namespace Ashlight {
             Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
             WaveIndex=0; LoadWaveEnemies();
             SelectedEnemyIndex = AttackingEnemyIndex = 0;
-            ActiveIndex = 0; targetCursor = 0; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete ? Phase.Complete : Phase.Player; Defended = false;
+            ActiveIndex = 0; targetCursor = 0; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete || (InTower && TowerComplete) ? Phase.Complete : Phase.Player; Defended = false;
         }
         void LoadWaveEnemies() {
             enemies.Clear();
             if(!campaign) enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden",100)));
-            else foreach(var definition in ChapterDefinition.WaveAt(Math.Min(encounter,ChapterDefinition.TotalStages-1),WaveIndex,WaveCount))
+            else foreach(var definition in ChapterDefinition.WaveAt(EnemyEncounter,WaveIndex,WaveCount))
                 enemies.Add(new BattleEnemy(new EnemyDefinition(definition.Name,
-                    (int)Math.Ceiling(definition.MaxHealth*Math.Max(1,PartyLimit/3.0)),definition.Weakness,definition.Resistance,definition.IsBoss,definition.Role)));
+                    (int)Math.Ceiling(definition.MaxHealth*Math.Max(1,PartyLimit/3.0)*TowerHealthScale),definition.Weakness,definition.Resistance,definition.IsBoss,definition.Role)));
         }
         public bool AdvanceWave() {
             if(Current!=Phase.WaveCleared || WaveIndex>=WaveCount-1) return false;
@@ -704,11 +739,11 @@ namespace Ashlight {
         }
         void PrepareEnemyStrike() {
             Defended = false; Array.Clear(defendedHeroes,0,defendedHeroes.Length);
-            IncomingSkill = campaign ? (waveBattles?EnemySkills.ForRole(encounter,enemies[AttackingEnemyIndex].Definition,enemies[AttackingEnemyIndex].CompletedStrikes):EnemySkills.For(encounter,enemies[AttackingEnemyIndex].Definition.IsBoss,enemies[AttackingEnemyIndex].CompletedStrikes)) : new EnemySkill("Quick Strike",35,Element.Physical);
+            IncomingSkill = campaign ? ((waveBattles || InTower)?EnemySkills.ForRole(EnemyEncounter,enemies[AttackingEnemyIndex].Definition,enemies[AttackingEnemyIndex].CompletedStrikes):EnemySkills.For(EnemyEncounter,enemies[AttackingEnemyIndex].Definition.IsBoss,enemies[AttackingEnemyIndex].CompletedStrikes)) : new EnemySkill("Quick Strike",35,Element.Physical);
             var attacker=enemies[AttackingEnemyIndex];
             if(attacker.Definition.Name=="Cinder Sovereign") {
                 int move=attacker.CompletedStrikes%4;
-                IncomingSkill=EnemySkills.For(encounter,true,move);
+                IncomingSkill=EnemySkills.For(EnemyEncounter,true,move);
                 if(move==2) IncomingSkill=new EnemySkill("Inferno Charge · deal 60 damage next round to interrupt",0,Element.Fire,action:EnemyAction.Charge);
                 if(move==3) IncomingSkill=new EnemySkill(attacker.Charged?"Charged Inferno":"Disrupted Inferno",attacker.Charged?70:20,Element.Fire,status:attacker.Charged?Debuff.Burn:Debuff.None);
             }
@@ -718,6 +753,7 @@ namespace Ashlight {
                 IncomingSkill=new EnemySkill("Eclipse Veil · shields one boss; target the other",0,Element.Light,action:EnemyAction.Shield);
             if(WaveIndex<WaveCount-1 && IncomingSkill.Action==EnemyAction.Attack)
                 IncomingSkill=new EnemySkill(IncomingSkill.Name,Math.Max(1,(int)Math.Ceiling(IncomingSkill.Damage*.6)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
+            if(InTower && IncomingSkill.Action==EnemyAction.Attack) IncomingSkill=new EnemySkill(IncomingSkill.Name,(int)Math.Ceiling(IncomingSkill.Damage*(1+(TowerFloor-1)*.03)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
             // Three targeting tickets per front hero and one per back hero.
             var targets=new List<int>();
             if(IncomingSkill.BackRow)
