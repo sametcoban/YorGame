@@ -16,6 +16,8 @@ namespace Ashlight {
         }
         readonly List<Effect> pool = new List<Effect>();
         readonly Dictionary<Element, Material> materials = new Dictionary<Element, Material>();
+        readonly LineRenderer[] targetMarkers=new LineRenderer[Battle.MaxPartySize];
+        Material targetMaterial;
         Camera view;
         Font font;
         Vector3 cameraOffset;
@@ -29,6 +31,13 @@ namespace Ashlight {
             if (shader == null) { Debug.LogError("Combat effect shader is missing. Run Ashlight > Prepare Mobile Project before building."); enabled = false; return; }
             foreach (Element element in System.Enum.GetValues(typeof(Element))) {
                 var material = new Material(shader); material.color = Tint(element); materials.Add(element, material);
+            }
+            targetMaterial=new Material(shader); targetMaterial.color=new Color(1,.12f,.08f);
+            for(int i=0;i<targetMarkers.Length;i++) {
+                var marker=new GameObject("Enemy Target "+i); marker.transform.SetParent(transform,false);
+                var line=marker.AddComponent<LineRenderer>(); line.useWorldSpace=false; line.loop=true; line.positionCount=32;
+                line.shadowCastingMode=UnityEngine.Rendering.ShadowCastingMode.Off; line.receiveShadows=false;
+                targetMarkers[i]=line; marker.SetActive(false);
             }
         }
         public static Color Tint(Element element) {
@@ -76,6 +85,18 @@ namespace Ashlight {
         }
         void Spark(Vector3 position, Element element, Vector3 velocity, float size, float duration) {
             var effect = Get(Mode.Spark, position, element, duration, size); if (effect != null) effect.Velocity = velocity;
+        }
+        public void TargetWarning(int heroIndex,Vector3 position,bool active,bool actualTarget) {
+            if(heroIndex<0 || heroIndex>=targetMarkers.Length || targetMarkers[heroIndex]==null) return;
+            var line=targetMarkers[heroIndex]; line.gameObject.SetActive(active); if(!active) return;
+            line.transform.position=new Vector3(position.x,.055f,position.z);
+            line.sharedMaterial=actualTarget?targetMaterial:materials[Element.Fire];
+            float pulse=(Mathf.Sin(Time.time*7)+1)*.5f;
+            float radius=(actualTarget?.62f:.5f)+pulse*.06f;
+            line.startWidth=line.endWidth=actualTarget?.07f+pulse*.025f:.025f;
+            for(int i=0;i<32;i++) {
+                float angle=i*Mathf.PI*2/32; line.SetPosition(i,new Vector3(Mathf.Cos(angle)*radius,0,Mathf.Sin(angle)*radius));
+            }
         }
         public void Floating(Vector3 position, string text, Element element) {
             // Give simultaneous damage, status and defense messages their own vertical lanes.
@@ -188,10 +209,11 @@ namespace Ashlight {
         }
         public void Clear() {
             foreach (var effect in pool) effect.Root.SetActive(false);
+            foreach(var marker in targetMarkers) if(marker!=null) marker.gameObject.SetActive(false);
             if (view != null) view.transform.position -= cameraOffset;
             cameraOffset = Vector3.zero; shakeLeft = 0;
         }
         void OnDisable() { Clear(); }
-        void OnDestroy() { foreach (var material in materials.Values) Destroy(material); }
+        void OnDestroy() { foreach (var material in materials.Values) Destroy(material); if(targetMaterial!=null) Destroy(targetMaterial); }
     }
 }

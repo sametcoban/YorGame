@@ -52,7 +52,8 @@ namespace Ashlight {
         Coroutine actionPresentation;
         ActionMotion actionMotion;
         int actionTarget, actionHero, actionEnergy;
-        readonly int[] actionEnemyBefore = new int[Battle.MaxEnemies], shownEnemyDamage = new int[Battle.MaxEnemies];
+        readonly int[] actionEnemyBefore = new int[Battle.MaxEnemies], shownEnemyDamage = new int[Battle.MaxEnemies], actionChargeBefore=new int[Battle.MaxEnemies];
+        readonly bool[] actionChargedBefore=new bool[Battle.MaxEnemies];
         readonly Image[] energyBars = new Image[Battle.MaxPartySize];
         readonly Image[] partyHealthBars = new Image[Battle.MaxPartySize];
         readonly Text[] energyLabels = new Text[Battle.MaxPartySize];
@@ -63,7 +64,8 @@ namespace Ashlight {
         ProgressData restored;
         string saveNotice = "";
         bool progressInitialized, saveFailed;
-        Text status, cue;
+        Text status, cue, chargeWarning;
+        Image chargeProgress;
         Image heroHealth, timing;
         readonly Image[] enemyHealthBars=new Image[Battle.MaxEnemies];
         readonly Button[] enemyTargets = new Button[Battle.MaxEnemies];
@@ -203,6 +205,8 @@ namespace Ashlight {
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMinSize = 12;
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMaxSize = 16;
             }
+            chargeWarning=Label(safe,"",new Vector2(.025f,.737f),new Vector2(.385f,.792f),20);
+            chargeProgress=Bar(safe,new Vector2(.025f,.72f),new Vector2(.385f,.732f),new Color(1,.3f,.08f));
             timing = Bar(safe, new Vector2(.3f, .29f), new Vector2(.7f, .305f), Color.yellow);
             cue = Label(safe, "", new Vector2(.2f, .315f), new Vector2(.8f, .395f), 32);
             attack = MakeButton(safe, "ATTACK", .02f, .19f, () => PerformAction(-1));
@@ -408,10 +412,11 @@ namespace Ashlight {
                 var art = EnemyVisualDefinition.For(battle.Enemies[foeIndex].Definition.Name);
                 var presentation = actor.GetComponent<EnemyPresentation>();
                 var visual = actor.GetComponent<HeroVisual>();
+                presentation.Warning(true);
                 if (visual != null) visual.Play("Windup");
                 if (art != null && art.SourceModel == "AshHound") sounds.Play("HoundGrowl",.7f);
                 else if (art != null && art.IsRanged) sounds.Play("Charge",.6f);
-                message = skill.Action!=EnemyAction.Attack ? actor.name+" prepares "+skill.Name+"." : actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + ".";
+                message = skill.Action!=EnemyAction.Attack ? actor.name+" prepares "+skill.Name+"." : actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + AttackTargetLabel(skill) + ".";
                 yield return new WaitForSeconds(1.2f);
                 if (!battle.BeginStrike()) break;
                 if(skill.Action!=EnemyAction.Attack) {
@@ -436,7 +441,7 @@ namespace Ashlight {
                     presentation.Warning(false);
                     continue;
                 }
-                strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " uses " + skill.Name + " on " + (skill.PartyWide ? "ALL HEROES" : battle.Party[battle.ActiveIndex].Identity.Name) + "!";
+                strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " uses " + skill.Name + " on " + AttackTargetLabel(skill) + "!";
                 presentation.Warning(true);
                 if (visual != null) visual.Play("Attack");
                 if (skill.Element != Element.Physical || skill.PartyWide) effects.Ring(actor.position,skill.Element);
@@ -491,6 +496,34 @@ namespace Ashlight {
             }
             else message = "Mistimed defense. React after FLASH.";
         }
+        string AttackTargetLabel(EnemySkill skill) {
+            return skill.PartyWide?"ALL HEROES":(skill.BackRow?"BACK ROW STRIKE · TARGET ":"TARGET ")+battle.Party[battle.ActiveIndex].Identity.Name;
+        }
+        int VisibleChargeDamage(int index) {
+            int actual=battle.Enemies[index].ChargeDamage;
+            return presentingAction && actionChargedBefore[index]?Mathf.Min(actual,actionChargeBefore[index]+shownEnemyDamage[index]):actual;
+        }
+        void RefreshEnemyTelegraphs() {
+            var skill=battle.IncomingSkill;
+            bool attacking=!atChapters && !presentingAction && skill!=null && skill.Action==EnemyAction.Attack &&
+                (battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike);
+            for(int i=0;i<Battle.MaxPartySize;i++) {
+                bool living=i<battle.Party.Count && battle.Party[i].Health>0;
+                bool actual=attacking && living && (skill.PartyWide || i==battle.ActiveIndex);
+                // Amber marks the threatened row; red always marks only actual damage targets.
+                bool row=attacking && living && skill.BackRow && !battle.IsFrontRow(i);
+                effects.TargetWarning(i,living?allies[i].position:Vector3.zero,actual || row,actual);
+            }
+            int charging=-1;
+            if(!atChapters && battle.Current!=Phase.Won && battle.Current!=Phase.Lost && battle.Current!=Phase.Complete)
+                for(int i=0;i<battle.Enemies.Count;i++) if(VisibleEnemyHealth(i)>0 && ((presentingAction && actionChargedBefore[i]) || battle.Enemies[i].Charged || VisibleChargeDamage(i)>=60)) { charging=i; break; }
+            chargeWarning.gameObject.SetActive(charging>=0); chargeProgress.transform.parent.gameObject.SetActive(charging>=0);
+            if(charging<0) return;
+            var foe=battle.Enemies[charging]; int progress=VisibleChargeDamage(charging); bool interrupted=progress>=60;
+            chargeWarning.text=foe.Definition.Name+" · "+(interrupted?"INTERRUPTED":"CHARGING")+"\n"+Mathf.Min(60,progress)+"/60 interrupt damage"+(interrupted?" · Weakened next strike":" · Deal "+(60-progress)+" more before next strike");
+            chargeWarning.color=chargeProgress.color=interrupted?new Color(.35f,.85f,.5f):new Color(1,.45f,.2f);
+            SetMeter(chargeProgress,progress/60f);
+        }
         string EnemyMechanicLabel(int index) {
             var foe=battle.Enemies[index];
             return (battle.EnemyProtected(index)?" · GUARDED":"") + (foe.Shield>0?" · SHIELD "+foe.Shield:"") + (foe.Charged?" · CHARGE "+foe.ChargeDamage+"/60":"");
@@ -518,7 +551,7 @@ namespace Ashlight {
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
             int oldGuard = members[actingIndex].Guard;
-            for(int i=0;i<battle.Enemies.Count;i++) { actionEnemyBefore[i]=battle.Enemies[i].Health; shownEnemyDamage[i]=0; }
+            for(int i=0;i<battle.Enemies.Count;i++) { actionEnemyBefore[i]=battle.Enemies[i].Health; shownEnemyDamage[i]=0; actionChargeBefore[i]=battle.Enemies[i].ChargeDamage; actionChargedBefore[i]=battle.Enemies[i].Charged; }
             actionHero=actingIndex; actionEnergy=Mathf.Min(PartyHero.MaxEnergy,members[actingIndex].Energy+members[actingIndex].EnergyGain);
             string name = skillSlot >= 0 ? members[actingIndex].Skill(skillSlot).Name : "Attack";
             if (!(skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack())) return;
@@ -1447,7 +1480,7 @@ namespace Ashlight {
                 else if (battle.Current == Phase.Lost) sounds.Play("Defeat",.8f);
                 lastSoundPhase = battle.Current;
             }
-            if(atChapters) { towerButton.interactable=battle.CanEnterTower; towerButton.GetComponentInChildren<Text>().text=battle.TowerComplete?"TOWER COMPLETE · 100 floors":battle.Recruits.Count<5?"TOWER · Recruit 5 heroes to unlock":"TOWER · FLOOR "+battle.TowerFloor+"/100 · Up to 5 heroes"; summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=!revealingSummons && battle.CanSummon; repeatTen.interactable=!revealingSummons && battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
+            if(atChapters) { towerButton.interactable=battle.CanEnterTower; towerButton.GetComponentInChildren<Text>().text=battle.TowerComplete?"TOWER COMPLETE · 100 floors":battle.Recruits.Count<5?"TOWER · Recruit 5 heroes to unlock":"TOWER · FLOOR "+battle.TowerFloor+"/100 · Up to 5 heroes"; summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=!revealingSummons && battle.CanSummon; repeatTen.interactable=!revealingSummons && battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; RefreshEnemyTelegraphs(); return; }
             if (autoPlay && !tutorialRoot.activeSelf && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && !heroDetailsRoot.activeSelf && !teamPresetRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
@@ -1458,7 +1491,7 @@ namespace Ashlight {
             timing.transform.parent.gameObject.SetActive(striking && !battle.Defended);
             SetMeter(timing, 1 - elapsed / .4f);
             timing.color = elapsed <= .18f ? Color.yellow : new Color(.2f, .7f, .85f);
-            cue.text = battle.Current==Phase.WaveCleared ? "WAVE CLEARED — NEXT WAVE INCOMING" : presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.Action!=EnemyAction.Attack ? "" : battle.IncomingSkill.PartyWide ? " — ALL HEROES" : " — " + battle.Party[battle.ActiveIndex].Identity.Name) :
+            cue.text = battle.Current==Phase.WaveCleared ? "WAVE CLEARED — NEXT WAVE INCOMING" : presentingAction ? "" : battle.Current == Phase.EnemyWindup ? battle.IncomingSkill.Name.ToUpperInvariant() + (battle.IncomingSkill.Action!=EnemyAction.Attack ? "" : " — " + AttackTargetLabel(battle.IncomingSkill)) :
                 striking && !battle.Defended ? (elapsed <= .18f ? "RESOLVING DEFENSE" : elapsed <= .4f ? "RESOLVING DEFENSE" : "DEFENSE MISSED") :
                 Time.time < feedbackUntil ? (battle.Defended ? (parried ? "PARRY + COUNTER" : "DODGED") : "HIT −" + lastHitDamage) : "";
             cue.color = Time.time < feedbackUntil && battle.Defended ? Color.cyan : Color.yellow;
@@ -1487,6 +1520,7 @@ namespace Ashlight {
                 else actor.localRotation = dead ? Quaternion.Euler(0,0,-75) : i == battle.AttackingEnemyIndex && battle.Current == Phase.EnemyWindup ? Quaternion.Euler(0,0,-12) : Quaternion.identity;
                 if (Time.time < feedbackUntil && parried && i == battle.AttackingEnemyIndex) actor.position += Vector3.right*.3f;
             }
+            RefreshEnemyTelegraphs();
         }
     }
 }

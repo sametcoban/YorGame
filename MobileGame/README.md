@@ -668,3 +668,11 @@ Formation shows a suggested pair of front heroes, based on maximum health, armor
 Only current party heroes are reordered. Their objects, equipment, skills, XP, shards, guard/energy, and active-hero identity are preserved; reserves, currency, and faction membership do not change. It locks once combat starts. The button reads **Formation Ready** when the current order matches the recommendation. One-hero formations need no rearrangement.
 
 Pure C# validation covers tank and non-tank recommendations, stable back-row order, repeat calls, one-hero parties, isolation of returned recommendations, preserved loadouts/resources/active identity, save round-trips, and combat locks. Unity button layout and interactions remain to be tested locally.
+
+### Enemy attack warnings
+
+Persistent pulsing red ground rings mark actual living targets throughout enemy windup/strike; party-wide attacks mark all living heroes. Back-row strikes add thinner amber rings to the living rear row while red identifies the single selected target (or the actual front fallback if no back hero survives). Labels explicitly distinguish Target, Back Row Strike, and All Heroes. Healing, shielding and charge actions have no damage-target rings. Enemy glow now starts during anticipation. Rings clear when actions resolve, targets fall, combat ends, or the battle screen is left.
+
+The boss charge panel shows Cinder Sovereign's interrupt damage out of 60 and remaining damage needed before its next strike. It turns green at interruption and clears after the weakened attack resolves. During player action animations, interrupt progress follows displayed impact damage instead of revealing the result early. Combat damage, defense, targeting, and timing rules are unchanged.
+
+Effects reuse five dedicated line rings and the existing shaders; no Particle System module is needed. Unity checks remain required for normal/back-row/party-wide attacks, three sequential enemies, no surviving back row, healer/support actions, parry kills, charge interruption, restart, chapter exit, and Auto Play at all speeds. Cloud syntax checks do not verify rendering or UI placement.
