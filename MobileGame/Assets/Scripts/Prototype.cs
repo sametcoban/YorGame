@@ -16,6 +16,12 @@ namespace Ashlight {
         GameObject chapterRoot;
         GameObject teamPresetRoot; Text teamPresetTitle; Text[] teamPresetLabels; Button[] teamPresetLoads, teamPresetClears; string presetNotice="";
         GameObject dailyRoot; Button[] dailyButtons;
+        GameObject heroDetailsRoot;
+        string detailsHero;
+        Text detailsTitle,detailsStats,detailsPassive,detailsSkills,detailsUltimate,detailsHelp;
+        Image detailsExperience;
+        HeroModelPreview heroPreview;
+        Button detailsSkillsButton,detailsGearButton,detailsTalentsButton,detailsAscendButton;
         GameObject collectionRoot; Text collectionTitle; Button[] collectionCards; Button collectionAscend, collectionShared; int collectionPage, collectionTarget, classFilter=-1, factionFilter=-1, rarityFilter=-1; CollectionSort collectionSort; string collectionHero;
         List<PartyHero> collectionItems=new List<PartyHero>(); Button[] collectionFilters; Button collectionAssign, collectionBattleButton;
         readonly Button[] collectionTargets=new Button[Battle.MaxPartySize];
@@ -235,7 +241,7 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
+            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
             CreateResultsPanel(); CreateTutorial();
@@ -506,7 +512,7 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if ((tutorialRoot!=null && tutorialRoot.activeSelf) || atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || collectionRoot.activeSelf || teamPresetRoot.activeSelf || presentingAction) return;
+            if ((tutorialRoot!=null && tutorialRoot.activeSelf) || atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || collectionRoot.activeSelf || heroDetailsRoot.activeSelf || teamPresetRoot.activeSelf || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
@@ -962,7 +968,7 @@ namespace Ashlight {
                 int index=i; float x=i%2==0?.05f:.52f,y=.45f-(i/2)*.17f;
                 collectionCards[i]=MakeButton(collectionRoot.transform,"",x,x+.43f,()=> {
                     int entry=collectionPage*4+index;
-                    if(entry<collectionItems.Count) { collectionHero=collectionItems[entry].Identity.Id; RefreshCollection(); }
+                    if(entry<collectionItems.Count) { collectionHero=collectionItems[entry].Identity.Id; RefreshCollection(); OpenHeroDetails(collectionHero); }
                 });
                 PlaceGearControl(collectionCards[i],x,y,x+.43f,y+.16f);
                 var caption=collectionCards[i].GetComponentInChildren<Text>();
@@ -991,6 +997,67 @@ namespace Ashlight {
             if(!atChapters && !battle.CanChangeParty) return;
             selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false); previewRoot.SetActive(false);
             collectionPage=0; collectionHero=null; collectionTarget=System.Math.Min(battle.ActiveIndex,battle.Party.Count-1); collectionRoot.transform.SetAsLastSibling(); collectionRoot.SetActive(true); RefreshCollection();
+        }
+        void CreateHeroDetails() {
+            heroDetailsRoot=new GameObject("Hero Details",typeof(RectTransform),typeof(Image)); heroDetailsRoot.transform.SetParent(safe,false);
+            var rect=heroDetailsRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
+            heroDetailsRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.99f);
+            detailsTitle=Label(heroDetailsRoot.transform,"",new Vector2(.04f,.84f),new Vector2(.96f,.98f),28);
+            var previewFrame=new GameObject("Preview Frame",typeof(RectTransform)); previewFrame.transform.SetParent(heroDetailsRoot.transform,false);
+            var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.81f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
+            var previewRoot=new GameObject("Model Preview",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter)); previewRoot.transform.SetParent(previewFrame.transform,false);
+            previewRoot.GetComponent<RawImage>().raycastTarget=false;
+            var fitter=previewRoot.GetComponent<AspectRatioFitter>(); fitter.aspectMode=AspectRatioFitter.AspectMode.FitInParent; fitter.aspectRatio=.75f;
+            heroPreview=previewRoot.AddComponent<HeroModelPreview>();
+            var left=MakeButton(heroDetailsRoot.transform,"ROTATE <",.04f,.17f,()=>heroPreview.Rotate(-45)); PlaceGearControl(left,.04f,.17f,.17f,.245f);
+            var right=MakeButton(heroDetailsRoot.transform,"ROTATE >",.19f,.32f,()=>heroPreview.Rotate(45)); PlaceGearControl(right,.19f,.17f,.32f,.245f);
+            detailsStats=Label(heroDetailsRoot.transform,"",new Vector2(.36f,.64f),new Vector2(.96f,.82f),22);
+            detailsExperience=Bar(heroDetailsRoot.transform,new Vector2(.36f,.615f),new Vector2(.96f,.627f),new Color(.35f,.7f,.43f));
+            detailsPassive=Label(heroDetailsRoot.transform,"",new Vector2(.36f,.47f),new Vector2(.96f,.60f),20);
+            detailsSkills=Label(heroDetailsRoot.transform,"",new Vector2(.36f,.30f),new Vector2(.96f,.46f),18);
+            detailsUltimate=Label(heroDetailsRoot.transform,"",new Vector2(.36f,.16f),new Vector2(.96f,.29f),20);
+            detailsHelp=Label(heroDetailsRoot.transform,"",new Vector2(.04f,.115f),new Vector2(.96f,.16f),17);
+            detailsSkillsButton=MakeButton(heroDetailsRoot.transform,"SKILLS",.04f,.22f,()=>OpenDetailsManagement(0)); PlaceGearControl(detailsSkillsButton,.04f,.025f,.22f,.105f);
+            detailsGearButton=MakeButton(heroDetailsRoot.transform,"EQUIPMENT",.24f,.42f,()=>OpenDetailsManagement(1)); PlaceGearControl(detailsGearButton,.24f,.025f,.42f,.105f);
+            detailsTalentsButton=MakeButton(heroDetailsRoot.transform,"PROGRESSION",.44f,.62f,()=>OpenDetailsManagement(2)); PlaceGearControl(detailsTalentsButton,.44f,.025f,.62f,.105f);
+            detailsAscendButton=MakeButton(heroDetailsRoot.transform,"ASCEND",.64f,.82f,()=> { if(battle.UpgradeHero(detailsHero)) { SaveProgress(); RefreshHeroDetails(); } }); PlaceGearControl(detailsAscendButton,.64f,.025f,.82f,.105f);
+            var back=MakeButton(heroDetailsRoot.transform,"BACK",.84f,.96f,CloseHeroDetails); PlaceGearControl(back,.84f,.025f,.96f,.105f);
+            heroDetailsRoot.SetActive(false);
+        }
+        void OpenHeroDetails(string id) {
+            if(battle.HeroProgress(id)==null) return;
+            detailsHero=id; collectionRoot.SetActive(false); heroDetailsRoot.transform.SetAsLastSibling(); heroDetailsRoot.SetActive(true);
+            RefreshHeroDetails();
+        }
+        void RefreshHeroDetails() {
+            var hero=battle.HeroProgress(detailsHero); if(hero==null) return;
+            detailsTitle.text=hero.Identity.Name+" · "+hero.RarityLabel+"\n"+hero.Identity.DisplayClass+" · "+hero.Identity.Affinity+" · "+hero.Identity.FactionName;
+            detailsTitle.color=RarityTint(hero.Quality);
+            detailsStats.text="LEVEL "+hero.LevelLabel+" · POWER "+hero.Power+"\nHP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · ARMOR "+hero.Protection+" · ENERGY / ACTION "+hero.EnergyGain+"\n"+(hero.Level==PartyHero.MaxLevel?"MAX OWN LEVEL":"OWN XP "+hero.Experience+" / "+hero.NextLevelXP+" · Earn XP from battles and idle rewards.")+"\nSHARDS "+hero.Shards+(hero.UpgradeRank==5?" · MAX ASCENSION":" / "+hero.UpgradeCost+" · Next: "+hero.NextAscension);
+            string equipment=""; for(int i=0;i<3;i++) { var item=hero.Gear((GearSlot)i); equipment+=(i==0?"":" · ")+((GearSlot)i)+": "+(item==null?"Empty":item.Quality+" "+item.Name); }
+            detailsStats.text+="\n"+equipment;
+            SetMeter(detailsExperience,hero.Level==PartyHero.MaxLevel?1:hero.Experience/(float)hero.NextLevelXP);
+            detailsPassive.text="CLASS PASSIVE\n"+ClassDefinition.PassiveDescription(hero.Identity.Class);
+            detailsSkills.text="EQUIPPED SKILLS\n"+hero.Skill(0).Name+" · "+hero.Skill(0).Affinity+" · "+hero.Skill(0).Description+"\n"+hero.Skill(1).Name+" · "+hero.Skill(1).Affinity+" · "+hero.Skill(1).Description;
+            detailsUltimate.text="UNIQUE ULTIMATE · "+(hero.Ultimate.AreaDamage?"ALL ENEMIES":"SINGLE TARGET")+"\n"+hero.Ultimate.Description;
+            int slot=-1; for(int i=0;i<battle.Party.Count;i++) if(battle.Party[i].Identity.Id==detailsHero) slot=i;
+            bool manage=!atChapters && battle.CanChangeParty && slot>=0;
+            detailsSkillsButton.interactable=detailsGearButton.interactable=detailsTalentsButton.interactable=manage;
+            detailsAscendButton.interactable=(battle.CanChangeParty || battle.CampaignComplete) && hero.UpgradeRank<5 && hero.Shards>=hero.UpgradeCost;
+            detailsHelp.text=manage?"Skills, equipment and progression apply to this hero.":slot<0?"Assign this hero from Collection before combat to manage their loadout.":"Enter a chapter to manage skills, equipment and progression before combat.";
+            if(!heroPreview.Show(hero.Identity)) detailsHelp.text+=" · Model preview unavailable.";
+        }
+        void CloseHeroDetails() {
+            heroDetailsRoot.SetActive(false); collectionRoot.transform.SetAsLastSibling(); collectionRoot.SetActive(true); RefreshCollection();
+        }
+        void OpenDetailsManagement(int action) {
+            if(atChapters || !battle.CanChangeParty) return;
+            for(int i=0;i<battle.Party.Count;i++) if(battle.Party[i].Identity.Id==detailsHero && battle.SelectHero(i)) {
+                heroDetailsRoot.SetActive(false);
+                if(action==0) OpenSelection(true,battle.Party[i].Identity.Class);
+                else if(action==1) OpenEquipment(); else OpenProgression();
+                return;
+            }
         }
         static Color RarityTint(HeroQuality quality) {
             switch(quality) {
@@ -1268,7 +1335,7 @@ namespace Ashlight {
         void ApplyBattleSpeed() {
             bool combat=!atChapters && (presentingAction || enemyTurn!=null ||
                 battle.Current==Phase.Player || battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike || battle.Current==Phase.WaveCleared);
-            bool menu=(tutorialRoot!=null && tutorialRoot.activeSelf) || (selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf) || (collectionRoot!=null && collectionRoot.activeSelf) || (teamPresetRoot!=null && teamPresetRoot.activeSelf);
+            bool menu=(heroDetailsRoot!=null && heroDetailsRoot.activeSelf) || (tutorialRoot!=null && tutorialRoot.activeSelf) || (selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf) || (collectionRoot!=null && collectionRoot.activeSelf) || (teamPresetRoot!=null && teamPresetRoot.activeSelf);
             Time.timeScale=combat && !menu?battleSpeed:1;
         }
         void OnDisable() { Time.timeScale=1; FinishSummonReveal(false); }
@@ -1305,7 +1372,7 @@ namespace Ashlight {
             if(!atChapters && !presentingAction && enemyTurn==null && battle.Current==Phase.WaveCleared && !transitioningWave) StartCoroutine(NextWave());
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
             reset.gameObject.SetActive(finished && battle.Current!=Phase.Won);
-            collectionBattleButton.gameObject.SetActive(preparing); if(!preparing && !atChapters) collectionRoot.SetActive(false);
+            collectionBattleButton.gameObject.SetActive(preparing); if(!preparing && !atChapters) { collectionRoot.SetActive(false); heroDetailsRoot.SetActive(false); }
             previewButton.gameObject.SetActive(preparing);
             if(!preparing) previewRoot.SetActive(false);
             loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing); formationButton.gameObject.SetActive(preparing);
@@ -1367,7 +1434,7 @@ namespace Ashlight {
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { towerButton.interactable=battle.CanEnterTower; towerButton.GetComponentInChildren<Text>().text=battle.TowerComplete?"TOWER COMPLETE · 100 floors":battle.Recruits.Count<5?"TOWER · Recruit 5 heroes to unlock":"TOWER · FLOOR "+battle.TowerFloor+"/100 · Up to 5 heroes"; summonTenButton.interactable=battle.CanSummonTen; repeatSingle.interactable=!revealingSummons && battle.CanSummon; repeatTen.interactable=!revealingSummons && battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); idleRewardsButton.interactable=battle.IdleMinutes>0; idleRewardsButton.GetComponentInChildren<Text>(true).text="IDLE · "+battle.IdleMinutes+"/720 min · +"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each"; summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON x1\n100"; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
-            if (autoPlay && !tutorialRoot.activeSelf && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && !teamPresetRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
+            if (autoPlay && !tutorialRoot.activeSelf && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && !heroDetailsRoot.activeSelf && !teamPresetRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
                 nextAutoAction = Time.time+1.3f;
