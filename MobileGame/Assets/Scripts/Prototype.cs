@@ -62,6 +62,9 @@ namespace Ashlight {
         }
         Button attack, ability, abilityTwo, autoButton, loadout;
         bool autoPlay;
+        const string SpeedKey="Ashlight.BattleSpeed";
+        int battleSpeed=1;
+        Button speedButton;
         float nextAutoAction;
         readonly System.Random combatRandom = new System.Random();
         GameObject selectionRoot;
@@ -92,6 +95,8 @@ namespace Ashlight {
         }
         void Start() {
             Application.targetFrameRate = 60;
+            battleSpeed=Mathf.Clamp(PlayerPrefs.GetInt(SpeedKey,1),1,3);
+            Time.timeScale=1;
             ProgressStore.Load(battle, out restored);
             progressInitialized = true;
             battleStage = new GameObject("Battle Stage").transform;
@@ -150,9 +155,14 @@ namespace Ashlight {
                 classRect.anchorMin = new Vector2(left, i < 3 ? .52f : .405f); classRect.anchorMax = new Vector2(left + .21f, i < 3 ? .62f : .505f);
             }
             RefreshAppearance();
-            autoButton = MakeButton(safe, "AUTO PLAY: OFF", .59f, .95f, () => { autoPlay = !autoPlay; nextAutoAction = Time.time+.3f; });
+            autoButton = MakeButton(safe, "AUTO PLAY: OFF", .59f, .80f, () => { autoPlay = !autoPlay; nextAutoAction = Time.time+.3f; });
+            speedButton=MakeButton(safe,"SPEED: "+battleSpeed+"×",.82f,.98f,()=> {
+                battleSpeed=battleSpeed%3+1;
+                PlayerPrefs.SetInt(SpeedKey,battleSpeed); PlayerPrefs.Save();
+                ApplyBattleSpeed();
+            });
             // Keep battle actions below the energy row (.175 to .235).
-            foreach (var actionButton in new[] { attack, ability, abilityTwo, autoButton }) {
+            foreach (var actionButton in new[] { attack, ability, abilityTwo, autoButton, speedButton }) {
                 var actionRect = actionButton.GetComponent<RectTransform>();
                 actionRect.anchorMin = new Vector2(actionRect.anchorMin.x, .025f);
                 actionRect.anchorMax = new Vector2(actionRect.anchorMax.x, .155f);
@@ -535,6 +545,7 @@ namespace Ashlight {
             resultsRoot.SetActive(false);
         }
         void ShowResults() {
+            Time.timeScale=1;
             var result=battle.Results; if(result==null) return;
             autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false);
             resultsTitle.text="VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
@@ -689,6 +700,7 @@ namespace Ashlight {
             message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";
         }
         void EnterChapters() {
+            Time.timeScale=1;
             resultsRoot.SetActive(false);
             CancelActionPresentation();
             if(enemyTurn!=null) StopCoroutine(enemyTurn);
@@ -724,8 +736,16 @@ namespace Ashlight {
             enemyTurn=null; battle.Reset(); attackTime=-10; feedbackUntil=0; parried=false;
             foreach (var foe in foes) if (foe != null) foe.GetComponent<EnemyPresentation>().Warning(false); message="Stage restarted. Choose an action."; SaveProgress();
         }
+        void ApplyBattleSpeed() {
+            bool combat=!atChapters && (presentingAction || enemyTurn!=null ||
+                battle.Current==Phase.Player || battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike || battle.Current==Phase.WaveCleared);
+            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf);
+            Time.timeScale=combat && !menu?battleSpeed:1;
+        }
+        void OnDisable() { Time.timeScale=1; }
         void Update() {
             if (status == null) return;
+            ApplyBattleSpeed();
             var area = Screen.safeArea;
             safe.anchorMin = new Vector2(area.xMin / Mathf.Max(1, Screen.width), area.yMin / Mathf.Max(1, Screen.height));
             safe.anchorMax = new Vector2(area.xMax / Mathf.Max(1, Screen.width), area.yMax / Mathf.Max(1, Screen.height));
@@ -758,6 +778,8 @@ namespace Ashlight {
             reset.GetComponentInChildren<Text>(true).text = battle.Current == Phase.Won ? "CONTINUE" : "RESTART";
             attack.gameObject.SetActive(!atChapters); ability.gameObject.SetActive(!atChapters); abilityTwo.gameObject.SetActive(!atChapters);
             autoButton.gameObject.SetActive(!atChapters);
+            speedButton.gameObject.SetActive(!atChapters && !finished);
+            speedButton.GetComponentInChildren<Text>().text="SPEED: "+battleSpeed+"×";
             if (finished || atChapters) autoPlay = false;
             if(finished && battle.Current==Phase.Won && enemyTurn==null && !resultsRoot.activeSelf) ShowResults();
             autoButton.interactable = !finished;

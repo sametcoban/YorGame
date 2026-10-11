@@ -14,7 +14,7 @@ namespace Ashlight {
         }
         public void ContactPause(float seconds = .035f) {
             if (Animator == null || defeated) return;
-            seconds = Mathf.Clamp(seconds,0,.07f); pauseUntil = Time.unscaledTime+seconds;
+            seconds = Mathf.Clamp(seconds,0,.07f); pauseUntil = Time.unscaledTime+seconds/Mathf.Max(1,Time.timeScale);
             Animator.speed = 0; returnAt += seconds;
         }
         public void SetDefeated(bool value) {

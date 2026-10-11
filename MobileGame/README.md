@@ -391,3 +391,12 @@ A 1.2-second transition replaces defeated enemies and shows the next wave number
 XP, crystals, recruitment and gear are granted once, after all three waves and pressing Continue. Existing saves remain compatible. Loading or restarting an unfinished stage begins wave 1 with a restored party, matching the existing fresh-encounter save behavior; pending final victories still reopen their saved results.
 
 Copy the updated **Assets/Scripts** into your existing Unity project to test. No new assets are required. The pure C# checks cover all 90 campaign waves, resource carryover, transitions, reward timing and pending-victory save compatibility. Unity animations, layout and difficulty still need playtesting.
+
+
+## Battle speed
+
+The **SPEED** button beside Auto Play cycles **1× → 2× → 3× → 1×**. It works during manual play and Auto Play, including attacks, ultimates, enemy windups and wave transitions. The choice is remembered as a local preference. All controls stay below the hero energy bars.
+
+Menus and results run at normal speed; stopping Play or disabling the prototype restores normal time. Damage, energy gain, skill charges and class defense rolls are unchanged. Sound pitch remains normal. To verify in Unity, switch speed mid-action, try Auto Play across waves, open the results and chapter menus, and stop Play; confirm animations accelerate and menus return to normal.
+
+Copy updated **Assets/Scripts** to test this update. Unity playback is required to verify animation timing and the compact mobile button layout.
