@@ -521,3 +521,14 @@ Each hero still earns their own XP from battles and idle rewards. Removing a lin
 Save version **9** stores the five linked hero IDs; saves from versions 1–8 migrate with empty slots and preserve all previous progress. Duplicate, unknown, excessive or malformed link data is rejected before modifying progress.
 
 Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **11,119 engine-independent checks passed**, including the five-leader calculation, slot capacity, stats, own XP preservation, party swaps, unlinking, mentor growth, idle rewards, migration, invalid saves and a full 90-wave campaign using shared slots. The Unity serialization diagnostic includes a level-1 reserve fighting at shared level 15. Unity compilation, diagnostics, Collection layout and live balance still require local testing.
+
+
+## Battle power and stage difficulty
+
+Hero power now appears in **Collection** cards and selected-hero details. **Formation** and the battle HUD show total active-team power. **Enemy Preview** compares team power with the stage rating, gives an **Easy / Even / Hard** estimate, and shows individual wave ratings alongside the existing roles and elements.
+
+Hero ratings use maximum health, attack, the two equipped skills, healing/Guard support, ultimate damage and support, energy gain, critical bonuses, armor protection, elemental accessories and unlocked talents. Level growth, ascension, shared levels and faction buffs already feed those stats. Team power sums active heroes; reserves do not count. Current HP, energy, spent charges and debuffs do not change this preparation rating.
+
+Enemy ratings include the actual chapter-scaled HP, role-specific attacks, early-wave damage scaling, party-wide targeting, healing/shields and unique boss threats. Stage power combines the strongest wave with 25% of the other waves to represent resource carryover. Boss pairs include both enemies. **Easy** means team power is at least 125% of stage power; **Hard** means at most 85%; otherwise it is **Even**. These are initial tuning estimates, not win probabilities or combat modifiers: elemental matchups, formation, enemy protection and targeting still matter.
+
+Scores derive from existing progress, so the save format stays at version 9. Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **11,374 engine-independent checks passed**, including all hero growth paths, equipment/faction/shared-level changes, steady ratings during combat, all stage previews, difficulty thresholds and reload consistency. Unity compilation, UI readability, serialization diagnostics and difficulty calibration still require local playtesting.

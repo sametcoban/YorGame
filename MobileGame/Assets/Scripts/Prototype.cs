@@ -548,7 +548,7 @@ namespace Ashlight {
             var member = battle.Party[battle.ActiveIndex];
             selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.DisplayClass + " / " + member.RarityLabel + " / " + member.Identity.FactionName + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
             selectionTitle.text+="\nPASSIVE: "+ClassDefinition.PassiveDescription(member.Identity.Class);
-            selectionTitle.text+="\n"+member.Identity.Name+" Lv "+member.LevelLabel+" · Own XP "+member.Experience+"/"+member.NextLevelXP+" · Ascension "+member.UpgradeRank+"/5 · Shards "+member.Shards;
+            selectionTitle.text+="\n"+member.Identity.Name+" · Power "+member.Power+" · Lv "+member.LevelLabel+" · Own XP "+member.Experience+"/"+member.NextLevelXP+" · Ascension "+member.UpgradeRank+"/5 · Shards "+member.Shards;
             upgradeButton.interactable=battle.CanChangeParty && member.UpgradeRank<PartyHero.MaxUpgradeRank && member.Shards>=member.UpgradeCost;
             upgradeButton.GetComponentInChildren<Text>().text=member.UpgradeRank==PartyHero.MaxUpgradeRank?"ASCENSION MAX":"ASCEND → "+member.NextAscension+"\n"+member.Shards+"/"+member.UpgradeCost+" shards";
             for (int i = 0; i < 2; i++) {
@@ -649,7 +649,7 @@ namespace Ashlight {
             formationRoot.transform.SetAsLastSibling(); formationRoot.SetActive(true); RefreshFormation();
         }
         void RefreshFormation() {
-            formationFaction.text=battle.FactionSummary+"\n5 matching: +20% HP & damage. Bonuses apply to the whole party.";
+            formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\n5 matching: +20% HP & damage. Bonuses apply to the whole party.";
             for(int i=0;i<formationSlots.Length;i++) {
                 var button=formationSlots[i]; bool occupied=i<battle.Party.Count;
                 button.interactable=occupied && battle.CanChangeParty;
@@ -799,14 +799,14 @@ namespace Ashlight {
         void OpenCollection() { if(!atChapters) return; collectionPage=0; collectionHero=battle.Recruits[0].Id; collectionRoot.transform.SetAsLastSibling(); collectionRoot.SetActive(true); RefreshCollection(); }
         void RefreshCollection() {
             var hero=battle.HeroProgress(collectionHero);
-            collectionTitle.text="COLLECTION · "+battle.Recruits.Count+" · Page "+(collectionPage+1)+" · Shared Lv "+battle.CrystalLevel+" · "+battle.SharedCount+"/5 slots"+"\n"+hero.Identity.Name+" · "+hero.RarityLabel+" · "+hero.Identity.FactionName+" · "+hero.Identity.DisplayClass+"\nLv "+hero.LevelLabel+" · HP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · "+hero.Shards+" shards\nULT: "+hero.Ultimate.Description;
+            collectionTitle.text="COLLECTION · "+battle.Recruits.Count+" · Page "+(collectionPage+1)+" · Shared Lv "+battle.CrystalLevel+" · "+battle.SharedCount+"/5 slots"+"\n"+hero.Identity.Name+" · "+hero.RarityLabel+" · "+hero.Identity.FactionName+" · "+hero.Identity.DisplayClass+"\nLv "+hero.LevelLabel+" · HP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · Power "+hero.Power+" · "+hero.Shards+" shards\nULT: "+hero.Ultimate.Description;
             collectionShared.interactable=battle.IsShared(collectionHero) || (battle.CrystalUnlocked && battle.SharedCount<Battle.SharedSlots && hero.Level<battle.CrystalLevel);
             collectionShared.GetComponentInChildren<Text>().text=battle.IsShared(collectionHero)?"UNLINK":battle.CrystalUnlocked?"LINK · LV "+battle.CrystalLevel:"OWN 5 TO UNLOCK";
             collectionAscend.interactable=hero.UpgradeRank<PartyHero.MaxUpgradeRank && hero.Shards>=hero.UpgradeCost;
             collectionAscend.GetComponentInChildren<Text>().text=hero.UpgradeRank==PartyHero.MaxUpgradeRank?"ASCENSION MAX":"ASCEND → "+hero.NextAscension+" · "+hero.Shards+"/"+hero.UpgradeCost+" shards";
             for(int i=0;i<6;i++) { int entry=collectionPage*6+i; collectionCards[i].gameObject.SetActive(entry<battle.Recruits.Count); if(entry>=battle.Recruits.Count) continue;
                 var member=battle.HeroProgress(battle.Recruits[entry].Id); bool active=false; foreach(var ally in battle.Party) if(ally==member) active=true;
-                collectionCards[i].GetComponentInChildren<Text>().text=member.Identity.Name+" · "+member.RarityLabel+"\n"+member.Identity.DisplayClass+" · "+member.Identity.FactionName+"\nLv "+member.LevelLabel+" · HP "+member.Definition.MaxHealth+" · ATK "+member.Definition.AttackDamage+"\n"+(active?"PARTY":"RESERVE")+(battle.IsShared(member.Identity.Id)?" · LINKED":"")+(member.UpgradeRank<5 && member.Shards>=member.UpgradeCost?" · CAN ASCEND":"");
+                collectionCards[i].GetComponentInChildren<Text>().text=member.Identity.Name+" · "+member.RarityLabel+"\n"+member.Identity.DisplayClass+" · "+member.Identity.FactionName+"\nLv "+member.LevelLabel+" · HP "+member.Definition.MaxHealth+" · ATK "+member.Definition.AttackDamage+" · Power "+member.Power+"\n"+(active?"PARTY":"RESERVE")+(battle.IsShared(member.Identity.Id)?" · LINKED":"")+(member.UpgradeRank<5 && member.Shards>=member.UpgradeCost?" · CAN ASCEND":"");
             }
         }
         void CreateStagePreview() {
@@ -824,7 +824,7 @@ namespace Ashlight {
         void OpenStagePreview() {
             if(atChapters || !battle.CanChangeParty) return;
             selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
-            previewText.text="Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1)+"\n\n"+ChapterDefinition.Preview(battle.Encounter);
+            previewText.text="Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1)+"\nTeam "+battle.TeamPower+" vs Stage "+battle.StagePower+" · "+battle.Difficulty+"\nEstimate only · elements and formation matter.\n\n"+ChapterDefinition.Preview(battle.Encounter);
             previewRoot.transform.SetAsLastSibling(); previewRoot.SetActive(true);
         }
         void CreateChapterMenu() {
@@ -958,7 +958,7 @@ namespace Ashlight {
                 energyBars[i].color=energy==PartyHero.MaxEnergy?new Color(1,.75f,.2f):new Color(.25f,.65f,.9f);
                 energyLabels[i].text=party[i].Identity.Name+" · "+(battle.IsFrontRow(i)?"FRONT":"BACK")+"\nHP "+party[i].Health+"/"+party[i].Definition.MaxHealth+" · Energy "+energy+"/100"+(energy==100?" · ULT":"");
             }
-            factionStatus.gameObject.SetActive(!atChapters); factionStatus.text=battle.FactionSummary;
+            factionStatus.gameObject.SetActive(!atChapters); factionStatus.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary;
             bool preparing = !atChapters && battle.CanChangeParty;
             if(!atChapters && !presentingAction && enemyTurn==null && battle.Current==Phase.WaveCleared && !transitioningWave) StartCoroutine(NextWave());
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);

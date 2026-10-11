@@ -53,7 +53,7 @@ public static class SaveSerializationChecks {
         foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(!team.ChooseTalent(hero.Identity.Id,tier,tier%2)) throw new InvalidOperationException("Could not prepare saved progression choices.");
         var teamRoundTrip=RoundTrip(team);
         foreach(var hero in team.Party) if(teamRoundTrip.HeroProgress(hero.Identity.Id).RarityLabel!=hero.RarityLabel) throw new InvalidOperationException("Ascension rarity changed during Unity serialization.");
-        if(team.TeamFactionBonus!=20 || teamRoundTrip.TeamFactionBonus!=20 || team.Party[0].Definition.MaxHealth!=teamRoundTrip.Party[0].Definition.MaxHealth) throw new InvalidOperationException("Faction bonus changed during Unity serialization.");
+        if(team.TeamFactionBonus!=20 || teamRoundTrip.TeamFactionBonus!=20 || teamRoundTrip.TeamPower!=team.TeamPower || team.Party[0].Definition.MaxHealth!=teamRoundTrip.Party[0].Definition.MaxHealth) throw new InvalidOperationException("Faction bonus changed during Unity serialization.");
         foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(teamRoundTrip.HeroProgress(hero.Identity.Id).TalentChoice(tier)!=hero.TalentChoice(tier)) throw new InvalidOperationException("Progression choices changed during Unity serialization.");
         for(int i=0;i<team.Party.Count;i++) if(team.Party[i].Identity.Id!=teamRoundTrip.Party[i].Identity.Id)
             throw new InvalidOperationException("Formation changed during Unity serialization.");

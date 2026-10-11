@@ -1282,6 +1282,37 @@ class BattleChecks {
   Check(idleCrystal.RestoreProgress(idleCrystalSave)); sharedClock=sharedClock.AddHours(1);
   Check(idleCrystal.ClaimIdleRewards() && idleCrystal.HeroProgress(linkedId).Level>1 && idleCrystal.HeroProgress(linkedId).CombatLevel>=idleCrystal.HeroProgress(linkedId).Level);
   Check(idleCrystal.SetShared(linkedId,false) && idleCrystal.HeroProgress(linkedId).CombatLevel==idleCrystal.HeroProgress(linkedId).Level);
+  // Power estimates are stable preparation ratings, independent from transient combat damage.
+  foreach(var definition in HeroDefinition.Catalog) {
+   var rated=new PartyHero(definition); int basePower=rated.Power; Check(basePower>0);
+   rated.Health=1; rated.Energy=100; rated.Status=Debuff.Burn; Check(rated.Power==basePower);
+   rated.Level=10; rated.RefreshStats(); Check(rated.Power>basePower);
+   int levelPower=rated.Power; rated.UpgradeRank=1; rated.RefreshStats(); Check(rated.Power>levelPower);
+  }
+  Check(ChapterDefinition.Difficulty(125,100)=="EASY" && ChapterDefinition.Difficulty(124,100)=="EVEN");
+  Check(ChapterDefinition.Difficulty(85,100)=="HARD" && ChapterDefinition.Difficulty(86,100)=="EVEN");
+  Check(ChapterDefinition.Difficulty(0,100)=="HARD");
+  for(int stage=0;stage<30;stage++) {
+   int peakPower=0;
+   for(int wave=0;wave<3;wave++) { int wavePower=ChapterDefinition.WavePower(stage,wave); Check(wavePower>0 && ChapterDefinition.Preview(stage).Contains("Power "+wavePower)); peakPower=Math.Max(peakPower,wavePower); }
+   Check(ChapterDefinition.StagePower(stage)>=peakPower && ChapterDefinition.StagePower(stage,1)==ChapterDefinition.WavePower(stage,0,1));
+  }
+  var ratedTeam=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Rare"});
+  int ratedTotal=0; foreach(var member in ratedTeam.Party) ratedTotal+=member.Power; Check(ratedTotal==ratedTeam.TeamPower);
+  var ratedTeamSave=ratedTeam.ExportProgress(); var noFactionRating=new Battle(true,enableWaves:true);
+  Check(noFactionRating.RestoreProgress(ratedTeamSave) && ratedTeam.TeamPower>noFactionRating.TeamPower);
+  var ratingReload=new Battle(true,enableWaves:true,enableFactions:true);
+  Check(ratingReload.RestoreProgress(ratedTeamSave) && ratingReload.TeamPower==ratedTeam.TeamPower && ratingReload.StagePower==ratedTeam.StagePower && ratingReload.Difficulty==ratedTeam.Difficulty);
+  int beforeRatingAttack=ratedTeam.TeamPower; ratedTeam.Attack(); Check(ratedTeam.TeamPower==beforeRatingAttack);
+  var gearRating=FactionBattle(new[]{"Knight_Common"}); int beforeGear=gearRating.TeamPower;
+  var gearRatingSave=gearRating.ExportProgress(); gearRatingSave.inventory=new[]{new GearStackData{id="Weapon_Common_Physical",count=1},new GearStackData{id="Armor_Common_Physical",count=1}};
+  Check(gearRating.RestoreProgress(gearRatingSave) && gearRating.EquipGear("Knight_Common",GearSlot.Weapon,"Weapon_Common_Physical") && gearRating.TeamPower>beforeGear);
+  beforeGear=gearRating.TeamPower; Check(gearRating.EquipGear("Knight_Common",GearSlot.Armor,"Armor_Common_Physical") && gearRating.TeamPower>beforeGear);
+  var sharedRating=FactionBattle(new[]{"Knight_Common"}); var sharedRatingSave=sharedRating.ExportProgress();
+  for(int leader=0;leader<5;leader++) sharedRatingSave.loadouts[leader].level=15;
+  Check(sharedRating.RestoreProgress(sharedRatingSave)); int beforeLinkedRating=sharedRating.HeroProgress("Cleric_Common").Power;
+  Check(sharedRating.SetShared("Cleric_Common",true) && sharedRating.HeroProgress("Cleric_Common").Power>beforeLinkedRating);
+  Check(sharedRating.SetShared("Cleric_Common",false) && sharedRating.HeroProgress("Cleric_Common").Power==beforeLinkedRating);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

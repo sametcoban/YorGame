@@ -56,10 +56,38 @@ namespace Ashlight {
             var second=new EnemyDefinition(next.Name,Math.Max(20,(int)Math.Ceiling(next.MaxHealth*.3)),next.Weakness,next.Resistance,role:new[]{EnemyRole.Caster,EnemyRole.Archer,EnemyRole.Healer,EnemyRole.Support,EnemyRole.Caster}[encounter%StagesPerChapter]);
             return Array.AsReadOnly(new[]{first,second});
         }
+        public static int WavePower(int encounter,int wave,int waveCount=3) {
+            int partyLimit=Math.Min(5,encounter/StagesPerChapter+1); double total=0;
+            foreach(var enemy in WaveAt(encounter,wave,waveCount)) {
+                int health=(int)Math.Ceiling(enemy.MaxHealth*Math.Max(1,partyLimit/3.0));
+                double attacks=0;
+                for(int move=0;move<3;move++) {
+                    var skill=EnemySkills.ForRole(encounter,enemy,move);
+                    int damage=wave<waveCount-1?(int)Math.Ceiling(skill.Damage*.6):skill.Damage;
+                    attacks+=damage*(skill.PartyWide?partyLimit:1);
+                    if(skill.Action==EnemyAction.HealPartner) attacks+=health*.2;
+                    if(skill.Action==EnemyAction.Shield) attacks+=enemy.IsBoss?60:25;
+                }
+                total+=health+attacks*4/3+(enemy.Role==EnemyRole.Defender?health*.1:0);
+                if(enemy.Name=="Cinder Sovereign") total+=80;
+                if(enemy.Name=="Thorn Queen" || enemy.Name=="Veiled Monarch") total+=100;
+            }
+            return Math.Max(1,(int)Math.Ceiling(total));
+        }
+        public static int StagePower(int encounter,int waveCount=3) {
+            if(waveCount<1) throw new ArgumentOutOfRangeException("waveCount");
+            int sum=0,peak=0;
+            for(int wave=0;wave<waveCount;wave++) { int value=WavePower(encounter,wave,waveCount); sum+=value; peak=Math.Max(peak,value); }
+            return peak+(int)Math.Ceiling((sum-peak)*.25);
+        }
+        public static string Difficulty(int teamPower,int stagePower) {
+            if(stagePower<=0 || teamPower<0) throw new ArgumentOutOfRangeException("power");
+            return teamPower>=stagePower*1.25?"EASY":teamPower<=stagePower*.85?"HARD":"EVEN";
+        }
         public static string Preview(int encounter) {
             var lines=new List<string>();
             for(int wave=0;wave<3;wave++) {
-                lines.Add("WAVE "+(wave+1)+(wave==2?" · FINAL":""));
+                lines.Add("WAVE "+(wave+1)+(wave==2?" · FINAL":"")+" · Power "+WavePower(encounter,wave));
                 foreach(var enemy in WaveAt(encounter,wave,3))
                     lines.Add(enemy.Name+" · "+enemy.Role+" / "+enemy.Row+" · Weak: "+enemy.Weakness+" · Resists: "+enemy.Resistance);
             }

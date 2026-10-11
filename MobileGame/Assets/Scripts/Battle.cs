@@ -20,6 +20,17 @@ namespace Ashlight {
         internal int SharedLevel;
         public int CombatLevel { get { return Math.Max(Level,SharedLevel); } }
         public string LevelLabel { get { return CombatLevel>Level?CombatLevel+" (own "+Level+")":Level.ToString(); } }
+        public int Power {
+            get {
+                double critical=Identity.Class==HeroClass.Rogue?1+CriticalChance*(CriticalMultiplier-1):1;
+                double value=Definition.MaxHealth+Definition.AttackDamage*4*critical+Protection*10;
+                for(int slot=0;slot<2;slot++) { var skill=Skill(slot); value+=skill.Damage*critical+skill.Healing*HealingMultiplier*(skill.PartyHealing?2:1)+skill.Guard; }
+                var ultimate=Ultimate; value+=(ultimate.Damage*(ultimate.AreaDamage?1.5:1)*critical+ultimate.Healing*2+ultimate.Guard*2)*EnergyGain/100.0;
+                foreach(Element element in Enum.GetValues(typeof(Element))) value+=(DamageBoost(element)-1)*Definition.AttackDamage*2;
+                for(int tier=0;tier<3;tier++) if(TalentChoice(tier)>=0 && Level>=ClassTalents.UnlockLevel(tier)) value+=15;
+                return Math.Max(1,(int)Math.Ceiling(value));
+            }
+        }
         public int Experience { get; internal set; }
         public int UpgradeRank { get; internal set; }
         public int Shards { get; internal set; }
@@ -170,6 +181,9 @@ namespace Ashlight {
             if(ActiveIndex==first) ActiveIndex=second; else if(ActiveIndex==second) ActiveIndex=first;
             return true;
         }
+        public int TeamPower { get { int total=0; foreach(var member in party) total+=member.Power; return total; } }
+        public int StagePower { get { return ChapterDefinition.StagePower(Math.Min(encounter,ChapterDefinition.TotalStages-1),WaveCount); } }
+        public string Difficulty { get { return ChapterDefinition.Difficulty(TeamPower,StagePower); } }
         public int PartyLimit { get { return campaign?Math.Min(MaxPartySize,ChapterIndex+1):MaxPartySize; } }
         public IReadOnlyList<HeroClass> UnlockedClasses { get { return unlocked.AsReadOnly(); } }
         int targetCursor, encounter;
