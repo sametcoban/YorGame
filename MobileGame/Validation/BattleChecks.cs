@@ -330,7 +330,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==7);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==8);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1068,7 +1068,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==7 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==8 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1172,7 +1172,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==7);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==8);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1221,6 +1221,31 @@ class BattleChecks {
   var factionReplay=fiveFaction.ExportProgress(); factionReplay.encounter=30; factionReplay.pendingVictory=false; factionReplay.results=null;
   Check(factionReload.RestoreProgress(factionReplay) && factionReload.RestartCampaign() && factionReload.TeamFactionBonus==0 && factionReload.Party[0].Definition.MaxHealth==100);
   Check(factionReload.HeroProgress("Sorceress_Rare").FactionBonus==0);
+  // Ascension raises effective rarity while preserving every named hero and their loadout.
+  var ascension=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"});
+  var ascensionData=ascension.ExportProgress(); foreach(var loadout in ascensionData.loadouts) loadout.shards=1000;
+  Check(ascension.RestoreProgress(ascensionData));
+  foreach(var definition in HeroDefinition.Catalog) {
+   var member=ascension.HeroProgress(definition.Id); var originalUlt=member.Ultimate.Name; var originalAffinity=member.Identity.Affinity; int previousHealth=member.Definition.MaxHealth;
+   for(int step=1;step<=5;step++) {
+    int previousShards=member.Shards, cost=member.UpgradeCost;
+    Check(ascension.UpgradeHero(definition.Id) && member.Shards==previousShards-cost && member.UpgradeRank==step);
+    Check(member.Quality==(HeroQuality)Math.Min(4,(int)definition.Quality+step) && member.AscensionStars==Math.Max(0,(int)definition.Quality+step-4));
+    Check(member.Identity==definition && member.Identity.Affinity==originalAffinity && member.Ultimate.Name==originalUlt && member.SkillIndex(0)==0 && member.SkillIndex(1)==1);
+    Check(member.Definition.MaxHealth>=previousHealth && member.Health==member.Definition.MaxHealth); previousHealth=member.Health;
+   }
+   Check(!ascension.UpgradeHero(definition.Id));
+  }
+  var ascensionReload=new Battle(true,enableFactions:true); Check(ascensionReload.RestoreProgress(ascension.ExportProgress()));
+  foreach(var definition in HeroDefinition.Catalog) Check(ascensionReload.HeroProgress(definition.Id).RarityLabel==ascension.HeroProgress(definition.Id).RarityLabel);
+  var legacyAscension=ascension.ExportProgress(); legacyAscension.version=7;
+  Check(ascensionReload.RestoreProgress(legacyAscension) && ascensionReload.HeroProgress("Knight_Common").UpgradeRank==5 && ascensionReload.HeroProgress("Knight_Common").Quality==HeroQuality.Legendary);
+  Check(ascensionReload.HeroProgress("Knight_Common").AscensionStars==1 && ascensionReload.HeroProgress("Knight_Legendary").AscensionStars==5);
+  // Existing purchased ranks retain at least their previous base-stat strength at every level.
+  foreach(var definition in HeroDefinition.Catalog) for(int rank=0;rank<=5;rank++) for(int level=1;level<=20;level++) {
+   var grown=new PartyHero(definition); grown.UpgradeRank=rank; grown.Level=level; grown.RefreshStats();
+   Check(grown.Definition.MaxHealth>=definition.Stats.Scaled(1f+(level-1)*.05f+rank*.1f).MaxHealth);
+  }
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

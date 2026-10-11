@@ -7,6 +7,7 @@ namespace Ashlight {
         Battle battle = new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true);
         bool atChapters;
         GameObject chapterRoot;
+        GameObject collectionRoot; Text collectionTitle; Button[] collectionCards; Button collectionAscend; int collectionPage; string collectionHero;
         Text factionStatus, formationFaction;
         Text chapterTitle;
         Button idleRewardsButton;
@@ -198,7 +199,7 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview();
+            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
             CreateResultsPanel();
@@ -545,11 +546,11 @@ namespace Ashlight {
         }
         void RefreshSelection() {
             var member = battle.Party[battle.ActiveIndex];
-            selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.DisplayClass + " / " + member.Identity.Quality + " / " + member.Identity.FactionName + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
+            selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.DisplayClass + " / " + member.RarityLabel + " / " + member.Identity.FactionName + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
             selectionTitle.text+="\nPASSIVE: "+ClassDefinition.PassiveDescription(member.Identity.Class);
-            selectionTitle.text+="\n"+member.Identity.Name+" Lv "+member.Level+" · XP "+member.Experience+"/"+member.NextLevelXP+" · Upgrade "+member.UpgradeRank+"/5 · Shards "+member.Shards;
+            selectionTitle.text+="\n"+member.Identity.Name+" Lv "+member.Level+" · XP "+member.Experience+"/"+member.NextLevelXP+" · Ascension "+member.UpgradeRank+"/5 · Shards "+member.Shards;
             upgradeButton.interactable=battle.CanChangeParty && member.UpgradeRank<PartyHero.MaxUpgradeRank && member.Shards>=member.UpgradeCost;
-            upgradeButton.GetComponentInChildren<Text>().text=member.UpgradeRank==PartyHero.MaxUpgradeRank?"UPGRADE MAX":"UPGRADE "+member.Identity.Name+"\n"+member.Shards+"/"+member.UpgradeCost+" shards";
+            upgradeButton.GetComponentInChildren<Text>().text=member.UpgradeRank==PartyHero.MaxUpgradeRank?"ASCENSION MAX":"ASCEND → "+member.NextAscension+"\n"+member.Shards+"/"+member.UpgradeCost+" shards";
             for (int i = 0; i < 2; i++) {
                 slots[i].gameObject.SetActive(selectingSkills);
                 slots[i].GetComponentInChildren<Text>(true).text = "SLOT " + (i + 1) + ": " + member.Skill(i).Name;
@@ -566,7 +567,7 @@ namespace Ashlight {
                     var candidate = candidates[i]; int inParty = -1;
                     var progress=battle.HeroProgress(candidate.Id); var stats=progress==null?candidate.Stats:progress.Definition; var ult=progress==null?candidate.Ultimate:progress.Ultimate;
                     for (int j = 0; j < battle.Party.Count; j++) if (battle.Party[j].Identity.Id == candidate.Id) inParty = j;
-                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + candidate.Quality + " / " + candidate.FactionName + " / " + candidate.Affinity + "\nHP " + stats.MaxHealth + " | Attack " + stats.AttackDamage + " | Lv " + (progress==null?1:progress.Level) + " / +" + (progress==null?0:progress.UpgradeRank) + "\nULT: " + ult.Description + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
+                    choices[i].GetComponentInChildren<Text>(true).text = candidate.Name + " — " + candidate.Gender + " " + candidate.DisplayClass + "\n" + (progress==null?candidate.Quality.ToString():progress.RarityLabel) + " / " + candidate.FactionName + " / " + candidate.Affinity + "\nHP " + stats.MaxHealth + " | Attack " + stats.AttackDamage + " | Lv " + (progress==null?1:progress.Level) + " / +" + (progress==null?0:progress.UpgradeRank) + "\nULT: " + ult.Description + "\n" + (Recruited(candidate.Id) ? inParty >= 0 ? "IN PARTY" : "RESERVE" : "NOT RECRUITED");
                     choices[i].interactable = Recruited(candidate.Id) && (inParty >= 0 ? battle.Current == Phase.Player && battle.Party[inParty].Health > 0 && !battle.Party[inParty].Acted : battle.CanChangeParty);
                 }
             }
@@ -778,6 +779,33 @@ namespace Ashlight {
         void OnApplicationPause(bool paused) { if (paused) SaveProgress(); }
         void OnApplicationQuit() { SaveProgress(); }
         void OnApplicationFocus(bool focused) { if (!focused) SaveProgress(); }
+        void CreateCollection() {
+            collectionRoot=new GameObject("Hero Collection",typeof(RectTransform),typeof(Image)); collectionRoot.transform.SetParent(safe,false);
+            var rect=collectionRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
+            collectionRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            collectionTitle=Label(collectionRoot.transform,"",new Vector2(.04f,.8f),new Vector2(.96f,.98f),22);
+            collectionCards=new Button[6];
+            for(int i=0;i<6;i++) { int index=i; float x=i%2==0?.05f:.52f,y=.59f-(i/2)*.18f;
+                collectionCards[i]=MakeButton(collectionRoot.transform,"",x,x+.43f,()=> { int entry=collectionPage*6+index; if(entry<battle.Recruits.Count) { collectionHero=battle.Recruits[entry].Id; RefreshCollection(); } });
+                PlaceGearControl(collectionCards[i],x,y,x+.43f,y+.16f); collectionCards[i].GetComponentInChildren<Text>(true).fontSize=19;
+            }
+            var prev=MakeButton(collectionRoot.transform,"PREVIOUS",.05f,.35f,()=> { collectionPage=Math.Max(0,collectionPage-1); RefreshCollection(); }); PlaceGearControl(prev,.05f,.14f,.35f,.21f);
+            var next=MakeButton(collectionRoot.transform,"NEXT",.65f,.95f,()=> { collectionPage=Math.Min((battle.Recruits.Count-1)/6,collectionPage+1); RefreshCollection(); }); PlaceGearControl(next,.65f,.14f,.95f,.21f);
+            collectionAscend=MakeButton(collectionRoot.transform,"ASCEND",.05f,.6f,()=> { if(battle.UpgradeHero(collectionHero)) { SaveProgress(); RefreshCollection(); } }); PlaceGearControl(collectionAscend,.05f,.025f,.6f,.12f);
+            var done=MakeButton(collectionRoot.transform,"DONE",.65f,.95f,()=>collectionRoot.SetActive(false)); PlaceGearControl(done,.65f,.025f,.95f,.12f); collectionRoot.SetActive(false);
+            var open=MakeButton(chapterRoot.transform,"COLLECTION",.4f,.73f,OpenCollection); PlaceGearControl(open,.4f,.025f,.73f,.135f);
+        }
+        void OpenCollection() { if(!atChapters) return; collectionPage=0; collectionHero=battle.Recruits[0].Id; collectionRoot.transform.SetAsLastSibling(); collectionRoot.SetActive(true); RefreshCollection(); }
+        void RefreshCollection() {
+            var hero=battle.HeroProgress(collectionHero);
+            collectionTitle.text="COLLECTION · "+battle.Recruits.Count+" heroes · Page "+(collectionPage+1)+"\n"+hero.Identity.Name+" · "+hero.RarityLabel+" · "+hero.Identity.FactionName+" · "+hero.Identity.DisplayClass+"\nLv "+hero.Level+" · HP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · "+hero.Shards+" shards\nULT: "+hero.Ultimate.Description;
+            collectionAscend.interactable=hero.UpgradeRank<PartyHero.MaxUpgradeRank && hero.Shards>=hero.UpgradeCost;
+            collectionAscend.GetComponentInChildren<Text>().text=hero.UpgradeRank==PartyHero.MaxUpgradeRank?"ASCENSION MAX":"ASCEND → "+hero.NextAscension+" · "+hero.Shards+"/"+hero.UpgradeCost+" shards";
+            for(int i=0;i<6;i++) { int entry=collectionPage*6+i; collectionCards[i].gameObject.SetActive(entry<battle.Recruits.Count); if(entry>=battle.Recruits.Count) continue;
+                var member=battle.HeroProgress(battle.Recruits[entry].Id); bool active=false; foreach(var ally in battle.Party) if(ally==member) active=true;
+                collectionCards[i].GetComponentInChildren<Text>().text=member.Identity.Name+" · "+member.RarityLabel+"\n"+member.Identity.DisplayClass+" · "+member.Identity.FactionName+"\nLv "+member.Level+" · HP "+member.Definition.MaxHealth+" · ATK "+member.Definition.AttackDamage+"\n"+(active?"PARTY":"RESERVE")+(member.UpgradeRank<5 && member.Shards>=member.UpgradeCost?" · CAN ASCEND":"");
+            }
+        }
         void CreateStagePreview() {
             previewRoot=new GameObject("Stage Preview",typeof(RectTransform),typeof(Image));
             previewRoot.transform.SetParent(safe,false);
@@ -812,7 +840,7 @@ namespace Ashlight {
             }
             summonButton=MakeButton(chapterRoot.transform,"SUMMON — 100",.05f,.37f,SummonHero);
             var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.37f,.135f);
-            Label(chapterRoot.transform,Summoning.Odds+"\nRare+ within 5 pulls; Legendary within 15. Six heroes per rarity have equal odds.",new Vector2(.4f,.02f),new Vector2(.96f,.15f),18);
+            Label(chapterRoot.transform,"SUMMON GUARANTEES\nRare+ within 5 pulls\nLegendary within 15 pulls",new Vector2(.76f,.02f),new Vector2(.98f,.15f),18);
             restartCampaignButton=MakeButton(chapterRoot.transform,"RESTART CAMPAIGN\nKeep heroes, skills & crystals",.24f,.76f,RestartCampaign);
             var replayRect=restartCampaignButton.GetComponent<RectTransform>();
             replayRect.anchorMin=new Vector2(.24f,.43f); replayRect.anchorMax=new Vector2(.76f,.61f);
@@ -846,6 +874,7 @@ namespace Ashlight {
         }
         void StartChapter(int index) {
             if(battle.CampaignComplete || index!=battle.ChapterIndex) return;
+            collectionRoot.SetActive(false);
             CancelActionPresentation(); sounds.Clear(); effects.Clear();
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true);
             if(stageChapter!=battle.ChapterIndex) {

@@ -22,7 +22,11 @@ namespace Ashlight {
         public int Shards { get; internal set; }
         public int NextLevelXP { get { return 100+(Level-1)*25; } }
         public int UpgradeCost { get { return 20*(UpgradeRank+1); } }
-        public float Growth { get { return 1f+(Level-1)*.05f+UpgradeRank*.10f; } }
+        public HeroQuality Quality { get { return (HeroQuality)Math.Min(4,(int)Identity.Quality+UpgradeRank); } }
+        public int AscensionStars { get { return Math.Max(0,(int)Identity.Quality+UpgradeRank-4); } }
+        public string RarityLabel { get { return Quality+(AscensionStars>0?" ★"+AscensionStars:""); } }
+        public string NextAscension { get { int rank=UpgradeRank+1; int stars=Math.Max(0,(int)Identity.Quality+rank-4); return ((HeroQuality)Math.Min(4,(int)Identity.Quality+rank))+(stars>0?" ★"+stars:""); } }
+        public float Growth { get { return (1f+(Level-1)*.05f)*HeroDefinition.Multiplier(Quality)/HeroDefinition.Multiplier(Identity.Quality)*(1f+AscensionStars*.10f); } }
         readonly GearDefinition[] gear=new GearDefinition[3];
         public GearDefinition Gear(GearSlot slot) { return gear[(int)slot]; }
         internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; RefreshStats(); }
@@ -357,7 +361,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
