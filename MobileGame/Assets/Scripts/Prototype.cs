@@ -22,6 +22,8 @@ namespace Ashlight {
         Text chapterTitle;
         Button idleRewardsButton;
         Button[] chapterChoices;
+        Text[] chapterDetails;
+        Image[] chapterProgress;
         int chapterPage;
         Text chapterPageLabel;
         Button chapterPrevious, chapterNext;
@@ -95,8 +97,10 @@ namespace Ashlight {
         Button[] choices, slots;
         Button upgradeButton, gearButton, gearPrevious, gearNext;
         GameObject resultsRoot;
-        Text resultsTitle,resultsRewards,resultsLoot;
+        Text resultsTitle,resultsRewards,resultsLoot,resultsExtra;
+        readonly Image[] resultsDamageBars=new Image[Battle.MaxPartySize], resultsHealingBars=new Image[Battle.MaxPartySize];
         readonly Text[] resultsHeroes=new Text[Battle.MaxPartySize];
+        readonly GameObject[] resultsHeroPanels=new GameObject[Battle.MaxPartySize];
         GameObject equipmentRoot;
         Text equipmentTitle;
         readonly Button[] gearHeroes=new Button[Battle.MaxPartySize],gearSlots=new Button[3],gearChoices=new Button[6];
@@ -743,12 +747,24 @@ namespace Ashlight {
             resultsRoot=new GameObject("Battle Results",typeof(RectTransform),typeof(Image)); resultsRoot.transform.SetParent(safe,false);
             var rect=resultsRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
             resultsRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
-            resultsTitle=Label(resultsRoot.transform,"VICTORY",new Vector2(.06f,.82f),new Vector2(.94f,.97f),38);
-            resultsRewards=Label(resultsRoot.transform,"",new Vector2(.06f,.64f),new Vector2(.94f,.81f),24);
-            resultsLoot=Label(resultsRoot.transform,"",new Vector2(.06f,.49f),new Vector2(.94f,.63f),24);
-            Label(resultsRoot.transform,"HERO CONTRIBUTIONS · DAMAGE / HEALING",new Vector2(.06f,.43f),new Vector2(.94f,.48f),19);
-            for(int i=0;i<resultsHeroes.Length;i++) resultsHeroes[i]=Label(resultsRoot.transform,"",new Vector2(.06f,.365f-i*.055f),new Vector2(.94f,.418f-i*.055f),18);
-            var claim=MakeButton(resultsRoot.transform,"CONTINUE · CLAIM REWARDS",.2f,.8f,EnterChapters); PlaceGearControl(claim,.2f,.04f,.8f,.145f);
+            Panel(resultsRoot.transform,new Vector2(.04f,.79f),new Vector2(.96f,.795f),new Color(.4f,.31f,.17f));
+            resultsTitle=Label(resultsRoot.transform,"VICTORY",new Vector2(.06f,.82f),new Vector2(.94f,.97f),36);
+            resultsTitle.color=new Color(1,.82f,.4f);
+            Panel(resultsRoot.transform,new Vector2(.06f,.63f),new Vector2(.48f,.77f),new Color(.075f,.085f,.105f));
+            Panel(resultsRoot.transform,new Vector2(.52f,.63f),new Vector2(.94f,.77f),new Color(.075f,.085f,.105f));
+            resultsRewards=Label(resultsRoot.transform,"",new Vector2(.08f,.64f),new Vector2(.46f,.76f),30);
+            resultsLoot=Label(resultsRoot.transform,"",new Vector2(.54f,.64f),new Vector2(.92f,.76f),23);
+            resultsExtra=Label(resultsRoot.transform,"",new Vector2(.06f,.55f),new Vector2(.94f,.62f),20);
+            Label(resultsRoot.transform,"PARTY CONTRIBUTIONS · GOLD: DAMAGE SHARE · GREEN: HEALING SHARE",new Vector2(.06f,.49f),new Vector2(.94f,.54f),18);
+            for(int i=0;i<resultsHeroes.Length;i++) {
+                float bottom=.414f-i*.067f;
+                Panel(resultsRoot.transform,new Vector2(.06f,bottom),new Vector2(.94f,bottom+.061f),new Color(.055f,.065f,.085f));
+                resultsHeroPanels[i]=resultsRoot.transform.GetChild(resultsRoot.transform.childCount-1).gameObject;
+                resultsHeroes[i]=Label(resultsRoot.transform,"",new Vector2(.075f,bottom+.015f),new Vector2(.925f,bottom+.061f),20);
+                resultsDamageBars[i]=Bar(resultsRoot.transform,new Vector2(.075f,bottom+.003f),new Vector2(.48f,bottom+.011f),new Color(.85f,.64f,.25f));
+                resultsHealingBars[i]=Bar(resultsRoot.transform,new Vector2(.52f,bottom+.003f),new Vector2(.925f,bottom+.011f),new Color(.35f,.7f,.43f));
+            }
+            var claim=MakeButton(resultsRoot.transform,"CONTINUE · CLAIM REWARDS",.2f,.8f,EnterChapters); PlaceGearControl(claim,.2f,.035f,.8f,.13f);
             resultsRoot.SetActive(false);
         }
         void ShowResults() {
@@ -756,14 +772,25 @@ namespace Ashlight {
             var result=battle.Results; if(result==null) return;
             autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
             resultsTitle.text=battle.InTower?"VICTORY · TOWER FLOOR "+battle.TowerFloor:"VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
-            resultsRewards.text="+"+result.Experience+" XP per participating hero · +"+result.Crystals+" crystals"+(result.RecruitName==null?"":"\nNew recruit: "+result.RecruitName)+(battle.InTower?"\n+"+battle.TowerShards+" shards per participating hero":"")+"\nPress Continue to claim these rewards.";
-            resultsLoot.text=result.Loot==null?"No loot":"GEAR DROP\n"+result.Loot.Description;
+            resultsRewards.text="+"+result.Crystals+" CRYSTALS\n+"+result.Experience+" XP / HERO";
+            resultsRewards.color=new Color(1,.82f,.4f);
+            resultsLoot.text=result.Loot==null?"NO GEAR DROP":"GEAR DROP\n"+result.Loot.Description;
             resultsLoot.color=result.Loot==null?Color.white:result.Loot.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):result.Loot.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):result.Loot.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
+            resultsExtra.text=(result.RecruitName==null?"": "NEW RECRUIT · "+result.RecruitName+"\n")+(battle.InTower?"+"+battle.TowerShards+" SHARDS / HERO · ":"")+"Continue to claim your rewards.";
+            int totalDamage=0,totalHealing=0;
+            foreach(var contribution in result.Heroes) { totalDamage+=contribution.Damage; totalHealing+=contribution.Healing; }
             for(int i=0;i<resultsHeroes.Length;i++) {
-                resultsHeroes[i].gameObject.SetActive(i<result.Heroes.Count); if(i>=result.Heroes.Count) continue;
+                bool occupied=i<result.Heroes.Count;
+                resultsHeroPanels[i].SetActive(occupied);
+                resultsHeroes[i].gameObject.SetActive(occupied);
+                resultsDamageBars[i].transform.parent.gameObject.SetActive(occupied);
+                resultsHealingBars[i].transform.parent.gameObject.SetActive(occupied);
+                if(!occupied) continue;
                 var row=result.Heroes[i];
                 resultsHeroes[i].text=row.Name+" · Damage "+row.Damage+" · Healing "+row.Healing+"\n"+(row.LevelAfter>row.LevelBefore?"LEVEL UP! "+row.LevelBefore+" → "+row.LevelAfter:"Level "+row.LevelAfter)+" · "+(row.LevelAfter==PartyHero.MaxLevel?"MAX LEVEL":"XP "+row.ExperienceAfter+"/"+(100+(row.LevelAfter-1)*25));
                 resultsHeroes[i].color=row.LevelAfter>row.LevelBefore?new Color(1,.8f,.25f):Color.white;
+                SetMeter(resultsDamageBars[i],totalDamage>0?row.Damage/(float)totalDamage:0);
+                SetMeter(resultsHealingBars[i],totalHealing>0?row.Healing/(float)totalHealing:0);
             }
             resultsRoot.transform.SetAsLastSibling(); resultsRoot.SetActive(true); SaveProgress();
             ShowTutorial(2);
@@ -963,10 +990,17 @@ namespace Ashlight {
             var soundRect=soundButton.GetComponent<RectTransform>(); soundRect.anchorMin=new Vector2(.80f,.747f); soundRect.anchorMax=new Vector2(.97f,.795f);
             idleRewardsButton=MakeButton(chapterRoot.transform,"IDLE REWARDS",.05f,.78f,ClaimIdleRewards); PlaceGearControl(idleRewardsButton,.05f,.735f,.78f,.795f); idleRewardsButton.GetComponentInChildren<Text>(true).fontSize=18;
             chapterChoices=new Button[ChapterDefinition.Catalog.Count];
+            chapterDetails=new Text[chapterChoices.Length]; chapterProgress=new Image[chapterChoices.Length];
             for(int i=0;i<chapterChoices.Length;i++) {
                 int index=i; float left=i%2==0?.05f:.52f; float bottom=.50f-((i%6)/2)*.15f;
                 chapterChoices[i]=MakeButton(chapterRoot.transform,"",left,left+.43f,()=>StartChapter(index));
                 var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.13f);
+                var caption=chapterChoices[i].GetComponentInChildren<Text>();
+                var captionRect=caption.GetComponent<RectTransform>(); captionRect.anchorMin=new Vector2(.02f,.49f); captionRect.anchorMax=new Vector2(.98f,.96f);
+                captionRect.offsetMin=new Vector2(6,0); captionRect.offsetMax=new Vector2(-6,0);
+                caption.resizeTextMinSize=18; caption.resizeTextMaxSize=22;
+                chapterDetails[i]=Label(chapterChoices[i].transform,"",new Vector2(.035f,.15f),new Vector2(.965f,.46f),16);
+                chapterProgress[i]=Bar(chapterChoices[i].transform,new Vector2(.035f,.05f),new Vector2(.965f,.105f),new Color(.85f,.64f,.25f));
             }
             summonButton=MakeButton(chapterRoot.transform,"SUMMON x1",.05f,.20f,SummonHero);
             var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.20f,.135f);
@@ -1062,9 +1096,23 @@ namespace Ashlight {
             chapterPage=battle.ChapterIndex/6;
             for(int i=0;i<chapterChoices.Length;i++) {
                 var chapter=ChapterDefinition.Catalog[i];
-                string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5 · 3 waves: "+ChapterDefinition.EnemyAt(battle.Encounter).Name;
-                chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+" · "+Mathf.Min(Battle.MaxPartySize,i+1)+" hero slots\n"+state;
-                chapterChoices[i].interactable=!battle.CampaignComplete && i==battle.ChapterIndex;
+                bool complete=battle.CampaignComplete || i<battle.ChapterIndex;
+                bool current=!battle.CampaignComplete && i==battle.ChapterIndex;
+                int cleared=complete?ChapterDefinition.StagesPerChapter:current?battle.StageIndex:0;
+                string state=complete?"CLEARED":current?"CURRENT":"LOCKED";
+                int minEnemies=Battle.MaxEnemies,maxEnemies=1;
+                for(int stage=0;stage<ChapterDefinition.StagesPerChapter;stage++) for(int wave=0;wave<3;wave++) {
+                    int count=ChapterDefinition.WaveAt(i*ChapterDefinition.StagesPerChapter+stage,wave,3).Count;
+                    minEnemies=Mathf.Min(minEnemies,count); maxEnemies=Mathf.Max(maxEnemies,count);
+                }
+                string enemies=minEnemies==maxEnemies?maxEnemies.ToString():minEnemies+"–"+maxEnemies;
+                chapterChoices[i].GetComponentInChildren<Text>().text="CHAPTER "+(i+1)+" · "+state+"\n"+chapter.Name;
+                chapterDetails[i].text=cleared+"/5 CLEAR · "+Mathf.Min(Battle.MaxPartySize,i+1)+" HEROES\n"+enemies+" FOES / WAVE · FINALE: "+(i>=2?"2 BOSSES":"1 BOSS");
+                chapterDetails[i].color=current?new Color(1,.86f,.6f):complete?new Color(.6f,.82f,.68f):new Color(.6f,.64f,.7f);
+                chapterChoices[i].GetComponent<Image>().color=current?new Color(.21f,.17f,.11f):complete?new Color(.07f,.12f,.1f):new Color(.06f,.07f,.09f);
+                chapterProgress[i].color=complete?new Color(.35f,.7f,.43f):new Color(.85f,.64f,.25f);
+                SetMeter(chapterProgress[i],cleared/(float)ChapterDefinition.StagesPerChapter);
+                chapterChoices[i].interactable=current;
             }
             RefreshChapterPage();
             if(claimedVictory) ShowTutorial(3);

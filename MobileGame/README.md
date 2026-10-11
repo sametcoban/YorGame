@@ -620,3 +620,11 @@ Added The Ashen March, The Drowned Crypt, The Blood Cathedral, The Obsidian Wast
 Combat targeting, health meters, enemy positions, damage presentation, turn resolution, and area ultimates support three enemies. Campaign restart is removed from both the menu and combat API. Existing completed chapter-six saves advance into chapter seven without resetting heroes, equipment, talents, presets, shards, currency, or pity. The Tower continues cycling the original 30 encounters to preserve existing floor behavior.
 
 Validation: 29,767 pure C# regression checks cover all 180 story waves with controlled defenses, all Tower floors, saved progress, third-target attacks, three-enemy turns, and area/single-target ultimates. The balance runner passes 30,000 seeded stage samples and 400 first-arc campaign runs; developed Legendary level-ten teams win at least 90% of samples on every new stage without equipment or talents. These simulations do not establish Unity playback, mobile layout, or device performance. Copy Scripts and Editor, rebuild the enemy roster, and test chapter 7 and three-target selection in Unity.
+
+### Chapter cards and victory-screen polish
+
+Chapter cards now show Current/Cleared/Locked status, completed-stage count, party capacity, the chapter's minimum/maximum enemies per wave, and the final boss count. A gold progress meter highlights the current chapter; cleared chapters use green. Both chapter pages keep the same layout.
+
+The victory screen separates crystals/XP and gear into larger reward cards, with recruitment or Tower shards below them. Hero contribution rows include damage and healing numbers, projected level/XP, and separate gold/green meters showing each hero's fraction of party damage/healing. Unoccupied rows are hidden, and zero totals show empty meters. Continue still claims the prepared rewards once. This is presentation-only and does not alter combat, progression, or saves.
+
+Unity validation remains local: check both chapter pages, five-hero story/Tower wins, one-hero wins, no-healing results, level-ups, new recruits, and long gear descriptions. Cloud syntax inspection cannot verify Unity import, layout, or touch interaction.
