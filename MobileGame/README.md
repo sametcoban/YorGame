@@ -22,7 +22,7 @@ To update an existing Unity project:
 1. Copy **Assets/Art**, the updated **Assets/Editor** and **Assets/Scripts** from this version. Keep your existing project settings and saves.
 2. Wait for importing, then run **Ashlight > Prepare Mobile Project**.
 3. Run **Ashlight > Art > Build Dark Fantasy Roster** to refresh all twelve class/gender models. Use **Build Dark Fantasy Reference** only if Rowan or the Warden also need refreshing. Automatic preparation preserves existing generated prefabs.
-4. Open the Battle scene and press Play. Select Rowan in your party and start the first chapter. If you already completed the campaign, use **Restart Campaign** to replay it while preserving your collection and currency.
+4. Open the Battle scene and press Play. Select Rowan in your party and start the first chapter. Saves that completed the original six chapters continue into chapter 7 with their collection and currency intact.
 
 ![Blender character art preview](ArtPreview/DarkFantasyReference.png)
 
@@ -62,7 +62,7 @@ To update:
 
 1. Stop Play mode and copy **Assets/Art**, **Assets/Editor**, and **Assets/Scripts** from the updated branch. Copy all script files, including `EnemyVisualDefinition.cs`.
 2. Wait for Unity to compile/import, then run **Ashlight > Prepare Mobile Project** followed by **Ashlight > Art > Build Enemy Roster**. This explicitly refreshes enemy prefabs/controllers, including the Warden's new Windup animation. Existing custom hero prefabs are preserved. The older **Build Chapter One Enemies** menu is an alias for the same operation.
-3. Press Play and try chapter one. In chapter three's final encounter, select each boss, damage one, and check both attack turns. Also check that killing one leaves the other alive and that each parry counters the flashing attacker. Completed campaigns can use **Restart Campaign**.
+3. Press Play and try chapter one. In chapter three's final encounter, select each boss, damage one, and check both attack turns. Also check that killing one leaves the other alive and that each parry counters the flashing attacker. Progress continues through twelve chapters; campaign restart has been removed.
 
 **Verified here:** 2,100 combat checks, including all four paired encounters through the public combat API, defeat order, independent defense windows, counters, fallen allies, reset, save/reload and one reward per encounter. The six enemy source FBX files independently reimported in Blender with fully weighted meshes, UVs, eight animation states and evaluated finite pose bounds. Each has fewer than 18,000 triangles and at most seven material slots. Source reports and checksums are in [DarkFantasy/CREDITS.md](Assets/Art/DarkFantasy/CREDITS.md). **Unity compilation/import, gameplay rendering, two-boss camera framing, clipping and device performance remain unverified in this cloud environment.**
 
@@ -178,7 +178,7 @@ The combat/roster model has been exercised outside Unity. The new UI, 3D party p
 
 ## Chapters and local saves
 
-The six chapters are **The Lantern Road**, **The Frozen Pass**, **The Ember Citadel**, **The Storm Spire**, **The Blighted Garden**, and **The Eclipse Throne**. Each contains five distinct encounters. Only the current chapter is playable; previously cleared chapters show Completed and later chapters show Locked. After all 30 stages, the menu shows **Restart Campaign**. It returns you to Chapter 1, stage 1 while preserving recruited heroes, party composition, active/reserve skill loadouts, crystals and summon pity counters. Health and skill charges refill. The restart saves immediately and also works for previously completed saves. This button is only available after campaign completion; individual chapter selection/replay is not implemented. See [CHAPTERS.md](CHAPTERS.md) for the enemy list.
+There are twelve chapters with five stages each. Only the current chapter is playable; earlier chapters show Completed and later chapters show Locked. Chapters 7–12 add simultaneous groups of two or three enemies per regular wave, with two bosses together at each chapter's end. The chapter menu shows six chapters per page and opens the page containing your current chapter. After stage 60 the story is complete; campaign restart is not available. Original completed saves continue at chapter 7. See [CHAPTERS.md](CHAPTERS.md) for the enemy list.
 
 Progress uses Unity `PlayerPrefs` with versioned JSON and a previous valid snapshot as backup. Saves happen after summons, party/skill changes, victory, Continue, and on pause/focus loss/exit. Loading validates IDs, party size, unique members, recruited roster, skill choices, version, and stage bounds before applying anything. A valid backup is attempted if the primary save is unreadable. Each loaded encounter restores full health and skill uses. Unknown/incompatible snapshots are rejected rather than partially applied.
 
@@ -204,7 +204,7 @@ Each rarity has six named heroes with equal conditional odds. Every fifth consec
 
 Summons are available between encounters and after campaign completion, never during an active fight. Newly summoned heroes go to reserves, preserving the active party and its chapter-based five-hero cap. Duplicate heroes return the listed crystals without adding another copy. The result shows name, class, quality, affinity, and whether it is new or a duplicate. The hero pool remains fixed across chapters. Deterministic chapter rewards now award the first hero you do not own so a summon cannot cause a duplicated story reward.
 
-Currency, recruits, and both pity counters save immediately. The version-2 snapshot accepts existing version-1 saves and gives those profiles the one-time 300-crystal starter balance on migration, preserving chapters/roster/loadouts. Save keys remain unchanged. Each cleared encounter awards crystals once when you Continue. After restarting a completed campaign, encounters award crystals again; this deliberately allows repeat play and earning more summons in the free prototype. Existing heroes are never duplicated by story rewards; any missing hero can still be recruited on a replay. Restarting does not grant starter crystals again.
+Currency, recruits, and both pity counters save immediately. The version-2 snapshot accepts existing version-1 saves and gives those profiles the one-time 300-crystal starter balance on migration, preserving chapters/roster/loadouts. Save keys remain unchanged. Each cleared encounter awards crystals once when you Continue. Story rewards recruit missing named heroes until the collection is complete. Progress continues sequentially; campaign restart is no longer available.
 
 Validation checks all probability boundaries, exact base-rate partition, both guarantees, duplicate refunds, invalid rolls, insufficient funds, rewards claimed once, save round trips, arbitrary summoned roster order, and legacy migration. The updated Unity summon screen and browser persistence still require local testing.
 
@@ -243,10 +243,9 @@ The older licensed KayKit cartoon asset remains archived in `Assets/ThirdParty/K
 
 Additional free garment candidates remain documented in [WARDROBE.md](WARDROBE.md). None of those downloaded community clothing packs is bundled in this version.
 
-## Updating the campaign restart button
+## Updating the expanded campaign
 
-Copy the updated `Assets/Scripts/Battle.cs` and `Assets/Scripts/Prototype.cs` into your current project, then press Play. Existing completed saves show the new button on the chapter menu automatically. No save deletion or project preparation is needed. The engine-independent checks cover restarting a completed save, preserving roster/party/loadouts/currency/pity, restoring battle readiness, reloading the restarted campaign, repeat rewards, and rejecting restart during unfinished encounters. Unity layout and button interaction still need local testing.
-
+Copy updated **Assets/Scripts** and **Assets/Editor** into your Unity project. Wait for compilation, then run **Ashlight > Art > Build Enemy Roster** to generate themed variants for the new enemies using the existing free models. Chapter-seven continuation requires no save deletion. The diagnostic menu **Ashlight > Diagnostics > Check Save Serialization** includes original campaign completion and three-enemy stages without touching player saves.
 
 ## Combat motion, audio and Auto Play
 
@@ -343,7 +342,7 @@ After victory and the final action animation, a results panel displays XP per pa
 
 Rewards are prepared at victory and saved before claiming. Version 5 saves preserve the pending loot and contribution totals, so restarting Unity resumes the same results screen. It does not automatically claim rewards or reroll the drop. Existing version 1–4 saves migrate; older pending victories receive a new reward preview because those versions did not save result statistics.
 
-Party capacity is **1 hero in chapter 1, 2 in chapter 2 and 3 in chapters 3–6**. Story recruits remain in reserve until a slot opens. Entering a new chapter automatically fills the new slot from available recruits, and you can change those heroes before attacking. Summoning does not bypass the cap. Campaign replay starts again with one active hero; all other heroes, progression and equipped gear remain in reserve. Older saves with excess active heroes move those heroes to reserve; new saves enforce the chapter cap. Party HUD and chapter cards show the capacity.
+Party capacity is **1 hero in chapter 1, 2 in chapter 2, 3 in chapter 3, 4 in chapter 4, and 5 in chapters 5–12**. Story recruits remain in reserve until a slot opens. Entering a new chapter automatically fills the new slot from available recruits, and you can change those heroes before attacking. Summoning does not bypass the cap. Later chapters keep five active slots; campaign restart is no longer available. Older saves with excess active heroes move those heroes to reserve; new saves enforce the chapter cap. Party HUD and chapter cards show the capacity.
 
 Copy updated `Assets/Scripts` into Unity and press Play. Check results after a normal attack, ultimate and counter; Continue claiming; restarting Unity with rewards unclaimed; and party expansion at chapters 2 and 3. Unity compilation, screen layout and playback still require local validation.
 
@@ -410,7 +409,7 @@ Normal single-target strikes cycle through a weighted list with three entries pe
 
 Enemy maximum health scales with unlocked party size: chapters 1–3 retain existing health, chapter 4 multiplies it by **4/3**, and chapters 5–6 multiply it by **5/3**, rounded up. The increase applies to every wave and both bosses, independent of how many heroes survive. For example, a 400-HP boss becomes **534 HP** in chapter 4 and **667 HP** in chapters 5–6. Damage is unchanged; these health values are provisional for playtesting.
 
-All five heroes have health/energy labels and energy bars. Equipment selection and result contributions support five heroes. The arena displays two front models and three back models with a wider camera view. Existing saves remain compatible; unlocked empty party slots fill from recruited reserves when opening the game before combat. Saved victories keep their original participating heroes until Continue claims rewards and expands the party. Campaign restart returns to one active slot while retaining the collection.
+All five heroes have health/energy labels and energy bars. Equipment selection and result contributions support five heroes. The arena displays two front models and three back models with a wider camera view. Existing saves remain compatible; unlocked empty party slots fill from recruited reserves when opening the game before combat. Saved victories keep their original participating heroes until Continue claims rewards and expands the party. The active party stays at five slots throughout chapters 5–12.
 
 Copy the updated **Assets/Scripts** and **Assets/Editor** into Unity. Test swapping Knight/Paladin to the front and ranged/healing heroes to the back, wave resource carryover, five-hero ultimates and boss results. **Ashlight > Diagnostics > Check Save Serialization** now also checks five-hero formation order and pending results using Unity’s JSON serializer without modifying player saves. Cloud checks cover combat and save-data validation; Unity compilation, serialization diagnostics, mobile layout and animation playback still need editor testing.
 
@@ -613,3 +612,11 @@ Unity validation: try the Tutorial button on an existing save, acknowledge the w
 Removed the enemy health ceiling and added gradual campaign damage growth after chapter 1. Later bosses now reward leveling, equipment, and stronger heroes while early chapters stay forgiving. No hero rarity, skill, ultimate, reward, or save-format changes were required. Enemy Preview and stage power account for the new campaign scaling.
 
 See [the balance report](Validation/BalanceReport.md) for before/after win rates, assumptions, and remaining limits. `Validation/BalanceChecks.cs` runs production Auto Play decisions and randomized class defenses over 18,000 stage samples and 400 fresh campaigns. Run it with the same pure C# compile inputs as `BattleChecks.cs`, substituting the validation filename. Unity visuals, animation timing, and device performance remain unverified in the cloud.
+
+### Chapters 7–12 and three-enemy waves
+
+Added The Ashen March, The Drowned Crypt, The Blood Cathedral, The Obsidian Wastes, The Pale Realm, and The Abyssal Crown: 30 more stages, for 60 stages and 180 waves total. Their regular waves alternate between two and three simultaneous enemies. Final waves of chapter-ending stages contain two bosses together. Mixed teams have a front defender, a rear threat, and sometimes a bruiser. Each new chapter has its own elemental theme, environment palette, and perimeter landmarks. New enemies reuse the bundled free animated models as themed variants.
+
+Combat targeting, health meters, enemy positions, damage presentation, turn resolution, and area ultimates support three enemies. Campaign restart is removed from both the menu and combat API. Existing completed chapter-six saves advance into chapter seven without resetting heroes, equipment, talents, presets, shards, currency, or pity. The Tower continues cycling the original 30 encounters to preserve existing floor behavior.
+
+Validation: 29,767 pure C# regression checks cover all 180 story waves with controlled defenses, all Tower floors, saved progress, third-target attacks, three-enemy turns, and area/single-target ultimates. The balance runner passes 30,000 seeded stage samples and 400 first-arc campaign runs; developed Legendary level-ten teams win at least 90% of samples on every new stage without equipment or talents. These simulations do not establish Unity playback, mobile layout, or device performance. Copy Scripts and Editor, rebuild the enemy roster, and test chapter 7 and three-target selection in Unity.

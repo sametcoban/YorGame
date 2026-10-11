@@ -3,8 +3,8 @@ using Ashlight;
 using UnityEditor;
 using UnityEngine;
 public static class SaveSerializationChecks {
-    static Battle RoundTrip(Battle battle) {
-        var restored=new Battle(true,enableFactions:true);
+    static Battle RoundTrip(Battle battle,bool waves=false) {
+        var restored=new Battle(true,enableWaves:waves,enableFactions:true);
         if(!restored.RestoreProgress(JsonUtility.FromJson<ProgressData>(JsonUtility.ToJson(battle.ExportProgress()))))
             throw new InvalidOperationException("Unity save round-trip rejected: "+battle.Current);
         return restored;
@@ -91,6 +91,18 @@ public static class SaveSerializationChecks {
             throw new InvalidOperationException("Five-hero results changed during Unity serialization.");
         for(int i=0;i<5;i++) if(teamResults.Results.Heroes[i].Damage!=team.Results.Heroes[i].Damage || teamResults.Results.Heroes[i].Healing!=team.Results.Heroes[i].Healing)
             throw new InvalidOperationException("Five-hero contributions changed during Unity serialization.");
-        Debug.Log("PASS: Unity save serialization for fresh progress, combat, pending results, reward claims, equipped gear and five-hero formations/results and progression choices. Player saves untouched.");
+        var continued=team.ExportProgress(); continued.encounter=30; continued.pendingVictory=false; continued.results=null;
+        var continuation=new Battle(true,enableWaves:true,enableFactions:true);
+        if(!continuation.RestoreProgress(continued)) throw new InvalidOperationException("Could not prepare chapter seven continuation.");
+        var resumedChapter=RoundTrip(continuation,true);
+        if(resumedChapter.CampaignComplete || resumedChapter.ChapterIndex!=6 || resumedChapter.Crystals!=continued.crystals || resumedChapter.Party.Count!=5)
+            throw new InvalidOperationException("Original campaign completion did not continue into chapter seven.");
+        continued.encounter=31;
+        if(!continuation.RestoreProgress(continued) || continuation.Enemies.Count!=3 || !continuation.SelectEnemy(2))
+            throw new InvalidOperationException("Could not prepare three-enemy serialization fixture.");
+        var tripleRoundTrip=RoundTrip(continuation,true);
+        if(tripleRoundTrip.Enemies.Count!=3 || tripleRoundTrip.Encounter!=31 || !tripleRoundTrip.SelectEnemy(2))
+            throw new InvalidOperationException("Three-enemy stage changed during Unity serialization.");
+        Debug.Log("PASS: Unity save serialization for fresh progress, combat, pending results, reward claims, equipped gear and five-hero formations/results, progression choices, chapter-seven continuation and three-enemy stages. Player saves untouched.");
     }
 }

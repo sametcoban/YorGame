@@ -23,11 +23,17 @@ namespace Ashlight {
             new ChapterDefinition("The Ember Citadel",new[]{"Ember Guard","Flame Drake","Coal Colossus","Furnace Keeper","Cinder Sovereign"},2,Element.Cold,Element.Fire),
             new ChapterDefinition("The Storm Spire",new[]{"Storm Revenant","Thunder Hawk","Charged Construct","Tempest Herald","Storm Regent"},3,Element.Poison,Element.Lightning),
             new ChapterDefinition("The Blighted Garden",new[]{"Blight Guardian","Venom Bloom","Rootbound Golem","Plague Weaver","Thorn Queen"},4,Element.Lightning,Element.Poison),
-            new ChapterDefinition("The Eclipse Throne",new[]{"Dusk Shade","Hollow Templar","Nightbound Oracle","Eclipse Warden","Veiled Monarch"},5,Element.Light,Element.Fire)
+            new ChapterDefinition("The Eclipse Throne",new[]{"Dusk Shade","Hollow Templar","Nightbound Oracle","Eclipse Warden","Veiled Monarch"},5,Element.Light,Element.Fire),
+            new ChapterDefinition("The Ashen March",new[]{"Ashbound Sentinel","Cinder Beast","Pyre Oracle","Ember Ranger","March Tyrant"},6,Element.Cold,Element.Fire),
+            new ChapterDefinition("The Drowned Crypt",new[]{"Crypt Guardian","Drowned Hound","Tide Witch","Grave Archer","Drowned King"},7,Element.Lightning,Element.Cold),
+            new ChapterDefinition("The Blood Cathedral",new[]{"Blood Templar","Crimson Beast","Scarlet Priest","Sanguine Hunter","Crimson Pontiff"},8,Element.Poison,Element.Light),
+            new ChapterDefinition("The Obsidian Wastes",new[]{"Obsidian Guard","Glassfang","Ash Prophet","Cinder Stalker","Obsidian Colossus"},9,Element.Cold,Element.Fire),
+            new ChapterDefinition("The Pale Realm",new[]{"Pale Sentinel","Rimefang","Winter Seer","Frost Hunter","Pale Sovereign"},10,Element.Fire,Element.Cold),
+            new ChapterDefinition("The Abyssal Crown",new[]{"Abyss Guard","Void Hound","Night Prophet","Dread Archer","Abyssal Emperor"},11,Element.Light,Element.Poison)
         });
         public static int TotalStages { get { return Catalog.Count*StagesPerChapter; } }
         // Chapter 3 onward ends with two bosses in the same encounter. Save indices stay stable.
-        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger" };
+        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger", "Pyre Executioner", "Tidebound Reaper", "Blood Confessor", "Glass Warden", "Rime Herald", "Void Regent" };
         public static IReadOnlyList<EnemyDefinition> EnemiesAt(int encounter) {
             var primary = EnemyAt(encounter);
             if (encounter / StagesPerChapter < 2 || encounter % StagesPerChapter != 4)
@@ -37,6 +43,18 @@ namespace Ashlight {
         }
         public static IReadOnlyList<EnemyDefinition> WaveAt(int encounter,int wave,int waveCount) {
             if(waveCount<1 || wave<0 || wave>=waveCount) throw new ArgumentOutOfRangeException("wave");
+            if(encounter/StagesPerChapter>=6) {
+                if(wave==waveCount-1 && encounter%StagesPerChapter==4) return EnemiesAt(encounter);
+                var chapterRoster=Catalog[encounter/StagesPerChapter];
+                int count=2+(encounter%StagesPerChapter+wave)%2;
+                var group=new EnemyDefinition[count];
+                var roles=new[]{EnemyRole.Defender, new[]{EnemyRole.Caster,EnemyRole.Archer,EnemyRole.Healer,EnemyRole.Support,EnemyRole.Caster}[(encounter+wave)%5],EnemyRole.Bruiser};
+                for(int i=0;i<count;i++) {
+                    var sourceEnemy=chapterRoster.Enemies[(encounter%StagesPerChapter+wave+i)%4];
+                    group[i]=new EnemyDefinition(sourceEnemy.Name,Math.Max(20,(int)Math.Ceiling(sourceEnemy.MaxHealth*(wave==waveCount-1?.55:.22))),sourceEnemy.Weakness,sourceEnemy.Resistance,role:roles[i]);
+                }
+                return Array.AsReadOnly(group);
+            }
             if(wave==waveCount-1) return EnemiesAt(encounter);
             var chapter=Catalog[encounter/StagesPerChapter];
             var source=chapter.Enemies[(encounter%StagesPerChapter+wave)%4];

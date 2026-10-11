@@ -138,9 +138,11 @@ namespace Ashlight {
         public bool InTower { get; private set; }
         public int TowerFloor { get; private set; } = 1;
         public const int TowerFloors=100;
+        // Keep existing Tower floors stable as story chapters are appended.
+        public const int TowerCycleStages=30;
         string[] towerCampaignParty=new string[0];
         public bool TowerComplete { get { return TowerFloor>TowerFloors; } }
-        public int EnemyEncounter { get { return InTower?(Math.Min(TowerFloor,TowerFloors)-1)%ChapterDefinition.TotalStages:Math.Min(encounter,ChapterDefinition.TotalStages-1); } }
+        public int EnemyEncounter { get { return InTower?(Math.Min(TowerFloor,TowerFloors)-1)%Math.Min(TowerCycleStages,ChapterDefinition.TotalStages):Math.Min(encounter,ChapterDefinition.TotalStages-1); } }
         public double TowerHealthScale { get { return InTower?1+(TowerFloor-1)*.08:1; } }
         public int TowerShards { get { return TowerFloor%5==0?10:5; } }
         public bool CanEnterTower { get { return campaign && !InTower && !TowerComplete && recruits.Count>=5 && (CanChangeParty || CampaignComplete); } }
@@ -267,7 +269,8 @@ namespace Ashlight {
         public int LastDamage { get; private set; }
         public UltimateDefinition LastUltimate { get; private set; }
         public int UltimateTarget { get; private set; }
-        public readonly int[] LastUltimateDamage = new int[2];
+        public const int MaxEnemies=3;
+        public readonly int[] LastUltimateDamage = new int[MaxEnemies];
         public readonly int[] LastUltimateHealing = new int[MaxPartySize], LastUltimateGuard = new int[MaxPartySize];
         public float LastElementMultiplier { get; private set; }
         public Element LastElement { get; private set; }
@@ -406,13 +409,6 @@ namespace Ashlight {
                     if(!active) party.Add(HeroProgress(hero.Id));
                 }
             }
-            Reset(); return true;
-        }
-        // Replay the campaign with the existing roster, loadouts and summon economy.
-        public bool RestartCampaign() {
-            if (!CampaignComplete || Current != Phase.Complete) return false;
-            encounter = 0;
-            while(party.Count>PartyLimit) party.RemoveAt(party.Count-1);
             Reset(); return true;
         }
         void AddRecruit(HeroDefinition hero, bool addToParty) {
@@ -591,7 +587,7 @@ namespace Ashlight {
                 if(data.pendingVictory) {
                     var result=data.results;
                     if(result==null || result.damage==null || result.healing==null || result.damage.Length!=data.party.Length || result.healing.Length!=data.party.Length) return false;
-                    pendingLoot=GearDefinition.Find(result.lootId); if(pendingLoot==null || (ChapterDefinition.EnemiesAt(restoringTower?(data.towerFloor-1)%30:data.encounter)[0].IsBoss && pendingLoot.Quality<HeroQuality.Rare)) return false;
+                    pendingLoot=GearDefinition.Find(result.lootId); if(pendingLoot==null || (ChapterDefinition.EnemiesAt(restoringTower?(data.towerFloor-1)%TowerCycleStages:data.encounter)[0].IsBoss && pendingLoot.Quality<HeroQuality.Rare)) return false;
                     for(int i=0;i<data.party.Length;i++) if(result.damage[i]<0 || result.damage[i]>1000000 || result.healing[i]<0 || result.healing[i]>1000000) return false;
                 } else if(data.results!=null && (!string.IsNullOrEmpty(data.results.lootId) ||
                     (data.results.damage!=null && data.results.damage.Length>0) ||

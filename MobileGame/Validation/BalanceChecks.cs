@@ -34,7 +34,7 @@ class BalanceChecks {
   for(int seed=0;seed<Runs;seed++) {
    var rng=new Random(seed);
    var b=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng);
-   while(!b.CampaignComplete) {
+   while(b.Encounter<30) {
     if(healer && b.Party.Count==5 && b.HeroProgress("Cleric_Common")!=null) b.EquipHeroAt("Cleric_Common",4);
     int stage=b.Encounter; reached[stage]++;
     if(!Fight(b,rng)) break;
@@ -46,9 +46,9 @@ class BalanceChecks {
   Console.WriteLine(healer?"CAMPAIGN WITH CLERIC":"CAMPAIGN DEFAULT TEAM");
   for(int i=0;i<30;i++) if(reached[i]>0) Console.WriteLine("{0}-{1}: reached {2}, won {3} ({4:F1}%)",i/5+1,i%5+1,reached[i],won[i],100.0*won[i]/reached[i]);
  }
- static void Stages(int level,HeroQuality quality) {
+ static void Stages(int level,HeroQuality quality,int first=0,int last=30) {
   Console.WriteLine("FIXED ROSTER: "+quality+" own level "+level+", no gear/talents");
-  for(int stage=0;stage<30;stage++) {
+  for(int stage=first;stage<last;stage++) {
    int wins=0;
    for(int seed=0;seed<Runs;seed++) {
     var rng=new Random(seed);
@@ -66,11 +66,12 @@ class BalanceChecks {
     if(!b.RestoreProgress(save)) throw new Exception("Roster restore rejected");
     if(Fight(b,rng)) wins++;
    }
+   if(stage>=30 && level>=10 && quality==HeroQuality.Legendary && wins<Runs*.9) throw new Exception("Late stages block a developed team");
    if(stage==0 && wins<Runs*.95) throw new Exception("Opening stage too punishing");
    if(stage==29 && (level>=10 || quality==HeroQuality.Legendary) && wins<Runs*.9) throw new Exception("Upgraded teams hit a progression wall");
    if(stage==29 && level==1 && quality==HeroQuality.Common && wins>=Runs*.5) throw new Exception("Final boss does not reward progression");
    Console.WriteLine("{0}-{1}: {2}/{3} wins",stage/5+1,stage%5+1,wins,Runs);
   }
  }
- static void Main() { Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Console.WriteLine("PASS: 18,000 stage samples and 400 fresh campaign runs"); }
+ static void Main() { Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples and 400 first-arc campaign runs"); }
 }

@@ -28,8 +28,8 @@ namespace Ashlight {
         }
         public static EnemySkill For(int encounter, bool boss, int completedStrikes) {
             int chapter=encounter/5;
-            var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light}[Math.Min(5,Math.Max(0,chapter))];
-            var status=new[]{Debuff.None,Debuff.Chill,Debuff.Burn,Debuff.Shock,Debuff.Poison,Debuff.Weaken}[Math.Min(5,Math.Max(0,chapter))];
+            var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light,Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison}[Math.Min(11,Math.Max(0,chapter))];
+            var status=new[]{Debuff.None,Debuff.Chill,Debuff.Burn,Debuff.Shock,Debuff.Poison,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Poison}[Math.Min(11,Math.Max(0,chapter))];
             int pattern=completedStrikes%3;
             if(pattern==0) return new EnemySkill("Quick Strike",35,Element.Physical);
             if(pattern==1) return new EnemySkill(chapter==0?"Crushing Blow":element+" Hex",chapter==0?42:24,element,false,status);

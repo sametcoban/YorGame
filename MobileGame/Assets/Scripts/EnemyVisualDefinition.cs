@@ -54,7 +54,22 @@ namespace Ashlight {
         });
         public static readonly IReadOnlyList<EnemyVisualDefinition> Catalog = All();
         static IReadOnlyList<EnemyVisualDefinition> All() {
-            var all = new List<EnemyVisualDefinition>(ChapterOne); all.AddRange(ChapterEnemies); all.AddRange(PairedBosses); return all.AsReadOnly();
+            var all = new List<EnemyVisualDefinition>(ChapterOne); all.AddRange(ChapterEnemies); all.AddRange(PairedBosses); all.AddRange(LaterEnemies()); return all.AsReadOnly();
+        }
+        static IEnumerable<EnemyVisualDefinition> LaterEnemies() {
+            string[][] names={
+                new[]{"Ashbound Sentinel","Cinder Beast","Pyre Oracle","Ember Ranger","March Tyrant","Pyre Executioner"},
+                new[]{"Crypt Guardian","Drowned Hound","Tide Witch","Grave Archer","Drowned King","Tidebound Reaper"},
+                new[]{"Blood Templar","Crimson Beast","Scarlet Priest","Sanguine Hunter","Crimson Pontiff","Blood Confessor"},
+                new[]{"Obsidian Guard","Glassfang","Ash Prophet","Cinder Stalker","Obsidian Colossus","Glass Warden"},
+                new[]{"Pale Sentinel","Rimefang","Winter Seer","Frost Hunter","Pale Sovereign","Rime Herald"},
+                new[]{"Abyss Guard","Void Hound","Night Prophet","Dread Archer","Abyssal Emperor","Void Regent"}
+            };
+            string[] models={"LanternWarden","AshHound","HollowMatron","CinderScout","Roadkeeper","IronWatcher"};
+            string[] cloth={"WineWool","AshWool","WineWool","SootWool","AshWool","VioletWool"};
+            Element[] elements={Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison};
+            for(int chapter=0;chapter<names.Length;chapter++) for(int enemy=0;enemy<6;enemy++)
+                yield return new EnemyVisualDefinition(names[chapter][enemy],names[chapter][enemy].Replace(" ",""),elements[chapter]+" STRIKE",enemy==1?1.6f:enemy>=4?2.65f:2.35f,elements[chapter],enemy>=4,enemy==2 || enemy==3,models[enemy],cloth[chapter]);
         }
         public static EnemyVisualDefinition For(string name) {
             foreach (var entry in Catalog) if (entry.EnemyName == name) return entry;

@@ -155,6 +155,18 @@ namespace Ashlight {
                     float angle=i*Mathf.PI*2/20;
                     Piece("Ember",PrimitiveType.Sphere,new Vector3(Mathf.Cos(angle)*1.1f,4.45f+Mathf.Sin(angle)*1.1f,6.3f),new Vector3(.18f,.18f,.10f));
                 }
+            } else if(chapter>=6) {
+                int motif=chapter-6;
+                for(int side=-1;side<=1;side+=2) for(int i=0;i<3;i++) {
+                    float x=side*(4.8f+i*.2f), z=-1+i*2.1f;
+                    Stone(new Vector3(x,1.3f,z),new Vector3(.5f,2.6f+motif*.12f,.6f),true,new Vector3(0,motif*17,side*(motif==3?20:0)));
+                    Piece("Ember",PrimitiveType.Sphere,new Vector3(x,2.8f+motif*.12f,z),Vector3.one*(motif==4?.16f:.25f));
+                    if(motif==1 || motif==2) Stone(new Vector3(x-side*.55f,3.05f,z),new Vector3(1.6f,.35f,.55f));
+                }
+                if(motif==2 || motif==5) for(int i=0;i<16;i++) {
+                    float angle=i*Mathf.PI*2/16;
+                    Piece("Ember",PrimitiveType.Sphere,new Vector3(Mathf.Cos(angle)*1.6f,3.9f+Mathf.Sin(angle)*1.6f,6.1f),Vector3.one*.18f);
+                }
             }
         }
         void Atmosphere() {

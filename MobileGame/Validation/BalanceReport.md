@@ -23,3 +23,7 @@ The opening two stages still won 200/200 fresh runs. Chapter 1 stage 3 won 196/2
 - Tower Auto Play balance, alternate skill loadouts, individual hero rankings, equipment/idle pacing, and real-device fight duration still need further passes.
 
 To reproduce from `MobileGame`, compile the pure C# script list documented in the README with `Validation/BalanceChecks.cs` instead of `Validation/BattleChecks.cs`, then run the executable with Mono. Seeds are fixed; the harness does not depend on Unity.
+
+## Expansion to chapters 7–12
+
+The runner now keeps the original 18,000 first-arc samples and 400 chapter-1–6 campaign runs, and adds 12,000 samples across every stage of chapters 7–12. The new cohorts are level-20 Common and level-10 Legendary teams, using the same default skills and no equipment/talents/ascension. Level-10 Legendary teams win 91–100% across the expansion (96% at the final boss); level-20 Common teams range from 19.5–100% (26% at the final boss). Developed teams can progress, and additional upgrades matter in the latest chapters. Natural fresh-save progression through all twelve chapters with summons, gear, ascension, idle rewards, and retries remains to be measured. The original first-arc report above is retained as a baseline.

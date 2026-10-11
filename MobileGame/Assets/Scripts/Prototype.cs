@@ -22,7 +22,9 @@ namespace Ashlight {
         Text chapterTitle;
         Button idleRewardsButton;
         Button[] chapterChoices;
-        Button restartCampaignButton;
+        int chapterPage;
+        Text chapterPageLabel;
+        Button chapterPrevious, chapterNext;
         Button towerButton;
         Button summonButton, summonTenButton;
         GameObject summonRoot; Text summonTitle; Text[] summonCards; GameObject[] summonCardPanels; Button repeatSingle, repeatTen;
@@ -39,21 +41,22 @@ namespace Ashlight {
         Coroutine actionPresentation;
         ActionMotion actionMotion;
         int actionTarget, actionHero, actionEnergy;
-        readonly int[] actionEnemyBefore = new int[2], shownEnemyDamage = new int[2];
+        readonly int[] actionEnemyBefore = new int[Battle.MaxEnemies], shownEnemyDamage = new int[Battle.MaxEnemies];
         readonly Image[] energyBars = new Image[Battle.MaxPartySize];
         readonly Image[] partyHealthBars = new Image[Battle.MaxPartySize];
         readonly Text[] energyLabels = new Text[Battle.MaxPartySize];
         readonly float[] dodgeAt = { -10, -10, -10, -10, -10 };
-        readonly float[] foeAttackAt = { -10, -10 };
-        readonly Vector3[] foeAttackTarget = new Vector3[2];
+        readonly float[] foeAttackAt = { -10, -10, -10 };
+        readonly Vector3[] foeAttackTarget = new Vector3[Battle.MaxEnemies];
         Button chaptersButton;
         ProgressData restored;
         string saveNotice = "";
         bool progressInitialized, saveFailed;
         Text status, cue;
-        Image heroHealth, enemyHealth, secondEnemyHealth, timing;
-        readonly Button[] enemyTargets = new Button[2];
-        readonly Transform[] foes = new Transform[2];
+        Image heroHealth, timing;
+        readonly Image[] enemyHealthBars=new Image[Battle.MaxEnemies];
+        readonly Button[] enemyTargets = new Button[Battle.MaxEnemies];
+        readonly Transform[] foes = new Transform[Battle.MaxEnemies];
         RectTransform safe;
         readonly Vector3[] homes = { new Vector3(-1.5f,1,-1.15f), new Vector3(-1.5f,1,1.15f), new Vector3(-3.5f,1,-2.1f), new Vector3(-3.5f,1,0), new Vector3(-3.5f,1,2.1f) };
         readonly Transform[] allies = new Transform[Battle.MaxPartySize];
@@ -62,7 +65,7 @@ namespace Ashlight {
         readonly Vector3 enemyHome = new Vector3(2, 1.3f, 0);
         readonly Vector3[] pairHomes = { new Vector3(1.9f,1.3f,-1.4f), new Vector3(3f,1.3f,1.4f) };
         Vector3 FoeHome(int index) {
-            var home=battle.Enemies.Count==1?enemyHome:pairHomes[index];
+            var home=battle.Enemies.Count==1?enemyHome:battle.Enemies.Count==2?pairHomes[index]:new Vector3(2,1.3f,(index-1)*2.1f);
             home.x=battle.Enemies[index].Definition.Row==EnemyRow.Front?1.8f:3.6f;
             return home;
         }
@@ -174,14 +177,14 @@ namespace Ashlight {
                 energyBars[i]=Bar(safe,new Vector2(left,.18f),new Vector2(left+.18f,.193f),new Color(.25f,.65f,.9f));
             }
             heroHealth = Bar(safe, new Vector2(.035f, .805f), new Vector2(.43f, .818f), new Color(.65f, .27f, .18f));
-            enemyHealth = Bar(safe, new Vector2(.57f, .805f), new Vector2(.965f, .818f), new Color(.58f,.43f,.19f));
-            secondEnemyHealth = Bar(safe,new Vector2(.775f,.805f),new Vector2(.965f,.818f),new Color(.58f,.43f,.19f));
+            for(int i=0;i<enemyHealthBars.Length;i++)
+                enemyHealthBars[i]=Bar(safe,new Vector2(.5f+i*.155f,.805f),new Vector2(.645f+i*.155f,.818f),new Color(.58f,.43f,.19f));
             for (int i = 0; i < enemyTargets.Length; i++) {
-                int index = i; float left = .57f+i*.205f;
-                enemyTargets[i] = MakeButton(safe,"",left,left+.19f,()=> { if (!presentingAction) battle.SelectEnemy(index); });
+                int index = i; float left = .4f+i*.19f;
+                enemyTargets[i] = MakeButton(safe,"",left,left+.18f,()=> { if (!presentingAction) battle.SelectEnemy(index); });
                 var targetRect = enemyTargets[i].GetComponent<RectTransform>();
-                targetRect.anchorMin = new Vector2(left,.725f); targetRect.anchorMax = new Vector2(left+.19f,.797f);
-                enemyTargets[i].GetComponentInChildren<Text>().resizeTextMinSize = 10;
+                targetRect.anchorMin = new Vector2(left,.725f); targetRect.anchorMax = new Vector2(left+.18f,.797f);
+                enemyTargets[i].GetComponentInChildren<Text>().resizeTextMinSize = 12;
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMaxSize = 16;
             }
             timing = Bar(safe, new Vector2(.3f, .29f), new Vector2(.7f, .305f), Color.yellow);
@@ -961,18 +964,26 @@ namespace Ashlight {
             idleRewardsButton=MakeButton(chapterRoot.transform,"IDLE REWARDS",.05f,.78f,ClaimIdleRewards); PlaceGearControl(idleRewardsButton,.05f,.735f,.78f,.795f); idleRewardsButton.GetComponentInChildren<Text>(true).fontSize=18;
             chapterChoices=new Button[ChapterDefinition.Catalog.Count];
             for(int i=0;i<chapterChoices.Length;i++) {
-                int index=i; float left=i%2==0?.05f:.52f; float bottom=.49f-(i/2)*.16f;
+                int index=i; float left=i%2==0?.05f:.52f; float bottom=.50f-((i%6)/2)*.15f;
                 chapterChoices[i]=MakeButton(chapterRoot.transform,"",left,left+.43f,()=>StartChapter(index));
-                var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.14f);
+                var r=chapterChoices[i].GetComponent<RectTransform>(); r.anchorMin=new Vector2(left,bottom); r.anchorMax=new Vector2(left+.43f,bottom+.13f);
             }
             summonButton=MakeButton(chapterRoot.transform,"SUMMON x1",.05f,.20f,SummonHero);
             var sr=summonButton.GetComponent<RectTransform>(); sr.anchorMin=new Vector2(.05f,.025f); sr.anchorMax=new Vector2(.20f,.135f);
             summonButton.GetComponentInChildren<Text>().fontSize=18;
             summonTenButton=MakeButton(chapterRoot.transform,"SUMMON x10\n1,000",.22f,.37f,()=>SummonHeroes(10)); PlaceGearControl(summonTenButton,.22f,.025f,.37f,.135f); summonTenButton.GetComponentInChildren<Text>().fontSize=18;
-            restartCampaignButton=MakeButton(chapterRoot.transform,"RESTART CAMPAIGN\nKeep heroes, skills & crystals",.24f,.76f,RestartCampaign);
-            var replayRect=restartCampaignButton.GetComponent<RectTransform>();
-            replayRect.anchorMin=new Vector2(.24f,.43f); replayRect.anchorMax=new Vector2(.76f,.61f);
-            restartCampaignButton.gameObject.SetActive(false);
+            chapterPrevious=MakeButton(chapterRoot.transform,"<",.05f,.18f,()=> { chapterPage--; RefreshChapterPage(); });
+            PlaceGearControl(chapterPrevious,.05f,.14f,.18f,.195f);
+            chapterNext=MakeButton(chapterRoot.transform,">",.82f,.95f,()=> { chapterPage++; RefreshChapterPage(); });
+            PlaceGearControl(chapterNext,.82f,.14f,.95f,.195f);
+            chapterPageLabel=Label(chapterRoot.transform,"",new Vector2(.22f,.14f),new Vector2(.78f,.195f),18);
+        }
+        void RefreshChapterPage() {
+            int pages=(chapterChoices.Length+5)/6;
+            chapterPage=Mathf.Clamp(chapterPage,0,pages-1);
+            for(int i=0;i<chapterChoices.Length;i++) chapterChoices[i].gameObject.SetActive(i/6==chapterPage);
+            chapterPrevious.interactable=chapterPage>0; chapterNext.interactable=chapterPage<pages-1;
+            chapterPageLabel.text="CHAPTERS "+(chapterPage*6+1)+"–"+Mathf.Min(chapterChoices.Length,chapterPage*6+6)+" · "+(chapterPage+1)+"/"+pages;
         }
         void ClaimIdleRewards() {
             if(!atChapters) return;
@@ -981,11 +992,6 @@ namespace Ashlight {
             RefreshAppearance(); SaveProgress();
             chapterTitle.color=Color.white;
             chapterTitle.text="IDLE REWARDS CLAIMED\n+"+crystals+" crystals · +"+xp+" XP to each recruited hero\n"+SummonWallet()+" | "+saveNotice;
-        }
-        void RestartCampaign() {
-            if(!atChapters || !battle.RestartCampaign()) return;
-            RefreshAppearance();
-            EnterChapters();
         }
         string SummonWallet() {
             return "Crystals "+battle.Crystals+" | Rare+ in "+(Summoning.RareGuarantee-battle.RareMisses)+" | Legendary in "+(Summoning.LegendaryGuarantee-battle.LegendaryMisses);
@@ -1052,15 +1058,15 @@ namespace Ashlight {
             selectionRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false); battleStage.gameObject.SetActive(false); chapterRoot.SetActive(true);
             SaveProgress();
             chapterTitle.color=Color.white;
-            chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All six chapters completed!":"Continue your journey.")+"\n"+SummonWallet()+" | "+saveNotice;
-            restartCampaignButton.gameObject.SetActive(battle.CampaignComplete);
+            chapterTitle.text="ASHLIGHT — Chapters\n"+reward+(battle.CampaignComplete?"All "+ChapterDefinition.Catalog.Count+" chapters completed!":"Continue your journey.")+"\n"+SummonWallet()+" | "+saveNotice;
+            chapterPage=battle.ChapterIndex/6;
             for(int i=0;i<chapterChoices.Length;i++) {
-                chapterChoices[i].gameObject.SetActive(!battle.CampaignComplete);
                 var chapter=ChapterDefinition.Catalog[i];
                 string state=battle.CampaignComplete || i<battle.ChapterIndex?"COMPLETED":i>battle.ChapterIndex?"LOCKED":"Stage "+(battle.StageIndex+1)+"/5 · 3 waves: "+ChapterDefinition.EnemyAt(battle.Encounter).Name;
                 chapterChoices[i].GetComponentInChildren<Text>(true).text="CHAPTER "+(i+1)+" — "+chapter.Name+" · "+Mathf.Min(Battle.MaxPartySize,i+1)+" hero slots\n"+state;
                 chapterChoices[i].interactable=!battle.CampaignComplete && i==battle.ChapterIndex;
             }
+            RefreshChapterPage();
             if(claimedVictory) ShowTutorial(3);
         }
         void Restart() {
@@ -1127,7 +1133,7 @@ namespace Ashlight {
             if(finished && battle.Current==Phase.Won && enemyTurn==null && !resultsRoot.activeSelf) ShowResults();
             autoButton.interactable = !finished;
             autoButton.GetComponentInChildren<Text>().text = autoPlay ? "AUTO PLAY: ON" : "AUTO PLAY: OFF";
-            heroHealth.transform.parent.gameObject.SetActive(!atChapters); enemyHealth.transform.parent.gameObject.SetActive(!atChapters);
+            heroHealth.transform.parent.gameObject.SetActive(!atChapters);
             chaptersButton.gameObject.SetActive(preparing || (finished && battle.Current!=Phase.Won));
             chaptersButton.interactable = battle.CanChangeParty || battle.Current == Phase.Won || battle.Current == Phase.Lost;
             attack.interactable = battle.Current == Phase.Player && !presentingAction;
@@ -1148,19 +1154,23 @@ namespace Ashlight {
             }
 
             SetMeter(heroHealth, battle.HeroHealth / (float)battle.Hero.MaxHealth);
-            bool paired = battle.Enemies.Count == 2;
-            var enemyBarRect = enemyHealth.transform.parent.GetComponent<RectTransform>();
-            enemyBarRect.anchorMax = new Vector2(paired ? .755f : .965f,.818f);
-            SetMeter(enemyHealth,VisibleEnemyHealth(0)/(float)battle.Enemies[0].Definition.MaxHealth);
-            secondEnemyHealth.transform.parent.gameObject.SetActive(paired && !atChapters);
-            if (paired) SetMeter(secondEnemyHealth,VisibleEnemyHealth(1)/(float)battle.Enemies[1].Definition.MaxHealth);
-            for (int i = 0; i < enemyTargets.Length; i++) {
-                enemyTargets[i].gameObject.SetActive(paired && !atChapters);
-                if (!paired) continue;
-                var foe = battle.Enemies[i];
-                enemyTargets[i].interactable = battle.Current == Phase.Player && !presentingAction && foe.Health > 0;
-                enemyTargets[i].GetComponentInChildren<Text>().text = (i == visibleTarget ? "▶ " : "") + foe.Definition.Name + "\n"+foe.Definition.Row+" "+foe.Definition.Role+" · " + VisibleEnemyHealth(i) + "/" + foe.Definition.MaxHealth + EnemyMechanicLabel(i);
-                enemyTargets[i].GetComponent<Image>().color = i == visibleTarget ? new Color(.31f,.25f,.15f) : new Color(.075f,.085f,.105f);
+            int enemyCount=battle.Enemies.Count;
+            for (int i=0;i<enemyTargets.Length;i++) {
+                bool exists=i<enemyCount;
+                enemyHealthBars[i].transform.parent.gameObject.SetActive(exists && !atChapters);
+                enemyTargets[i].gameObject.SetActive(exists && enemyCount>1 && !atChapters);
+                if(!exists) continue;
+                float left=.5f+i*.465f/enemyCount;
+                var meterRect=enemyHealthBars[i].transform.parent.GetComponent<RectTransform>();
+                meterRect.anchorMin=new Vector2(left,.805f); meterRect.anchorMax=new Vector2(left+.465f/enemyCount-.01f,.818f);
+                SetMeter(enemyHealthBars[i],VisibleEnemyHealth(i)/(float)battle.Enemies[i].Definition.MaxHealth);
+                var targetRect=enemyTargets[i].GetComponent<RectTransform>();
+                float targetLeft=.4f+i*.58f/enemyCount;
+                targetRect.anchorMin=new Vector2(targetLeft,.725f); targetRect.anchorMax=new Vector2(targetLeft+.58f/enemyCount-.01f,.797f);
+                var foe=battle.Enemies[i];
+                enemyTargets[i].interactable=battle.Current==Phase.Player && !presentingAction && foe.Health>0;
+                enemyTargets[i].GetComponentInChildren<Text>().text=(i==visibleTarget?"▶ ":"")+foe.Definition.Name+"\n"+foe.Definition.Row+" "+foe.Definition.Role+" · "+VisibleEnemyHealth(i)+"/"+foe.Definition.MaxHealth+EnemyMechanicLabel(i);
+                enemyTargets[i].GetComponent<Image>().color=i==visibleTarget?new Color(.31f,.25f,.15f):new Color(.075f,.085f,.105f);
             }
             soundButton.GetComponentInChildren<Text>().text=sounds.Muted?"SOUND OFF":"SOUND ON";
             if (!presentingAction && lastSoundPhase != battle.Current) {

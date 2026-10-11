@@ -238,43 +238,33 @@ class BattleChecks {
   var fresh=new Battle(true); fresh.EquipSkill(0,4); fresh.Attack(); fresh.BeginStrike(); fresh.FinishStrike();
   var checkpoint=fresh.ExportProgress(); var reload=new Battle(true);
   Check(reload.RestoreProgress(checkpoint) && reload.HeroHealth==100 && reload.Current==Phase.Player && reload.Party[0].SkillIndex(0)==4);
-  Check(ChapterDefinition.Catalog.Count==6 && ChapterDefinition.TotalStages==30);
+  Check(ChapterDefinition.Catalog.Count==12 && ChapterDefinition.TotalStages==60);
   var enemyNames=new System.Collections.Generic.HashSet<string>();
-  for(int chapter=0;chapter<6;chapter++) for(int stage=0;stage<5;stage++) {
+  for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) for(int stage=0;stage<5;stage++) {
    var foe=ChapterDefinition.EnemyAt(chapter*5+stage);
    Check(enemyNames.Add(foe.Name));
    Check(foe.MaxHealth>0 && foe.Weakness!=foe.Resistance);
   }
-  // Completion survives saves until the player explicitly restarts the campaign.
-  resumed.Reset();
+  // A save that completed the original six chapters continues directly into chapter seven.
+  var oldComplete=campaign.ExportProgress(); oldComplete.encounter=30; oldComplete.pendingVictory=false; oldComplete.results=null;
+  oldComplete.crystals=913; oldComplete.rareMisses=2; oldComplete.legendaryMisses=9;
+  var extended=new Battle(true,enableWaves:true);
+  Check(extended.RestoreProgress(oldComplete) && !extended.CampaignComplete && extended.ChapterIndex==6 && extended.Encounter==30 && extended.PartyLimit==5);
+  var continuedSave=extended.ExportProgress();
+  Check(continuedSave.crystals==913 && continuedSave.rareMisses==2 && continuedSave.legendaryMisses==9);
+  Check(string.Join(",",continuedSave.recruited)==string.Join(",",oldComplete.recruited));
+  foreach(var loadout in oldComplete.loadouts) Check(extended.HeroProgress(loadout.id).Level==loadout.level && extended.HeroProgress(loadout.id).Experience==loadout.experience && extended.HeroProgress(loadout.id).UpgradeRank==loadout.upgradeRank && extended.HeroProgress(loadout.id).Shards==loadout.shards && extended.HeroProgress(loadout.id).SkillIndex(0)==loadout.firstSkill && extended.HeroProgress(loadout.id).SkillIndex(1)==loadout.secondSkill);
+  // Completion after chapter twelve remains complete; there is no campaign-reset API.
+  var finalSave=campaign.ExportProgress(); finalSave.encounter=ChapterDefinition.TotalStages-1; finalSave.pendingVictory=false; finalSave.results=null;
+  Check(resumed.RestoreProgress(finalSave)); foreach(var foe in resumed.Enemies) foe.Health=1;
   while(resumed.Current!=Phase.Won) {
-   if(resumed.Current==Phase.Player) resumed.Attack();
-   else { resumed.BeginStrike();resumed.Defend(false,.1f);resumed.FinishStrike(); }
+   if(resumed.Current==Phase.Player) Check(resumed.Attack());
+   else { Check(resumed.BeginStrike()); if(resumed.IncomingSkill.Action==EnemyAction.Attack) resumed.Defend(true,.1f); resumed.FinishStrike(); }
   }
   Check(resumed.ContinueAfterVictory() && resumed.CampaignComplete && resumed.Current==Phase.Complete);
   Check(!resumed.Attack() && !resumed.UseAbility() && !resumed.ContinueAfterVictory());
   var completed=new Battle(true);
-  Check(completed.RestoreProgress(resumed.ExportProgress()) && completed.CampaignComplete && completed.Encounter==30);
-  var retained=completed.ExportProgress();
-  retained.crystals=913; retained.rareMisses=2; retained.legendaryMisses=9;
-  foreach(var loadout in retained.loadouts) { loadout.firstSkill=4; loadout.secondSkill=5; }
-  Check(completed.RestoreProgress(retained));
-  Check(completed.RestartCampaign() && !completed.CampaignComplete && completed.Encounter==0 && completed.Current==Phase.Player && completed.CanChangeParty);
-  var replaySave=completed.ExportProgress();
-  Check(replaySave.crystals==retained.crystals && replaySave.rareMisses==retained.rareMisses && replaySave.legendaryMisses==retained.legendaryMisses);
-  Check(string.Join(",",replaySave.recruited)==string.Join(",",retained.recruited) && replaySave.party.Length==1 && replaySave.party[0]==retained.party[0]);
-  for(int i=0;i<retained.loadouts.Length;i++) Check(replaySave.loadouts[i].id==retained.loadouts[i].id && replaySave.loadouts[i].firstSkill==retained.loadouts[i].firstSkill && replaySave.loadouts[i].secondSkill==retained.loadouts[i].secondSkill);
-  foreach(var ally in completed.Party) Check(ally.Health==ally.Definition.MaxHealth && ally.SkillCharges(0)==2 && ally.SkillCharges(1)==2 && !ally.Acted);
-  Check(!completed.RestartCampaign() && completed.Encounter==0);
-  Check(!new Battle().RestartCampaign());
-  var replayReload=new Battle(true);
-  Check(replayReload.RestoreProgress(replaySave) && !replayReload.CampaignComplete && replayReload.Encounter==0 && replayReload.Attack());
-  while(completed.Current!=Phase.Won) {
-   if(completed.Current==Phase.Player) completed.Attack();
-   else {completed.BeginStrike();completed.Defend(false,.1f);completed.FinishStrike();}
-  }
-  Check(!completed.RestartCampaign() && completed.Current==Phase.Won);
-  Check(completed.ContinueAfterVictory() && completed.Encounter==1 && completed.Crystals==retained.crystals+Summoning.VictoryCrystals && completed.Recruits.Count==retained.recruited.Length);
+  Check(completed.RestoreProgress(resumed.ExportProgress()) && completed.CampaignComplete && completed.Encounter==60);
   var winner=new Battle(true);
   while(winner.Current!=Phase.Won) {
    if(winner.Current==Phase.Player) winner.Attack();
@@ -350,7 +340,7 @@ class BattleChecks {
   }
   foreach(var named in HeroDefinition.Catalog)
    if(named.Class==HeroClass.Sorceress) Check(named.DisplayClass==(named.Gender==HeroGender.Woman?"Sorceress":"Sorcerer"));
-  for(int chapter=0;chapter<6;chapter++) for(int stage=0;stage<5;stage++) {
+  for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) for(int stage=0;stage<5;stage++) {
    var group=ChapterDefinition.EnemiesAt(chapter*5+stage);
    Check(group.Count==(chapter>=2 && stage==4?2:1));
    foreach(var foe in group) Check(foe.IsBoss==(stage==4));
@@ -405,8 +395,8 @@ class BattleChecks {
   Check(rotation.Current==Phase.EnemyWindup && rotation.Party[1].Health==0 && rotation.ActiveIndex==2 && rotation.AttackingEnemyIndex==1);
   Check(rotation.BeginStrike() && rotation.Defend(false,.1f));rotation.FinishStrike();
   Check(rotation.Current==Phase.Player && rotation.ActiveIndex==2 && !rotation.Party[2].Acted);
-  // Clear all four paired encounters through the public combat API.
-  for(int chapter=2;chapter<6;chapter++) {
+  // Clear every paired chapter boss encounter through the public combat API.
+  for(int chapter=2;chapter<ChapterDefinition.Catalog.Count;chapter++) {
    var run=new Battle(true);var snapshot=run.ExportProgress();snapshot.encounter=chapter*5+4;
    snapshot.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"};
    snapshot.party=new string[Math.Min(5,chapter+1)]; Array.Copy(snapshot.recruited,snapshot.party,snapshot.party.Length);
@@ -424,7 +414,7 @@ class BattleChecks {
    }
    Check(run.Current==Phase.Won && run.Enemies[0].Health==0 && run.Enemies[1].Health==0);
    Check(run.ContinueAfterVictory() && run.Encounter==(chapter+1)*5 && run.Crystals==350);
-   Check(run.CampaignComplete==(chapter==5));
+   Check(run.CampaignComplete==(chapter==ChapterDefinition.Catalog.Count-1));
   }
   foreach(var visual in EnemyVisualDefinition.Catalog) {
    Check(visual.Height>0 && visual.Height<=2.8f && !string.IsNullOrEmpty(visual.SourceModel));
@@ -624,7 +614,7 @@ class BattleChecks {
   Check(pendingReload.HeroProgress("Knight_Common").Level==2 && pendingReload.HeroProgress("Knight_Common").Shards==17);
   Check(pendingReload.EquipHero("Knight_Common") && pendingReload.Party[0].Level==2 && pendingReload.Party[0].Experience==40);
   var replayGrowth=upgradeBattle.ExportProgress(); replayGrowth.encounter=30; replayGrowth.pendingVictory=false;
-  Check(growthReload.RestoreProgress(replayGrowth) && growthReload.RestartCampaign());
+  Check(growthReload.RestoreProgress(replayGrowth) && growthReload.ChapterIndex==6);
   Check(growthReload.Party[0].UpgradeRank==5 && growthReload.Party[0].Shards==cappedShards);
   var bossXP=new Battle(true); var bossXPsave=bossXP.ExportProgress(); bossXPsave.encounter=14;
   Check(bossXP.RestoreProgress(bossXPsave)); bossXP.Enemies[0].Health=bossXP.Enemies[1].Health=1;
@@ -664,7 +654,7 @@ class BattleChecks {
   var oldGearReload=new Battle(true); Check(oldGearReload.RestoreProgress(oldGearSave) && oldGearReload.GearCount(weaponId)==0 && oldGearReload.Party[0].Gear(GearSlot.Armor)==null);
   Check(bossXP.LastLoot!=null && bossXP.LastLoot.Quality>=HeroQuality.Rare && bossXP.GearCount(bossXP.LastLoot.Id)==1);
   var gearReplay=gearLoaded.ExportProgress(); gearReplay.encounter=30; gearReplay.pendingVictory=false;
-  Check(gearLoaded.RestoreProgress(gearReplay) && gearLoaded.RestartCampaign());
+  Check(gearLoaded.RestoreProgress(gearReplay) && gearLoaded.ChapterIndex==6);
   Check(gearLoaded.GearCount(weaponId)==1 && gearLoaded.HeroProgress("Paladin_Common").Gear(GearSlot.Weapon).Id==weaponId);
   // Results count actual damage/healing, preview levels without granting rewards, and survive reload.
   var resultBattle=new Battle(true); resultBattle.Party[0].GainExperience(90);
@@ -703,14 +693,14 @@ class BattleChecks {
   var visualCoverageNames=new System.Collections.Generic.HashSet<string>();
   var enemyPaths=new System.Collections.Generic.HashSet<string>();
   var sources=new System.Collections.Generic.HashSet<string>(new[]{"LanternWarden","AshHound","CinderScout","IronWatcher","Roadkeeper","HollowMatron"});
-  Check(EnemyVisualDefinition.Catalog.Count==34 && ChapterStageDefinition.Catalog.Length==6);
+  Check(EnemyVisualDefinition.Catalog.Count==70 && ChapterStageDefinition.Catalog.Length==12);
   foreach(var visual in EnemyVisualDefinition.Catalog) Check(visualCoverageNames.Add(visual.EnemyName) && enemyPaths.Add(visual.ResourcePath) && sources.Contains(visual.SourceModel));
-  for(int encounter=0;encounter<30;encounter++) foreach(var campaignEnemy in ChapterDefinition.EnemiesAt(encounter)) {
+  for(int encounter=0;encounter<ChapterDefinition.TotalStages;encounter++) foreach(var campaignEnemy in ChapterDefinition.EnemiesAt(encounter)) {
    var visual=EnemyVisualDefinition.For(campaignEnemy.Name);
    Check(visual!=null && visual.IsBoss==campaignEnemy.IsBoss && visual.Height>0 && visual.Height<=2.8f);
   }
   var skies=new System.Collections.Generic.HashSet<string>();
-  for(int chapter=0;chapter<6;chapter++) {
+  for(int chapter=0;chapter<ChapterStageDefinition.Catalog.Length;chapter++) {
    var stage=ChapterStageDefinition.For(chapter);
    Check(skies.Add(stage.Sky) && stage.Fog>0 && stage.Fog<=.04f && stage.Stone.StartsWith("#") && stage.Flame.StartsWith("#"));
   }
@@ -811,7 +801,7 @@ class BattleChecks {
   Check(fallenWave.Attack() && fallenWave.Current==Phase.WaveCleared && fallenWave.Party[1].Energy==100);
   Check(fallenWave.AdvanceWave() && fallenWave.Party[0].Health==0 && fallenWave.ActiveIndex==1);
   Check(fallenWave.Party[1].Energy==100 && fallenWave.Attack() && fallenWave.LastUltimate!=null && fallenWave.Party[1].Energy==0);
-  // Complete all 90 waves with public actions and defend every affected living hero.
+  // Complete all 180 waves with public actions and defend every affected living hero.
   var waveCampaign=new Battle(true,enableWaves:true); int clearedWaves=0,steps=0;
   while(!waveCampaign.CampaignComplete && steps++<6000) {
    if(waveCampaign.Current==Phase.Player) {
@@ -839,11 +829,11 @@ class BattleChecks {
     Check(waveCampaign.ContinueAfterVictory());
    } else throw new Exception("Unexpected wave campaign phase: "+waveCampaign.Current);
   }
-  Check(waveCampaign.CampaignComplete && clearedWaves==90 && waveCampaign.Recruits.Count==30);
+  Check(waveCampaign.CampaignComplete && clearedWaves==ChapterDefinition.TotalStages*3 && waveCampaign.Recruits.Count==30);
   for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) {
    for(int wave=0;wave<3;wave++) {
     var group=ChapterDefinition.WaveAt(stage,wave,3);
-    Check(group.Count>=1 && group.Count<=2);
+    Check(group.Count>=1 && group.Count<=Battle.MaxEnemies);
     foreach(var member in group) Check(EnemyVisualDefinition.For(member.Name)!=null && (wave==2 || !member.IsBoss));
    }
   }
@@ -985,7 +975,7 @@ class BattleChecks {
    else if(passiveCampaign.Current==Phase.Won) { passiveWaves++; Check(passiveCampaign.ContinueAfterVictory()); }
    else throw new Exception("Unexpected passive campaign phase: "+passiveCampaign.Current);
   }
-  Check(passiveCampaign.CampaignComplete && passiveWaves==90 && passiveCampaign.Party.Count==5);
+  Check(passiveCampaign.CampaignComplete && passiveWaves==ChapterDefinition.TotalStages*3 && passiveCampaign.Party.Count==5);
   // Every campaign enemy has a role; mixed waves always pair a defender and rear threat.
   foreach(var visualRole in EnemyVisualDefinition.Catalog) {
    var roleDefinition=new EnemyDefinition(visualRole.EnemyName,100);
@@ -994,7 +984,7 @@ class BattleChecks {
   }
   for(int stage=5;stage<ChapterDefinition.TotalStages;stage++) {
    var mixed=ChapterDefinition.WaveAt(stage,1,3);
-   Check(mixed.Count==2 && mixed[0].Role==EnemyRole.Defender && mixed[0].Row==EnemyRow.Front && mixed[1].Row==EnemyRow.Back && mixed[0].Name!=mixed[1].Name);
+   Check(mixed.Count>=2 && mixed.Count<=3 && mixed[0].Role==EnemyRole.Defender && mixed[0].Row==EnemyRow.Front && mixed[1].Row==EnemyRow.Back && mixed[0].Name!=mixed[1].Name);
   }
   Check(ChapterDefinition.EnemiesAt(24)[0].Role==EnemyRole.Healer && ChapterDefinition.EnemiesAt(24)[1].Role==EnemyRole.Defender);
   Check(ChapterDefinition.EnemiesAt(29)[0].Role==EnemyRole.Support && ChapterDefinition.EnemiesAt(29)[1].Role==EnemyRole.Defender);
@@ -1131,7 +1121,7 @@ class BattleChecks {
   }
   Check(chosenCampaign.CampaignComplete && chosenCount>0);
   // Stage previews describe the exact wave definitions; roleEnemy roles drive real actions.
-  for(int stage=0;stage<30;stage++) {
+  for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) {
    var stagePreview=ChapterDefinition.Preview(stage);
    for(int wave=0;wave<3;wave++) foreach(var roleEnemy in ChapterDefinition.WaveAt(stage,wave,3))
     Check(stagePreview.Contains(roleEnemy.Name+" · "+roleEnemy.Role+" / "+roleEnemy.Row+" · Weak: "+roleEnemy.Weakness));
@@ -1179,14 +1169,14 @@ class BattleChecks {
   Check(idle.RestoreProgress(progressedIdle) && idle.IdleCrystalRate==3 && idle.IdleExperienceRate==4);
   idleCurrency=idle.Crystals; Check(idle.ClaimIdleRewards() && idle.Crystals==idleCurrency+3 && idle.HeroProgress("Paladin_Common").Experience==4);
   idleNow=idleNow.AddMinutes(10); idle.Attack(); Check(!idle.ClaimIdleRewards()); idle.Reset(); Check(idle.ClaimIdleRewards());
-  progressedIdle=idle.ExportProgress(); progressedIdle.encounter=30; Check(idle.RestoreProgress(progressedIdle) && idle.RestartCampaign());
+  progressedIdle=idle.ExportProgress(); progressedIdle.encounter=30; Check(idle.RestoreProgress(progressedIdle) && idle.ChapterIndex==6);
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
   Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==12);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
-  badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
+  badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
   badIdle.furthestStage=-1; Check(!replayIdle.RestoreProgress(badIdle));
   var fullWallet=idle.ExportProgress(); fullWallet.crystals=999999; Check(idle.RestoreProgress(fullWallet));
   idleNow=idleNow.AddMinutes(10); Check(idle.IdleCrystals==1 && idle.ClaimIdleRewards() && idle.Crystals==1000000);
@@ -1230,8 +1220,8 @@ class BattleChecks {
   int expectedFactionHealth=(factionReload.Party[0].Identity.Stats.Scaled(factionReload.Party[0].Growth).WithTalentBonuses(15,0).MaxHealth+GearDefinition.Find("Armor_Common_Physical").Health)*120;
   Check(factionReload.Party[0].Definition.MaxHealth==(expectedFactionHealth+99)/100);
   var factionReplay=fiveFaction.ExportProgress(); factionReplay.encounter=30; factionReplay.pendingVictory=false; factionReplay.results=null;
-  Check(factionReload.RestoreProgress(factionReplay) && factionReload.RestartCampaign() && factionReload.TeamFactionBonus==0 && factionReload.Party[0].Definition.MaxHealth==100);
-  Check(factionReload.HeroProgress("Sorceress_Rare").FactionBonus==0);
+  Check(factionReload.RestoreProgress(factionReplay) && factionReload.ChapterIndex==6 && factionReload.TeamFactionBonus==20 && factionReload.Party[0].Definition.MaxHealth==120);
+  Check(factionReload.HeroProgress("Sorceress_Rare").FactionBonus==20);
   // Ascension raises effective rarity while preserving every named hero and their loadout.
   var ascension=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"});
   var ascensionData=ascension.ExportProgress(); foreach(var loadout in ascensionData.loadouts) loadout.shards=1000;
@@ -1284,7 +1274,7 @@ class BattleChecks {
   badCrystal.sharedHeroes=null; Check(!crystalReload.RestoreProgress(badCrystal));
   var starterCrystal=new Battle(true); Check(!starterCrystal.CrystalUnlocked && starterCrystal.CrystalLevel==1 && !starterCrystal.SetShared("Knight_Common",true));
   var replayCrystal=crystal.ExportProgress(); replayCrystal.encounter=30;
-  Check(crystalReload.RestoreProgress(replayCrystal) && crystalReload.RestartCampaign() && crystalReload.SharedCount==5 && crystalReload.CrystalLevel==11);
+  Check(crystalReload.RestoreProgress(replayCrystal) && crystalReload.ChapterIndex==6 && crystalReload.SharedCount==5 && crystalReload.CrystalLevel==11);
   Check(crystalReload.HeroProgress(linkedId).CombatLevel==11);
   var sharedClock=new DateTime(2026,10,11,12,0,0,DateTimeKind.Utc); var idleCrystal=new Battle(true,utcNow:()=>sharedClock);
   var idleCrystalSave=crystal.ExportProgress(); idleCrystalSave.idleClaimTicks=sharedClock.Ticks;
@@ -1301,7 +1291,7 @@ class BattleChecks {
   Check(ChapterDefinition.Difficulty(125,100)=="EASY" && ChapterDefinition.Difficulty(124,100)=="EVEN");
   Check(ChapterDefinition.Difficulty(85,100)=="HARD" && ChapterDefinition.Difficulty(86,100)=="EVEN");
   Check(ChapterDefinition.Difficulty(0,100)=="HARD");
-  for(int stage=0;stage<30;stage++) {
+  for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) {
    int peakPower=0;
    for(int wave=0;wave<3;wave++) { int wavePower=ChapterDefinition.WavePower(stage,wave); Check(wavePower>0 && ChapterDefinition.Preview(stage).Contains("Power "+wavePower)); peakPower=Math.Max(peakPower,wavePower); }
    Check(ChapterDefinition.StagePower(stage)>=peakPower && ChapterDefinition.StagePower(stage,1)==ChapterDefinition.WavePower(stage,0,1));
@@ -1407,7 +1397,7 @@ class BattleChecks {
     Check(tower.Results.Crystals==80+floor*5 && tower.Results.Experience==60+floor*2 && tower.Results.RecruitName==null);
     var pendingTower=new Battle(true,enableWaves:true,enableFactions:true); Check(pendingTower.RestoreProgress(tower.ExportProgress()) && pendingTower.Current==Phase.Won && pendingTower.InTower && pendingTower.Results.Loot.Id==tower.Results.Loot.Id);
     Check(!pendingTower.LeaveTower());
-    if(floor==1) { var endStoryTower=tower.ExportProgress(); endStoryTower.encounter=30; var endStoryReload=new Battle(true); Check(endStoryReload.RestoreProgress(endStoryTower) && endStoryReload.Current==Phase.Won && endStoryReload.ContinueAfterVictory() && endStoryReload.LeaveTower() && endStoryReload.CampaignComplete); }
+    if(floor==1) { var endStoryTower=tower.ExportProgress(); endStoryTower.encounter=ChapterDefinition.TotalStages; var endStoryReload=new Battle(true); Check(endStoryReload.RestoreProgress(endStoryTower) && endStoryReload.Current==Phase.Won && endStoryReload.ContinueAfterVictory() && endStoryReload.LeaveTower() && endStoryReload.CampaignComplete); }
     Check(tower.ContinueAfterVictory() && tower.TowerFloor==floor+1 && tower.Crystals==crystals+80+floor*5 && tower.Party[0].Shards==shards+shardReward && tower.Encounter==0);
     Check(!tower.ContinueAfterVictory() && tower.Party.Count==participants); towerClaimed++;
    } else throw new Exception("Unexpected tower phase: "+tower.Current);
@@ -1416,7 +1406,7 @@ class BattleChecks {
   var completedTower=new Battle(true,enableWaves:true); Check(completedTower.RestoreProgress(tower.ExportProgress()) && completedTower.TowerComplete && completedTower.LeaveTower() && !completedTower.CanEnterTower);
   Check(tower.LeaveTower() && tower.Party.Count==1 && tower.Encounter==0);
   var legacyTower=tower.ExportProgress(); legacyTower.version=10; Check(towerReload.RestoreProgress(legacyTower) && towerReload.TowerFloor==1 && !towerReload.InTower);
-  var afterStory=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"},30);
+  var afterStory=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"},ChapterDefinition.TotalStages);
   Check(afterStory.CampaignComplete && afterStory.EnterTower() && !afterStory.CampaignComplete && afterStory.LeaveTower() && afterStory.CampaignComplete);
   // Collection filters use current ascended rarity and deterministic sorting.
   var filteredCollection=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Rare"});
@@ -1468,6 +1458,34 @@ class BattleChecks {
   invalidPresets=presets.ExportProgress(); invalidPresets.presets=new TeamPresetData[2]; Check(!presetReload.RestoreProgress(invalidPresets));
   invalidPresets=presets.ExportProgress(); invalidPresets.presets[1]=null; Check(!presetReload.RestoreProgress(invalidPresets));
   invalidPresets=presets.ExportProgress(); invalidPresets.presets[1].heroes=null; Check(!presetReload.RestoreProgress(invalidPresets));
+  // Late campaign waves have simultaneous groups, including three independent enemy turns.
+  for(int stage=30;stage<ChapterDefinition.TotalStages;stage++) for(int wave=0;wave<3;wave++) {
+   var group=ChapterDefinition.WaveAt(stage,wave,3);
+   Check(group.Count>=2 && group.Count<=3);
+   var names=new System.Collections.Generic.HashSet<string>();
+   foreach(var foe in group) Check(names.Add(foe.Name) && EnemyVisualDefinition.For(foe.Name)!=null);
+   if(wave==2 && stage%5==4) Check(group.Count==2 && group[0].IsBoss && group[1].IsBoss);
+   else { Check(group[0].Role==EnemyRole.Defender && group[1].Row==EnemyRow.Back); if(group.Count==3) Check(group[2].Role==EnemyRole.Bruiser); }
+  }
+  var lateTrio=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Rare","Ranger_Common","Cleric_Common"},31);
+  Check(lateTrio.Enemies.Count==3 && lateTrio.SelectEnemy(2));
+  int[] beforeTrio=new int[3]; for(int i=0;i<3;i++) { lateTrio.Enemies[i].Health=10000; beforeTrio[i]=lateTrio.Enemies[i].Health; }
+  foreach(var hero in lateTrio.Party) hero.Acted=true; lateTrio.Party[0].Acted=false;
+  Check(lateTrio.Attack() && lateTrio.Enemies[2].Health<beforeTrio[2] && lateTrio.Enemies[0].Health==beforeTrio[0] && lateTrio.Enemies[1].Health==beforeTrio[1]);
+  for(int foeIndex=0;foeIndex<3;foeIndex++) {
+   Check(lateTrio.Current==Phase.EnemyWindup && lateTrio.AttackingEnemyIndex==foeIndex && lateTrio.BeginStrike());
+   if(lateTrio.IncomingSkill.Action==EnemyAction.Attack) for(int hero=0;hero<lateTrio.Party.Count;hero++)
+    if(lateTrio.Party[hero].Health>0 && (lateTrio.IncomingSkill.PartyWide || hero==lateTrio.ActiveIndex)) Check(lateTrio.DefendHero(hero,false,.1f));
+   lateTrio.FinishStrike(); Check(lateTrio.Enemies[foeIndex].CompletedStrikes==1);
+  }
+  Check(lateTrio.Current==Phase.Player && lateTrio.SelectHero(2)); lateTrio.Party[2].Energy=100;
+  Check(lateTrio.Attack() && lateTrio.LastUltimate!=null && lateTrio.LastUltimate.AreaDamage && lateTrio.LastUltimateDamage.Length==3);
+  for(int i=0;i<3;i++) Check(lateTrio.LastUltimateDamage[i]>0);
+  var soloUltimate=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Rare","Ranger_Common","Cleric_Common"},31);
+  soloUltimate.Party[0].Energy=100; Check(soloUltimate.SelectEnemy(2) && soloUltimate.Attack());
+  Check(soloUltimate.LastUltimate!=null && !soloUltimate.LastUltimate.AreaDamage && soloUltimate.LastUltimateDamage[2]>0 && soloUltimate.LastUltimateDamage[0]==0 && soloUltimate.LastUltimateDamage[1]==0);
+  var thirdTargetSave=soloUltimate.ExportProgress(); var thirdReload=new Battle(true,enableWaves:true,enableFactions:true);
+  Check(thirdReload.RestoreProgress(thirdTargetSave) && thirdReload.Enemies.Count==3 && thirdReload.WaveIndex==0 && thirdReload.Encounter==31);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
