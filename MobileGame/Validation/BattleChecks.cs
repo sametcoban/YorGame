@@ -386,7 +386,7 @@ class BattleChecks {
   Check(paired.Enemies[0].Health==0 && paired.Current==Phase.EnemyStrike);
   paired.FinishStrike();Check(paired.Current==Phase.EnemyWindup && paired.AttackingEnemyIndex==1);
   Check(paired.BeginStrike());paired.FinishStrike();Check(paired.Current==Phase.Player && paired.HeroHealth==65);
-  paired.Reset();Check(paired.Enemies[0].Health==400 && paired.Enemies[1].Health==280 && paired.SelectedEnemyIndex==0 && paired.CanChangeParty);
+  paired.Reset();Check(paired.Enemies[0].Health==450 && paired.Enemies[1].Health==315 && paired.SelectedEnemyIndex==0 && paired.CanChangeParty);
   paired.Attack();paired.BeginStrike();paired.Defend(false,.1f);paired.FinishStrike();
   paired.Party[0].Health=1;Check(paired.BeginStrike());paired.FinishStrike();
   Check(paired.Current==Phase.Lost && !paired.Attack() && !paired.SelectEnemy(0));
@@ -408,10 +408,19 @@ class BattleChecks {
   // Clear all four paired encounters through the public combat API.
   for(int chapter=2;chapter<6;chapter++) {
    var run=new Battle(true);var snapshot=run.ExportProgress();snapshot.encounter=chapter*5+4;
+   snapshot.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"};
+   snapshot.party=new string[Math.Min(5,chapter+1)]; Array.Copy(snapshot.recruited,snapshot.party,snapshot.party.Length);
+   snapshot.loadouts=new HeroLoadoutData[5];
+   for(int i=0;i<5;i++) snapshot.loadouts[i]=new HeroLoadoutData{id=snapshot.recruited[i],secondSkill=1};
    Check(run.RestoreProgress(snapshot));int turns=0;
-   while(run.Current!=Phase.Won && turns++<300) {
+   while(run.Current!=Phase.Won && turns++<1000) {
     if(run.Current==Phase.Player) Check(run.Attack());
-    else { Check(run.BeginStrike()); if(run.IncomingSkill.Action==EnemyAction.Attack) Check(run.Defend(false,.1f)); run.FinishStrike(); }
+    else {
+     Check(run.BeginStrike());
+     if(run.IncomingSkill.Action==EnemyAction.Attack) for(int i=0;i<run.Party.Count;i++)
+      if(run.Party[i].Health>0 && (run.IncomingSkill.PartyWide || i==run.ActiveIndex)) Check(run.DefendHero(i,false,.1f));
+     run.FinishStrike();
+    }
    }
    Check(run.Current==Phase.Won && run.Enemies[0].Health==0 && run.Enemies[1].Health==0);
    Check(run.ContinueAfterVictory() && run.Encounter==(chapter+1)*5 && run.Crystals==350);
@@ -850,9 +859,9 @@ class BattleChecks {
   Check(formation.ActiveIndex==4 && formation.Party[4].Identity.Id=="Knight_Common" && formation.Party[0].Identity.Id=="Cleric_Common");
   var formationReload=new Battle(true); Check(formationReload.RestoreProgress(formation.ExportProgress()));
   for(int i=0;i<5;i++) Check(formationReload.Party[i].Identity.Id==formation.Party[i].Identity.Id);
-  Check(formation.Enemies[0].Definition.MaxHealth==667 && formation.Enemies[1].Definition.MaxHealth==467);
+  Check(formation.Enemies[0].Definition.MaxHealth==1167 && formation.Enemies[1].Definition.MaxHealth==817);
   var fourHeroes=BossBattle(19);
-  Check(fourHeroes.PartyLimit==4 && fourHeroes.Enemies[0].Definition.MaxHealth==534 && fourHeroes.Enemies[1].Definition.MaxHealth==374);
+  Check(fourHeroes.PartyLimit==4 && fourHeroes.Enemies[0].Definition.MaxHealth==767 && fourHeroes.Enemies[1].Definition.MaxHealth==536);
   // Older three-hero saves can fill newly unlocked slots from reserves before combat.
   var oldTeam=formationSave; oldTeam.party=new[]{"Knight_Common","Paladin_Common","Sorceress_Common"};
   Check(formationReload.RestoreProgress(oldTeam) && formationReload.Party.Count==3);

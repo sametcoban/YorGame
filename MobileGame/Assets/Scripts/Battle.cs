@@ -249,7 +249,7 @@ namespace Ashlight {
         }
         public int TeamPower { get { int total=0; foreach(var member in party) total+=member.Power; return total; } }
         public double TowerPowerScale { get { return TowerHealthScale*(InTower?Math.Max(1,PartyLimit/3.0)/Math.Max(1,Math.Min(5,EnemyEncounter/5+1)/3.0):1); } }
-        public int StagePower { get { return (int)Math.Ceiling(ChapterDefinition.StagePower(EnemyEncounter,WaveCount)*TowerPowerScale); } }
+        public int StagePower { get { return (int)Math.Ceiling(ChapterDefinition.StagePower(EnemyEncounter,WaveCount,!InTower)*TowerPowerScale); } }
         public string Difficulty { get { return ChapterDefinition.Difficulty(TeamPower,StagePower); } }
         public int PartyLimit { get { return InTower?MaxPartySize:campaign?Math.Min(MaxPartySize,ChapterIndex+1):MaxPartySize; } }
         public IReadOnlyList<HeroClass> UnlockedClasses { get { return unlocked.AsReadOnly(); } }
@@ -812,6 +812,8 @@ namespace Ashlight {
                 IncomingSkill=new EnemySkill("Eclipse Veil · shields one boss; target the other",0,Element.Light,action:EnemyAction.Shield);
             if(WaveIndex<WaveCount-1 && IncomingSkill.Action==EnemyAction.Attack)
                 IncomingSkill=new EnemySkill(IncomingSkill.Name,Math.Max(1,(int)Math.Ceiling(IncomingSkill.Damage*.6)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
+            if(campaign && waveBattles && !InTower && IncomingSkill.Action==EnemyAction.Attack)
+                IncomingSkill=new EnemySkill(IncomingSkill.Name,(int)Math.Ceiling(IncomingSkill.Damage*ChapterDefinition.DamageScale(EnemyEncounter)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
             if(InTower && IncomingSkill.Action==EnemyAction.Attack) IncomingSkill=new EnemySkill(IncomingSkill.Name,(int)Math.Ceiling(IncomingSkill.Damage*(1+(TowerFloor-1)*.03)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
             // Three targeting tickets per front hero and one per back hero.
             var targets=new List<int>();

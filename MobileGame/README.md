@@ -607,3 +607,9 @@ This changes presentation only; damage, healing, energy and combat timing rules 
 New players receive five contextual tips: choosing a chapter, preparing skills and using Auto Play, claiming victory rewards, summoning and forming a team, and continuing progression. Every tip can be acknowledged or the whole tutorial skipped. Acknowledged tips and an open tip's pending state are stored separately in `Ashlight.Tutorial.v1` PlayerPrefs; restarting resumes a pending tip. Existing battle saves are exempt by default. Use **Tutorial** beside the Tower button in Chapters to replay the tips without clearing game progress. Auto Play cannot take an action while a tip is open.
 
 Unity validation: try the Tutorial button on an existing save, acknowledge the welcome and enter a chapter, close the preparation tip and Enemy Preview, win and claim rewards, then summon. Also test Skip, reopening the game with a tip open, and restarting after acknowledging it. The tutorial does not grant rewards or alter save snapshots. Unity runtime and PlayerPrefs persistence checks remain to be run locally.
+
+### Campaign balance pass
+
+Removed the enemy health ceiling and added gradual campaign damage growth after chapter 1. Later bosses now reward leveling, equipment, and stronger heroes while early chapters stay forgiving. No hero rarity, skill, ultimate, reward, or save-format changes were required. Enemy Preview and stage power account for the new campaign scaling.
+
+See [the balance report](Validation/BalanceReport.md) for before/after win rates, assumptions, and remaining limits. `Validation/BalanceChecks.cs` runs production Auto Play decisions and randomized class defenses over 18,000 stage samples and 400 fresh campaigns. Run it with the same pure C# compile inputs as `BattleChecks.cs`, substituting the validation filename. Unity visuals, animation timing, and device performance remain unverified in the cloud.

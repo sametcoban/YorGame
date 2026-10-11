@@ -947,7 +947,7 @@ namespace Ashlight {
         void OpenStagePreview() {
             if(atChapters || !battle.CanChangeParty) return;
             selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
-            previewText.text=(battle.InTower?"TOWER FLOOR "+battle.TowerFloor+" · "+ChapterDefinition.Catalog[battle.ChapterIndex].Name:"Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1))+"\nTeam "+battle.TeamPower+" vs Stage "+battle.StagePower+" · "+battle.Difficulty+"\nEstimate only · elements and formation matter.\n\n"+ChapterDefinition.Preview(battle.EnemyEncounter,battle.TowerPowerScale);
+            previewText.text=(battle.InTower?"TOWER FLOOR "+battle.TowerFloor+" · "+ChapterDefinition.Catalog[battle.ChapterIndex].Name:"Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1))+"\nTeam "+battle.TeamPower+" vs Stage "+battle.StagePower+" · "+battle.Difficulty+"\nEstimate only · elements and formation matter.\n\n"+ChapterDefinition.Preview(battle.EnemyEncounter,battle.TowerPowerScale,!battle.InTower);
             previewRoot.transform.SetAsLastSibling(); previewRoot.SetActive(true);
         }
         void CreateChapterMenu() {
