@@ -22,6 +22,16 @@ namespace Ashlight {
             for(int i=0;i<skills.Length;i++) { var s=Skills[i]; skills[i]=new SkillDefinition(s.Name,s.Damage>0?s.Damage+damage:0,s.Healing,s.Guard,s.PartyHealing,s.Affinity); }
             return new ClassDefinition(Kind,Name,AbilityName,Description,MaxHealth+health,AttackDamage+attack,AbilityDamage>0?AbilityDamage+damage:0,AbilityHealing,Array.AsReadOnly(skills));
         }
+        public static string PassiveDescription(HeroClass kind) {
+            switch(kind) {
+                case HeroClass.Knight: return "Vanguard · while in front, reduces direct damage to the other front hero by 20%.";
+                case HeroClass.Paladin: return "Sacred Aegis · grants at least 8 Guard to living allies before each enemy round.";
+                case HeroClass.Sorceress: return "Arcane Exposure · +20% damage when exploiting an elemental weakness.";
+                case HeroClass.Ranger: return "Hunter's Mark · +20% damage against ranged enemies.";
+                case HeroClass.Rogue: return "Deadly Precision · 25% chance to deal 1.5× damage on a damaging attack, skill or ultimate hit.";
+                default: return "Mending Prayer · after each enemy round, heals the living ally with the lowest health percentage for 10% of the Cleric's max HP.";
+            }
+        }
         public static ClassDefinition For(HeroClass kind) {
             switch (kind) {
                 case HeroClass.Knight: return new ClassDefinition(kind, "Knight", "POWER STRIKE", "Balanced sword fighter", 100, 25, 40, 0);

@@ -4,7 +4,7 @@ using UnityEngine.EventSystems;
 using System.Collections;
 namespace Ashlight {
     public sealed class Prototype : MonoBehaviour {
-        Battle battle = new Battle(true,enableWaves:true);
+        Battle battle = new Battle(true,enableWaves:true,enableClassPassives:true);
         bool atChapters;
         GameObject chapterRoot;
         Text chapterTitle;
@@ -279,7 +279,16 @@ namespace Ashlight {
             }
             transitioningWave=false;
         }
+        void PresentPassiveHealing() {
+            for(int i=0;i<battle.Party.Count;i++) if(battle.LastPassiveHealing[i]>0) {
+                effects.Heal(allies[i].position,battle.LastPassiveHealing[i]);
+                effects.Floating(allies[i].position,"MENDING PRAYER",Element.Light); sounds.Play("Heal",.7f);
+            }
+        }
         IEnumerator EnemyTurn() {
+            for(int i=0;i<battle.Party.Count;i++) if(battle.LastPassiveGuard[i]>0) {
+                effects.Guard(allies[i].position); effects.Floating(allies[i].position,"SACRED AEGIS",Element.Light);
+            }
             // Both bosses remain on the field; each living boss attacks once per enemy round.
             while (battle.Current == Phase.EnemyWindup) {
                 int foeIndex = battle.AttackingEnemyIndex;
@@ -312,6 +321,7 @@ namespace Ashlight {
                         effects.Floating(foes[recipient].position,"SHIELD 60",Element.Light);
                         message="Eclipse Veil protects "+battle.Enemies[recipient].Definition.Name+". Attack the other boss.";
                     }
+                    PresentPassiveHealing();
                     presentation.Warning(false);
                     continue;
                 }
@@ -338,6 +348,7 @@ namespace Ashlight {
                 lastHitDamage = battle.LastIncomingDamage[target];
                 for(int i=0;i<battle.Party.Count;i++) {
                     int damage=battle.LastIncomingDamage[i];
+                    if(battle.LastPassiveProtection[i]>0) effects.Floating(allies[i].position,"VANGUARD −"+battle.LastPassiveProtection[i],Element.Light);
                     if(damage>0) {
                         var targetVisual=allies[i].GetComponent<HeroVisual>(); if(targetVisual!=null) targetVisual.Play("Hit");
                         effects.Attack(actor.position,allies[i].position,skill.Element,damage,1); sounds.PlayElement(skill.Element);
@@ -347,6 +358,7 @@ namespace Ashlight {
                     if(battle.LastStatusDamage[i]>0) effects.Floating(allies[i].position,"DEBUFF −"+battle.LastStatusDamage[i],skill.Element);
                 }
                 if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { effects.BossImpact(allies[target].position,skill.Element); sounds.Play("BossSlam",.75f); }
+                PresentPassiveHealing();
                 presentation.Warning(false);
                 if (battle.Current == Phase.Player) message = defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
             }
@@ -390,7 +402,7 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || presentingAction) return;
+            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
@@ -417,6 +429,7 @@ namespace Ashlight {
             while (Time.time < attackTime+motion.Impact-.10f) yield return null;
             if (!casting) sounds.Play(kind == HeroClass.Ranger ? "BowRelease" : kind == HeroClass.Rogue ? "DaggerSwipe" : kind == HeroClass.Paladin ? "HeavySwing" : "SwordSwing");
             while (Time.time < attackTime+motion.Impact) yield return null;
+            if(!string.IsNullOrEmpty(battle.LastOffensivePassive)) effects.Floating(actor.position,battle.LastOffensivePassive,battle.LastElement);
             bool combo = motion.SecondImpact > 0;
             int firstDamage = combo ? (damage+1)/2 : damage;
             HeroImpact(actor,target,firstDamage,element,multiplier,!casting && kind != HeroClass.Ranger && !combo);
@@ -516,6 +529,7 @@ namespace Ashlight {
         void RefreshSelection() {
             var member = battle.Party[battle.ActiveIndex];
             selectionTitle.text = selectingSkills ? member.Identity.Name + " / " + member.Identity.DisplayClass + " / " + member.Identity.Quality + " / " + member.Identity.Affinity + " — equip 2 of 6 skills\nSelect a slot, then a skill. Choices lock during battle." : browsingClass + " heroes\nSelect an ally, or replace the selected party slot before battle.";
+            selectionTitle.text+="\nPASSIVE: "+ClassDefinition.PassiveDescription(member.Identity.Class);
             selectionTitle.text+="\n"+member.Identity.Name+" Lv "+member.Level+" · XP "+member.Experience+"/"+member.NextLevelXP+" · Upgrade "+member.UpgradeRank+"/5 · Shards "+member.Shards;
             upgradeButton.interactable=battle.CanChangeParty && member.UpgradeRank<PartyHero.MaxUpgradeRank && member.Shards>=member.UpgradeCost;
             upgradeButton.GetComponentInChildren<Text>().text=member.UpgradeRank==PartyHero.MaxUpgradeRank?"UPGRADE MAX":"UPGRADE "+member.Identity.Name+"\n"+member.Shards+"/"+member.UpgradeCost+" shards";

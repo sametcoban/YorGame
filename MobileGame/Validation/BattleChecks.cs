@@ -14,6 +14,19 @@ class BattleChecks {
    battle.FinishStrike();
   }
  }
+ sealed class FixedRoll : Random {
+  readonly double value; public FixedRoll(double roll) { value=roll; }
+  public override double NextDouble() { return value; }
+ }
+ static Battle PassiveBattle(int encounter,string[] heroes,double roll=.99,bool waves=false) {
+  var battle=new Battle(true,enableWaves:waves,enableClassPassives:true,criticalRandom:new FixedRoll(roll));
+  var save=battle.ExportProgress(); save.encounter=encounter;
+  var recruits=new System.Collections.Generic.List<string>(); recruits.Add("Knight_Common");
+  foreach(var hero in heroes) if(!recruits.Contains(hero)) recruits.Add(hero);
+  save.recruited=recruits.ToArray(); save.party=heroes; save.loadouts=new HeroLoadoutData[save.recruited.Length];
+  for(int i=0;i<save.loadouts.Length;i++) save.loadouts[i]=new HeroLoadoutData{id=save.recruited[i],firstSkill=0,secondSkill=1};
+  Check(battle.RestoreProgress(save)); return battle;
+ }
  static void Main() {
   var b = new Battle();
   Check(b.Current == Phase.Player && b.HeroHealth == 100);
@@ -870,6 +883,88 @@ class BattleChecks {
   Check(formation.SelectEnemy(1) && formation.Attack() && formation.Current==Phase.Won && formation.Results.Heroes.Count==5);
   var fiveResults=new Battle(true); Check(fiveResults.RestoreProgress(formation.ExportProgress()) && fiveResults.Results.Heroes.Count==5);
   Check(fiveResults.ContinueAfterVictory() && fiveResults.Party.Count==5);
+  // Offensive passives are player-action bonuses; counters retain their original damage.
+  var arcane=PassiveBattle(10,new[]{"Sorceress_Common"});
+  double arcaneBonus=arcane.PassiveDamageMultiplier(arcane.Party[0],arcane.Enemy,arcane.Party[0].Identity.Affinity);
+  int arcaneExpected=(int)Math.Ceiling(arcane.Enemy.Damage(arcane.Hero.AttackDamage,arcane.Party[0].Identity.Affinity)*arcaneBonus);
+  Check(arcaneBonus==1.2 && arcane.Attack() && arcane.LastDamage==54 && arcane.LastDamage==arcaneExpected && arcane.LastOffensivePassive=="ARCANE EXPOSURE");
+  arcane.Reset(); arcane.EquipSkill(0,4); var elementalSkill=arcane.Party[0].Skill(0);
+  Element skillAffinity=elementalSkill.Affinity ?? arcane.Party[0].Identity.Affinity;
+  arcaneExpected=(int)Math.Ceiling(arcane.Enemy.Damage(elementalSkill.Damage,skillAffinity)*arcane.PassiveDamageMultiplier(arcane.Party[0],arcane.Enemy,skillAffinity));
+  Check(arcane.UseAbility() && arcane.LastDamage==arcaneExpected);
+  Check(arcane.PassiveDamageMultiplier(arcane.Party[0],new EnemyDefinition("Test",100,Element.Fire,Element.Cold),Element.Fire)==1.2);
+  Check(arcane.PassiveDamageMultiplier(arcane.Party[0],new EnemyDefinition("Test",100,Element.Fire,Element.Cold),Element.Cold)==1);
+  var hunter=PassiveBattle(2,new[]{"Ranger_Common"});
+  int hunterBase=hunter.Enemy.Damage(hunter.Hero.AttackDamage,hunter.Party[0].Identity.Affinity);
+  Check(hunter.Attack() && hunter.LastDamage==(int)Math.Ceiling(hunterBase*1.2) && hunter.LastOffensivePassive=="HUNTER'S MARK");
+  var hunterMelee=PassiveBattle(0,new[]{"Ranger_Common"});
+  hunterBase=hunterMelee.Enemy.Damage(hunterMelee.Hero.AttackDamage,hunterMelee.Party[0].Identity.Affinity);
+  Check(hunterMelee.Attack() && hunterMelee.LastDamage==hunterBase && hunterMelee.LastOffensivePassive==null);
+  var critical=PassiveBattle(5,new[]{"Rogue_Common"},.249);
+  int criticalBase=critical.Enemy.Damage(critical.Hero.AttackDamage,critical.Party[0].Identity.Affinity);
+  Check(critical.Attack() && critical.LastDamage==(int)Math.Ceiling(criticalBase*1.5) && critical.LastOffensivePassive=="CRITICAL STRIKE");
+  critical.BeginStrike(); Check(critical.Defend(true,.1f));
+  Check(critical.LastDamage==critical.Enemy.Damage(10,critical.Party[0].Identity.Affinity)); critical.FinishStrike();
+  var ordinary=PassiveBattle(5,new[]{"Rogue_Common"},.25);
+  Check(ordinary.Attack() && ordinary.LastDamage==criticalBase && ordinary.LastOffensivePassive==null);
+  critical.Reset(); critical.Party[0].Energy=75;
+  Check(critical.Attack() && critical.LastUltimate!=null && critical.LastUltimateDamage[0]>0 && critical.Party[0].EncounterDamage==critical.LastDamage+critical.LastUltimateDamage[0]);
+  // Knight protection works only from the front, and never stacks or protects itself.
+  var vanguard=PassiveBattle(14,new[]{"Knight_Common","Sorceress_Common","Cleric_Common"});
+  for(int i=0;i<3;i++) Check(vanguard.Attack());
+  Check(vanguard.BeginStrike()); vanguard.FinishStrike();
+  Check(vanguard.LastIncomingDamage[0]==35 && vanguard.LastPassiveProtection[0]==0);
+  Check(vanguard.BeginStrike()); vanguard.FinishStrike();
+  Check(vanguard.LastIncomingDamage[1]==28 && vanguard.LastPassiveProtection[1]==7);
+  vanguard.Reset(); Check(vanguard.SwapFormation(0,2));
+  for(int i=0;i<3;i++) Check(vanguard.Attack()); vanguard.BeginStrike(); vanguard.FinishStrike();
+  vanguard.BeginStrike(); vanguard.FinishStrike(); Check(vanguard.LastIncomingDamage[1]==35 && vanguard.LastPassiveProtection[1]==0);
+  // Paladins raise Guard to eight once per enemy round and preserve stronger skill guards.
+  var aegis=PassiveBattle(14,new[]{"Knight_Common","Paladin_Common","Cleric_Common"}); aegis.Party[0].Guard=20;
+  for(int i=0;i<3;i++) Check(aegis.Attack());
+  Check(aegis.Party[0].Guard==20 && aegis.Party[1].Guard==8 && aegis.Party[2].Guard==8);
+  Check(aegis.LastPassiveGuard[0]==0 && aegis.LastPassiveGuard[2]==8);
+  aegis.BeginStrike(); aegis.FinishStrike(); Check(aegis.Party[0].Guard==0);
+  aegis.BeginStrike(); aegis.FinishStrike(); Check(aegis.Party[0].Guard==0);
+  aegis.Reset(); aegis.Party[1].Health=0; Check(aegis.Attack() && aegis.Attack());
+  Check(aegis.Party[0].Guard==0 && aegis.LastPassiveGuard[0]==0);
+  // Clerics heal by health percentage, cap actual healing and never revive fallen allies.
+  var prayer=PassiveBattle(14,new[]{"Knight_Common","Paladin_Common","Cleric_Common"});
+  prayer.Party[0].Health=50; prayer.Party[1].Health=50;
+  for(int i=0;i<3;i++) Check(prayer.Attack());
+  prayer.BeginStrike(); prayer.Defend(false,.1f); prayer.FinishStrike();
+  Check(prayer.LastPassiveHealing[1]==0); prayer.BeginStrike(); prayer.Defend(false,.1f); prayer.FinishStrike();
+  Check(prayer.LastPassiveHealing[1]==10 && prayer.Party[1].Health==60 && prayer.Party[0].Health==50 && prayer.Party[2].EncounterHealing==10);
+  prayer.Reset(); prayer.Party[0].Health=0; prayer.Party[1].Health=prayer.Party[1].Definition.MaxHealth-3;
+  Check(prayer.SelectHero(1) && prayer.Attack() && prayer.Attack()); ResolveEnemies(prayer);
+  Check(prayer.Party[0].Health==0 && prayer.LastPassiveHealing[1]==3 && prayer.Party[2].EncounterHealing==3);
+  prayer.Reset(); prayer.Party[2].Health=0; prayer.Party[0].Health=20;
+  Check(prayer.Attack() && prayer.Attack()); ResolveEnemies(prayer);
+  Check(prayer.Party[0].Health==20 && prayer.LastPassiveHealing[0]==0);
+  // A lethal area hit snapshots Knight protection before resolving all hero damage.
+  vanguard=PassiveBattle(14,new[]{"Knight_Common","Sorceress_Common","Cleric_Common"}); vanguard.Enemies[0].Health=0; vanguard.Enemies[1].CompletedStrikes=2; vanguard.Party[0].Health=1;
+  for(int i=0;i<3;i++) Check(vanguard.Attack());
+  Check(vanguard.IncomingSkill.PartyWide && vanguard.BeginStrike()); vanguard.FinishStrike();
+  Check(vanguard.Party[0].Health==0 && vanguard.LastIncomingDamage[1]==18 && vanguard.LastPassiveProtection[1]==4);
+  var duplicateAegis=PassiveBattle(24,new[]{"Knight_Common","Paladin_Common","Paladin_Uncommon"});
+  for(int i=0;i<3;i++) Check(duplicateAegis.Attack());
+  Check(duplicateAegis.Party[0].Guard==8 && duplicateAegis.Party[1].Guard==8 && duplicateAegis.Party[2].Guard==8);
+  // With passives enabled, public actions still finish the entire 90-wave campaign.
+  var passiveCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(123)); int passiveSteps=0,passiveWaves=0;
+  while(!passiveCampaign.CampaignComplete && passiveSteps++<6000) {
+   if(passiveCampaign.Current==Phase.Player) {
+    passiveCampaign.SelectEnemy(AutoBattlePlanner.ChooseTarget(passiveCampaign));
+    int pick=AutoBattlePlanner.ChooseSkill(passiveCampaign); Check(pick<0?passiveCampaign.Attack():passiveCampaign.UseAbility(pick));
+   } else if(passiveCampaign.Current==Phase.EnemyWindup) {
+    passiveCampaign.BeginStrike();
+    if(passiveCampaign.IncomingSkill.Action==EnemyAction.Attack)
+     for(int i=0;i<passiveCampaign.Party.Count;i++) if(passiveCampaign.Party[i].Health>0 && (passiveCampaign.IncomingSkill.PartyWide || i==passiveCampaign.ActiveIndex)) Check(passiveCampaign.DefendHero(i,false,.1f));
+    passiveCampaign.FinishStrike();
+   } else if(passiveCampaign.Current==Phase.WaveCleared) { passiveWaves++; Check(passiveCampaign.AdvanceWave()); }
+   else if(passiveCampaign.Current==Phase.Won) { passiveWaves++; Check(passiveCampaign.ContinueAfterVictory()); }
+   else throw new Exception("Unexpected passive campaign phase: "+passiveCampaign.Current);
+  }
+  Check(passiveCampaign.CampaignComplete && passiveWaves==90 && passiveCampaign.Party.Count==5);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

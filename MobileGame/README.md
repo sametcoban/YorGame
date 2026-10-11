@@ -413,3 +413,21 @@ Enemy maximum health scales with unlocked party size: chapters 1–3 retain exis
 All five heroes have health/energy labels and energy bars. Equipment selection and result contributions support five heroes. The arena displays two front models and three back models with a wider camera view. Existing saves remain compatible; unlocked empty party slots fill from recruited reserves when opening the game before combat. Saved victories keep their original participating heroes until Continue claims rewards and expands the party. Campaign restart returns to one active slot while retaining the collection.
 
 Copy the updated **Assets/Scripts** and **Assets/Editor** into Unity. Test swapping Knight/Paladin to the front and ranged/healing heroes to the back, wave resource carryover, five-hero ultimates and boss results. **Ashlight > Diagnostics > Check Save Serialization** now also checks five-hero formation order and pending results using Unity’s JSON serializer without modifying player saves. Cloud checks cover combat and save-data validation; Unity compilation, serialization diagnostics, mobile layout and animation playback still need editor testing.
+
+
+## Automatic class passives
+
+Passives are enabled in the game for every named hero, alongside the two equipped skills and unique ultimate. Select a hero and open **Skills** to read its passive.
+
+| Class | Passive |
+| --- | --- |
+| Knight | **Vanguard:** while alive in a front slot, reduces direct damage to the other front hero by 20%, rounded up after reduction. Does not protect itself or reduce damage over time; multiple Knights do not stack the reduction. |
+| Paladin | **Sacred Aegis:** before each enemy round, raises each living ally’s Guard to at least 8. Existing stronger Guard stays intact. Applies once per round, including paired bosses; multiple Paladins do not stack it. |
+| Sorceress / Sorcerer | **Arcane Exposure:** 20% extra damage when that hit’s element exploits the target’s weakness. |
+| Ranger | **Hunter’s Mark:** 20% extra damage against ranged enemies. Enemies currently have no formation rows, so this targets the existing ranged enemy types. |
+| Rogue | **Deadly Precision:** each damaging player attack, skill hit or ultimate hit has a 25% chance to deal 1.5× damage. Healing, Guard and enemy-turn counters do not roll critical hits. |
+| Cleric | **Mending Prayer:** after the complete enemy round and damage-over-time ticks, heals the living ally with the lowest health percentage for 10% of the Cleric’s maximum HP, capped at the ally’s maximum. Fallen Clerics do not heal and fallen allies stay defeated. Each living Cleric heals once. |
+
+Offensive bonuses apply before equipped elemental boosts, weakened/chilled penalties and enemy shield absorption. Result contributions count actual health damage and healing; passive healing belongs to its Cleric. Auto Play evaluates the Sorceress and Ranger bonuses when choosing a skill. Floating labels identify passive damage, protection, Guard and healing effects.
+
+Existing progress and formations remain compatible. Copy the updated **Assets/Scripts** into Unity, then try different front heroes, ranged enemies, wounded allies and Rogue ultimates. Pure C# checks cover the original combat rules and a complete 90-wave campaign with passives enabled. Unity compilation, floating labels and battle balance still require local playtesting.

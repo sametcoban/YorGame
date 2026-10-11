@@ -65,6 +65,10 @@ namespace Ashlight {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
         readonly bool waveBattles;
+        public bool ClassPassivesEnabled { get; private set; }
+        readonly Random passiveRandom;
+        public string LastOffensivePassive { get; private set; }
+        public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
         public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
         public int Crystals { get; private set; }
@@ -136,7 +140,7 @@ namespace Ashlight {
         public bool HeroDefended(int index) { return defendedHeroes[index]; }
         public Battle() : this(HeroClass.Knight) { }
         public Battle(HeroClass kind) { unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset(); }
-        public Battle(bool recruitmentCampaign, bool enableWaves=false) { campaign = recruitmentCampaign; waveBattles=enableWaves; Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
+        public Battle(bool recruitmentCampaign, bool enableWaves=false, bool enableClassPassives=false, Random criticalRandom=null) { campaign = recruitmentCampaign; waveBattles=enableWaves; ClassPassivesEnabled=enableClassPassives; passiveRandom=criticalRandom??new Random(); Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
         public void SelectClass(HeroClass kind) {
             if (campaign) throw new InvalidOperationException("Campaign heroes are recruited, not replaced.");
             party.Clear(); recruits.Clear(); unlocked.Clear(); unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset();
@@ -373,6 +377,7 @@ namespace Ashlight {
             return true;
         }
         public void Reset() {
+            LastOffensivePassive=null; ClearPassiveReports();
             Results=null; LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
             foreach (var member in party) member.Restore();
             Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null; LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
@@ -390,6 +395,7 @@ namespace Ashlight {
         }
         public bool AdvanceWave() {
             if(Current!=Phase.WaveCleared || WaveIndex>=WaveCount-1) return false;
+            ClearPassiveReports(); LastOffensivePassive=null;
             WaveIndex++; LoadWaveEnemies();
             foreach(var member in party) member.Acted=false;
             for(int i=0;i<party.Count;i++) if(party[i].Health>0) { ActiveIndex=i; break; }
@@ -404,11 +410,13 @@ namespace Ashlight {
         }
         public bool Attack() {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0) return false;
+            LastOffensivePassive=null;
             DealDamage(Hero.AttackDamage);
             CompleteAction(); return true;
         }
         public bool UseAbility(int slot = 0) {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0 || slot < 0 || slot > 1 || Active.SkillCharges(slot) == 0) return false;
+            LastOffensivePassive=null;
             var skill = Active.Skill(slot);
             int healingBefore=0; foreach(var member in party) healingBefore+=member.Health;
             Active.Consume(slot);
@@ -428,6 +436,11 @@ namespace Ashlight {
             LastElement = skillElement ?? Active.Identity.Affinity;
             LastElementMultiplier = amount > 0 ? definition.Multiplier(LastElement) : 1f;
             int damage = definition.Damage(amount, LastElement);
+            if(ClassPassivesEnabled && Current==Phase.Player && damage>0) {
+                double bonus=PassiveDamageMultiplier(Active,definition,LastElement);
+                if(bonus>1) { damage=(int)Math.Ceiling(damage*bonus); LastOffensivePassive=Active.Identity.Class==HeroClass.Sorceress?"ARCANE EXPOSURE":"HUNTER'S MARK"; }
+                if(Active.Identity.Class==HeroClass.Rogue && passiveRandom.NextDouble()<.25) { damage=(int)Math.Ceiling(damage*1.5); LastOffensivePassive="CRITICAL STRIKE"; }
+            }
             damage=(int)Math.Ceiling(damage*Active.DamageBoost(LastElement));
             if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
             LastShieldAbsorbed=Math.Min(foe.Shield,damage); foe.Shield-=LastShieldAbsorbed; damage-=LastShieldAbsorbed;
@@ -468,8 +481,43 @@ namespace Ashlight {
             for (int i = 0; i < party.Count; i++) {
                 if (party[i].Health > 0 && !party[i].Acted) { ActiveIndex = i; return; }
             }
+            ApplyPaladinGuard();
             for (int i = 0; i < enemies.Count; i++) if (enemies[i].Health > 0) { AttackingEnemyIndex = i; break; }
             PrepareEnemyStrike();
+        }
+        void ClearPassiveReports() {
+            Array.Clear(LastPassiveGuard,0,LastPassiveGuard.Length);
+            Array.Clear(LastPassiveHealing,0,LastPassiveHealing.Length);
+            Array.Clear(LastPassiveProtection,0,LastPassiveProtection.Length);
+        }
+        public double PassiveDamageMultiplier(PartyHero hero,EnemyDefinition foe,Element element) {
+            if(!ClassPassivesEnabled) return 1;
+            if(hero.Identity.Class==HeroClass.Sorceress && foe.Multiplier(element)>1) return 1.2;
+            var visual=EnemyVisualDefinition.For(foe.Name);
+            if(hero.Identity.Class==HeroClass.Ranger && visual!=null && visual.IsRanged) return 1.2;
+            return 1;
+        }
+        void ApplyPaladinGuard() {
+            Array.Clear(LastPassiveGuard,0,LastPassiveGuard.Length);
+            if(!ClassPassivesEnabled) return;
+            bool paladin=false;
+            foreach(var member in party) if(member.Health>0 && member.Identity.Class==HeroClass.Paladin) paladin=true;
+            if(!paladin) return;
+            for(int i=0;i<party.Count;i++) if(party[i].Health>0) {
+                int before=party[i].Guard; party[i].Guard=Math.Max(before,8); LastPassiveGuard[i]=party[i].Guard-before;
+            }
+        }
+        void ApplyClericHealing() {
+            if(!ClassPassivesEnabled) return;
+            foreach(var healer in party) if(healer.Health>0 && healer.Identity.Class==HeroClass.Cleric) {
+                int target=-1;
+                for(int i=0;i<party.Count;i++) if(party[i].Health>0 && party[i].Health<party[i].Definition.MaxHealth &&
+                    (target<0 || (long)party[i].Health*party[target].Definition.MaxHealth<(long)party[target].Health*party[i].Definition.MaxHealth)) target=i;
+                if(target<0) continue;
+                int healed=Math.Min(party[target].Definition.MaxHealth-party[target].Health,(int)Math.Ceiling(healer.Definition.MaxHealth*.1));
+                party[target].Health+=healed; LastPassiveHealing[target]+=healed;
+                healer.EncounterHealing=Math.Min(1000000,healer.EncounterHealing+healed);
+            }
         }
         void PrepareEnemyStrike() {
             Defended = false; Array.Clear(defendedHeroes,0,defendedHeroes.Length);
@@ -503,6 +551,7 @@ namespace Ashlight {
             if (Current != Phase.EnemyWindup) return false;
             Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
             LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
+            Array.Clear(LastPassiveHealing,0,LastPassiveHealing.Length); Array.Clear(LastPassiveProtection,0,LastPassiveProtection.Length);
             Current = Phase.EnemyStrike; return true;
         }
         public bool Defend(bool parry, float elapsed) { return DefendHero(ActiveIndex,parry,elapsed); }
@@ -539,12 +588,19 @@ namespace Ashlight {
                 enemies[target].Shield=60; LastMechanicTarget=target;
             }
             if(IncomingSkill.Action==EnemyAction.Attack && attacker.Definition.Name=="Cinder Sovereign" && attacker.CompletedStrikes%4==3) { attacker.Charged=false; attacker.ChargeDamage=0; }
+            var livingKnights=new bool[FrontSlots];
+            for(int i=0;i<Math.Min(FrontSlots,party.Count);i++) livingKnights[i]=party[i].Health>0 && party[i].Identity.Class==HeroClass.Knight;
             for(int i=0;i<party.Count;i++) {
                 var member=party[i];
                 if(IncomingSkill.Action!=EnemyAction.Attack || member.Health==0 || (!IncomingSkill.PartyWide && i!=ActiveIndex) || defendedHeroes[i]) continue;
                 int damage=IncomingSkill.Damage+(member.Status==Debuff.Shock?5:0);
                 bool resistant=IncomingSkill.Element!=Element.Physical && member.Identity.Affinity==IncomingSkill.Element;
                 if(resistant) damage=(int)Math.Ceiling(damage*.75f);
+                if(ClassPassivesEnabled && IsFrontRow(i))
+                    for(int protector=0;protector<Math.Min(FrontSlots,party.Count);protector++)
+                        if(protector!=i && livingKnights[protector]) {
+                            int reduced=(int)Math.Ceiling(damage*.8); LastPassiveProtection[i]=damage-reduced; damage=reduced; break;
+                        }
                 damage=Math.Max(0,damage-member.Guard-member.Protection); member.Guard=0;
                 LastIncomingDamage[i]=Math.Min(member.Health,damage);
                 member.Health=Math.Max(0,member.Health-damage);
@@ -567,6 +623,7 @@ namespace Ashlight {
                     if(--member.StatusRounds==0) member.Status=Debuff.None;
                 }
             }
+            ApplyClericHealing();
             Current = Phase.Lost;
             for (int i = 0; i < party.Count; i++) {
                 party[i].Acted = false;
