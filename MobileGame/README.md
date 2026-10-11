@@ -361,3 +361,9 @@ Update **`Assets/Scripts` and `Assets/Editor`**, keeping `Assets/Art/DarkFantasy
 Validated here: **2,570 engine-independent checks**, complete encounter-to-visual coverage, unique resource paths, all six referenced FBX files present, and six distinct stage themes. Unity compilation/import, chapter appearance, camera framing, animation playback and mobile performance require local testing. Test each chapter, both bosses, chapter transitions, replay returning to chapter one and background/resume.
 
 Atmosphere compatibility fix: snow and motes now use one animated billboard mesh (40 snowflakes or 24 motes), with no Particle System module dependency. Update both `Assets/Scripts/DarkFantasyStage.cs` and `Assets/Editor/DarkFantasySetup.cs`, then run **Ashlight > Art > Build Enemy Roster** to refresh the atmosphere material.
+
+## Unity save serialization compatibility
+
+Empty equipment strings are accepted as unequipped slots, and empty inline results objects are accepted when no victory is pending. Unknown gear IDs, malformed inventories, nonempty unclaimed-result payloads on a non-victory save, and invalid reward data still fail validation. Existing progress and backups are retained. **2,579 engine-independent checks passed**, including fixtures representing Unity's empty-string/empty-object serialization and reward reload/claim checks.
+
+Update `Assets/Scripts` and `Assets/Editor`. For a real Unity JSON round-trip check, run **Ashlight > Diagnostics > Check Save Serialization**. It tests fresh progress, combat, pending rewards, claims and equipped gear in isolated battles without reading or writing PlayerPrefs. This editor check has not been executed in the cloud environment, where Unity is unavailable.

@@ -665,6 +665,21 @@ class BattleChecks {
    var stage=ChapterStageDefinition.For(chapter);
    Check(skies.Add(stage.Sky) && stage.Fog>0 && stage.Fog<=.04f && stage.Stone.StartsWith("#") && stage.Flame.StartsWith("#"));
   }
+  // Unity's serializer can represent null string slots as empty strings and null inline objects as empty objects.
+  var unityShape=new Battle(true).ExportProgress();
+  foreach(var loadout in unityShape.loadouts) for(int slot=0;slot<3;slot++) if(loadout.gear[slot]==null) loadout.gear[slot]="";
+  unityShape.results=new PendingResultsData {lootId="",damage=new int[0],healing=new int[0]};
+  Check(new Battle(true).RestoreProgress(unityShape));
+  var unityPending=resultBattle.ExportProgress();
+  foreach(var loadout in unityPending.loadouts) for(int slot=0;slot<3;slot++) if(loadout.gear[slot]==null) loadout.gear[slot]="";
+  var unityResume=new Battle(true); Check(unityResume.RestoreProgress(unityPending) && unityResume.Results.Loot.Id==resultBattle.Results.Loot.Id);
+  Check(unityResume.ContinueAfterVictory() && unityResume.GearCount(resultBattle.Results.Loot.Id)==1);
+  unityShape.results=null; Check(new Battle(true).RestoreProgress(unityShape));
+  unityShape.results=new PendingResultsData(); Check(new Battle(true).RestoreProgress(unityShape));
+  unityShape.results=new PendingResultsData{lootId="Weapon_Common_Physical"}; Check(!new Battle(true).RestoreProgress(unityShape));
+  unityShape.results=new PendingResultsData{damage=new[]{1}}; Check(!new Battle(true).RestoreProgress(unityShape));
+  unityShape.results=null; unityShape.loadouts[0].gear[0]="missing_item"; Check(!new Battle(true).RestoreProgress(unityShape));
+  unityShape.loadouts[0].gear[0]=" "; Check(!new Battle(true).RestoreProgress(unityShape));
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

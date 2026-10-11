@@ -298,7 +298,7 @@ namespace Ashlight {
                 }
                 if(data.version>=4 && loadout.gear!=null) {
                     if(loadout.gear.Length!=3) return false;
-                    for(int slot=0;slot<3;slot++) if(loadout.gear[slot]!=null) {
+                    for(int slot=0;slot<3;slot++) if(!string.IsNullOrEmpty(loadout.gear[slot])) {
                         var item=GearDefinition.Find(loadout.gear[slot]); int owned,used;
                         if(item==null || (int)item.Slot!=slot || !restoredInventory.TryGetValue(item.Id,out owned)) return false;
                         equippedCounts.TryGetValue(item.Id,out used); if(used>=owned) return false;
@@ -319,7 +319,9 @@ namespace Ashlight {
                     if(result==null || result.damage==null || result.healing==null || result.damage.Length!=data.party.Length || result.healing.Length!=data.party.Length) return false;
                     pendingLoot=GearDefinition.Find(result.lootId); if(pendingLoot==null || (ChapterDefinition.EnemiesAt(data.encounter)[0].IsBoss && pendingLoot.Quality<HeroQuality.Rare)) return false;
                     for(int i=0;i<data.party.Length;i++) if(result.damage[i]<0 || result.damage[i]>1000000 || result.healing[i]<0 || result.healing[i]>1000000) return false;
-                } else if(data.results!=null) return false;
+                } else if(data.results!=null && (!string.IsNullOrEmpty(data.results.lootId) ||
+                    (data.results.damage!=null && data.results.damage.Length>0) ||
+                    (data.results.healing!=null && data.results.healing.Length>0))) return false;
             }
             inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();

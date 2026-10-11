@@ -22,8 +22,9 @@ namespace Ashlight {
         }
         public static bool Save(ProgressData data) {
             try {
+                if (!new Battle(true).RestoreProgress(data)) { Debug.LogWarning("Generated progress snapshot failed validation; previous save preserved."); return false; }
                 string json = JsonUtility.ToJson(data);
-                if (!Valid(json)) { Debug.LogWarning("Progress snapshot is invalid; previous save preserved."); return false; }
+                if (!Valid(json)) { Debug.LogWarning("Progress JSON failed validation after serialization; previous save preserved."); return false; }
                 if (PlayerPrefs.HasKey(Key)) {
                     string previous = PlayerPrefs.GetString(Key);
                     if (Valid(previous)) PlayerPrefs.SetString(Backup, previous);
