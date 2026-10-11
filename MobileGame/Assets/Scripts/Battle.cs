@@ -78,7 +78,25 @@ namespace Ashlight {
         readonly List<HeroDefinition> recruits = new List<HeroDefinition>();
         public IReadOnlyList<HeroDefinition> Recruits { get { return recruits.AsReadOnly(); } }
         readonly List<HeroClass> unlocked = new List<HeroClass>();
-        public const int MaxPartySize = 3;
+        public const int MaxPartySize = 5;
+        public const int FrontSlots = 2;
+        public bool IsFrontRow(int index) { return index>=0 && index<Math.Min(FrontSlots,party.Count); }
+        public bool FillAvailableSlots() {
+            if(!CanChangeParty) return false;
+            bool added=false;
+            foreach(var recruit in recruits) {
+                if(party.Count>=PartyLimit) break;
+                bool active=false; foreach(var member in party) if(member.Identity.Id==recruit.Id) active=true;
+                if(!active) { var member=HeroProgress(recruit.Id); member.Restore(); party.Add(member); added=true; }
+            }
+            return added;
+        }
+        public bool SwapFormation(int first,int second) {
+            if(!CanChangeParty || first<0 || second<0 || first>=party.Count || second>=party.Count || first==second) return false;
+            var hero=party[first]; party[first]=party[second]; party[second]=hero;
+            if(ActiveIndex==first) ActiveIndex=second; else if(ActiveIndex==second) ActiveIndex=first;
+            return true;
+        }
         public int PartyLimit { get { return campaign?Math.Min(MaxPartySize,ChapterIndex+1):MaxPartySize; } }
         public IReadOnlyList<HeroClass> UnlockedClasses { get { return unlocked.AsReadOnly(); } }
         int targetCursor, encounter;
@@ -367,7 +385,8 @@ namespace Ashlight {
             enemies.Clear();
             if(!campaign) enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden",100)));
             else foreach(var definition in ChapterDefinition.WaveAt(Math.Min(encounter,ChapterDefinition.TotalStages-1),WaveIndex,WaveCount))
-                enemies.Add(new BattleEnemy(definition));
+                enemies.Add(new BattleEnemy(new EnemyDefinition(definition.Name,
+                    (int)Math.Ceiling(definition.MaxHealth*Math.Max(1,PartyLimit/3.0)),definition.Weakness,definition.Resistance,definition.IsBoss)));
         }
         public bool AdvanceWave() {
             if(Current!=Phase.WaveCleared || WaveIndex>=WaveCount-1) return false;
@@ -467,12 +486,17 @@ namespace Ashlight {
             if(attacker.Definition.Name=="Veiled Monarch" && attacker.CompletedStrikes%3==1)
                 IncomingSkill=new EnemySkill("Eclipse Veil · shields one boss; target the other",0,Element.Light,action:EnemyAction.Shield);
             if(WaveIndex<WaveCount-1 && IncomingSkill.Action==EnemyAction.Attack)
-                IncomingSkill=new EnemySkill(IncomingSkill.Name,Math.Max(1,(int)Math.Ceiling(IncomingSkill.Damage*.6)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status);
-            // Cycle targets across living allies for each surviving enemy's strike.
-            for (int offset = 0; offset < party.Count; offset++) {
-                int index = (targetCursor + offset) % party.Count;
-                if (party[index].Health > 0) { ActiveIndex = index; targetCursor = (index + 1) % party.Count; break; }
+                IncomingSkill=new EnemySkill(IncomingSkill.Name,Math.Max(1,(int)Math.Ceiling(IncomingSkill.Damage*.6)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
+            // Three targeting tickets per front hero and one per back hero.
+            var targets=new List<int>();
+            if(IncomingSkill.BackRow)
+                for(int i=FrontSlots;i<party.Count;i++) if(party[i].Health>0) targets.Add(i);
+            if(targets.Count==0) {
+                for(int repeat=0;repeat<3;repeat++)
+                    for(int i=0;i<Math.Min(FrontSlots,party.Count);i++) if(party[i].Health>0) targets.Add(i);
+                for(int i=FrontSlots;i<party.Count;i++) if(party[i].Health>0) targets.Add(i);
             }
+            if(targets.Count>0) { ActiveIndex=targets[targetCursor%targets.Count]; targetCursor=(targetCursor+1)%1000000; }
             Current = Phase.EnemyWindup;
         }
         public bool BeginStrike() {

@@ -6,11 +6,11 @@ namespace Ashlight {
         public readonly string Name;
         public readonly int Damage;
         public readonly Element Element;
-        public readonly bool PartyWide;
+        public readonly bool PartyWide, BackRow;
         public readonly Debuff Status;
         public readonly EnemyAction Action;
-        public EnemySkill(string name, int damage, Element element, bool partyWide=false, Debuff status=Debuff.None, EnemyAction action=EnemyAction.Attack) {
-            Action=action; Name=name; Damage=damage; Element=element; PartyWide=partyWide; Status=status;
+        public EnemySkill(string name, int damage, Element element, bool partyWide=false, Debuff status=Debuff.None, EnemyAction action=EnemyAction.Attack, bool backRow=false) {
+            Action=action; BackRow=backRow; Name=name; Damage=damage; Element=element; PartyWide=partyWide; Status=status;
         }
     }
     public static class EnemySkills {
@@ -22,7 +22,7 @@ namespace Ashlight {
             if(pattern==0) return new EnemySkill("Quick Strike",35,Element.Physical);
             if(pattern==1) return new EnemySkill(chapter==0?"Crushing Blow":element+" Hex",chapter==0?42:24,element,false,status);
             return boss ? new EnemySkill(chapter==0?"Sweeping Strike":element+" Tempest",22,element,true,status) :
-                new EnemySkill("Heavy Strike",45,element);
+                new EnemySkill("Back Row Strike",45,element,backRow:true);
         }
     }
 }

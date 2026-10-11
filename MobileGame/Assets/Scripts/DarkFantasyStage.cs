@@ -22,7 +22,7 @@ namespace Ashlight {
         }
         public static void Frame(Camera camera) {
             camera.transform.position = CameraPosition; camera.transform.LookAt(CameraTarget);
-            camera.fieldOfView = 39; camera.nearClipPlane = .1f; camera.farClipPlane = 60;
+            camera.fieldOfView = 43; camera.nearClipPlane = .1f; camera.farClipPlane = 60;
         }
         Mesh Primitive(PrimitiveType kind) {
             Mesh mesh;

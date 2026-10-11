@@ -69,10 +69,13 @@ class BattleChecks {
    }
    Check(campaign.Current == Phase.Won);
    Check(campaign.ContinueAfterVictory());
-   Check(campaign.Party.Count == Math.Min(3, (encounter+1)/5+1));
+   Check(campaign.Party.Count == Math.Min(Battle.MaxPartySize, (encounter+1)/5+1));
    Check(campaign.Recruits.Count == encounter + 2);
   }
-  Check(campaign.Recruits.Count == 30 && campaign.Party.Count == 3);
+  Check(campaign.Recruits.Count == 30 && campaign.Party.Count == 5);
+  // Retain a smaller party for the existing three-hero action and save regression cases.
+  var trio=campaign.ExportProgress(); trio.party=new[]{trio.party[0],trio.party[1],trio.party[2]};
+  Check(campaign.RestoreProgress(trio));
   Check(campaign.SelectHero(2) && campaign.EquipHero("Cleric_Legendary"));
   Check(campaign.Party[2].Identity.Quality == HeroQuality.Legendary);
   Check(campaign.EquipSkill(0,4));
@@ -187,7 +190,7 @@ class BattleChecks {
   Check(!resumed.RestoreProgress(invalidSave) && resumed.Recruits.Count==30);
   invalidSave=campaign.ExportProgress();invalidSave.party=new[]{"Knight_Common","Knight_Common"};
   Check(!resumed.RestoreProgress(invalidSave));
-  invalidSave=campaign.ExportProgress();invalidSave.party=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common"};
+  invalidSave=campaign.ExportProgress();invalidSave.party=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common","Cleric_Common"};
   Check(!resumed.RestoreProgress(invalidSave));
   invalidSave=campaign.ExportProgress();invalidSave.loadouts[0].secondSkill=invalidSave.loadouts[0].firstSkill;
   Check(!resumed.RestoreProgress(invalidSave));
@@ -810,6 +813,63 @@ class BattleChecks {
     foreach(var member in group) Check(EnemyVisualDefinition.For(member.Name)!=null && (wave==2 || !member.IsBoss));
    }
   }
+  // Five-hero formations persist through saves without changing named hero progression.
+  var formation=new Battle(true); var formationSave=formation.ExportProgress(); formationSave.encounter=24;
+  formationSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"};
+  formationSave.party=(string[])formationSave.recruited.Clone(); formationSave.loadouts=new HeroLoadoutData[5];
+  for(int i=0;i<5;i++) formationSave.loadouts[i]=new HeroLoadoutData{id=formationSave.recruited[i],firstSkill=0,secondSkill=1};
+  Check(formation.RestoreProgress(formationSave) && formation.PartyLimit==5 && formation.Party.Count==5);
+  Check(formation.IsFrontRow(0) && formation.IsFrontRow(1) && !formation.IsFrontRow(2) && !formation.IsFrontRow(4) && !formation.IsFrontRow(-1));
+  Check(!formation.SwapFormation(-1,0) && !formation.SwapFormation(0,5) && !formation.SwapFormation(0,0));
+  Check(formation.SelectHero(0) && formation.SwapFormation(0,4));
+  Check(formation.ActiveIndex==4 && formation.Party[4].Identity.Id=="Knight_Common" && formation.Party[0].Identity.Id=="Cleric_Common");
+  var formationReload=new Battle(true); Check(formationReload.RestoreProgress(formation.ExportProgress()));
+  for(int i=0;i<5;i++) Check(formationReload.Party[i].Identity.Id==formation.Party[i].Identity.Id);
+  Check(formation.Enemies[0].Definition.MaxHealth==667 && formation.Enemies[1].Definition.MaxHealth==467);
+  var fourHeroes=BossBattle(19);
+  Check(fourHeroes.PartyLimit==4 && fourHeroes.Enemies[0].Definition.MaxHealth==534 && fourHeroes.Enemies[1].Definition.MaxHealth==374);
+  // Older three-hero saves can fill newly unlocked slots from reserves before combat.
+  var oldTeam=formationSave; oldTeam.party=new[]{"Knight_Common","Paladin_Common","Sorceress_Common"};
+  Check(formationReload.RestoreProgress(oldTeam) && formationReload.Party.Count==3);
+  Check(formationReload.FillAvailableSlots() && formationReload.Party.Count==5 && !formationReload.FillAvailableSlots());
+  Check(formationReload.Attack() && !formationReload.SwapFormation(0,4) && !formationReload.FillAvailableSlots());
+  // A normal strike cycle allocates three tickets per front hero, one per back hero.
+  int frontTargets=0,backTargets=0;
+  for(int round=0;round<9;round++) {
+   formation.Enemies[0].CompletedStrikes=0; formation.Enemies[1].CompletedStrikes=0;
+   foreach(var foe in formation.Enemies) foe.Health=foe.Definition.MaxHealth;
+   for(int action=0;action<5;action++) Check(formation.Attack());
+   for(int foeIndex=0;foeIndex<2;foeIndex++) {
+    if(formation.IsFrontRow(formation.ActiveIndex)) frontTargets++; else backTargets++;
+    Check(formation.BeginStrike() && formation.Defend(false,.1f)); formation.FinishStrike();
+   }
+  }
+  Check(frontTargets==12 && backTargets==6 && formation.Party[4].Energy>=0);
+  // Heavy attacks reach the back row, then fall back to living front heroes.
+  var backStrike=new Battle(true); var backSave=formationSave; backSave.party=(string[])backSave.recruited.Clone(); backSave.encounter=20;
+  Check(backStrike.RestoreProgress(backSave)); backStrike.Enemies[0].CompletedStrikes=2;
+  for(int i=0;i<5;i++) Check(backStrike.Attack());
+  Check(backStrike.IncomingSkill.BackRow && backStrike.ActiveIndex>=Battle.FrontSlots);
+  Check(backStrike.BeginStrike() && backStrike.Defend(false,.1f)); backStrike.FinishStrike();
+  for(int i=2;i<5;i++) backStrike.Party[i].Health=0;
+  backStrike.Enemies[0].CompletedStrikes=2; Check(backStrike.Attack() && backStrike.Attack());
+  Check(backStrike.IncomingSkill.BackRow && backStrike.IsFrontRow(backStrike.ActiveIndex));
+  // Party-wide damage, support ultimates and results include the fourth and fifth heroes.
+  formation.Reset(); formation.Enemies[0].CompletedStrikes=2; formation.Enemies[1].CompletedStrikes=2;
+  for(int i=0;i<5;i++) Check(formation.Attack());
+  Check(formation.IncomingSkill.PartyWide && formation.BeginStrike());
+  int fourthHealth=formation.Party[3].Health,fifthHealth=formation.Party[4].Health;
+  Check(formation.DefendHero(4,false,.1f)); formation.FinishStrike();
+  Check(formation.Party[3].Health<fourthHealth && formation.Party[4].Health==fifthHealth);
+  ResolveEnemies(formation); formation.Reset();
+  formation.Party[0].Health-=30; formation.Party[4].Health-=30; formation.Party[0].Energy=75;
+  Check(formation.Attack() && formation.LastUltimate!=null && formation.LastUltimateHealing[4]>0);
+  Check(formation.Party[4].Health>formation.Party[4].Definition.MaxHealth-30);
+  formation.Reset(); foreach(var foe in formation.Enemies) foe.Health=1;
+  Check(formation.SelectEnemy(0) && formation.Attack());
+  Check(formation.SelectEnemy(1) && formation.Attack() && formation.Current==Phase.Won && formation.Results.Heroes.Count==5);
+  var fiveResults=new Battle(true); Check(fiveResults.RestoreProgress(formation.ExportProgress()) && fiveResults.Results.Heroes.Count==5);
+  Check(fiveResults.ContinueAfterVictory() && fiveResults.Party.Count==5);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

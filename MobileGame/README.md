@@ -56,7 +56,7 @@ Starting with **chapter 3**, each chapter's fifth encounter has **two bosses on 
 
 Both bosses have separate health and elemental weaknesses. Tap a boss's name in the compact header to choose the target during your turn. A defeated target automatically switches to a surviving boss. Each living boss attacks once per enemy round, with its own windup and dodge/parry window; parries counter the attacking boss regardless of your selected target. Victory and the usual 50-crystal reward occur once, after both bosses fall. The companion boss has 70% of the primary boss's maximum health and swaps its weakness/resistance, making target choice useful. Boss attack effects are presentation; damage and hero defense rules remain the existing fixed strike/guard system.
 
-Chapters 1–2 keep one boss in the final encounter. There are still 30 encounters and at most three party heroes. Save format and encounter indices are unchanged: existing progress, recruits, loadouts and currency remain compatible. Reloading a fight starts its full encounter; a saved pending victory remains cleared. Other encounters outside this art pass retain their previous placeholder models.
+Chapters 1–2 keep one boss in the final encounter. There are still 30 encounters and at most five party heroes. Save format and encounter indices are unchanged: existing progress, recruits, loadouts and currency remain compatible. Reloading a fight starts its full encounter; a saved pending victory remains cleared. Other encounters outside this art pass retain their previous placeholder models.
 
 To update:
 
@@ -125,7 +125,7 @@ On **macOS**, switch the build profile to iOS and export an Xcode project. Open 
 
 ## Validation and current limits
 
-The engine-independent combat model passes 1,513 checks covering party turns, the three-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, save restoration, chapter progression, and reset. To rerun in the prepared cloud machine:
+The engine-independent combat model passes 1,513 checks covering party turns, the five-hero cap, recruitment, all 36 skills, two-skill loadouts, healing/guard, rarity scaling, elemental overrides, defense, victory/defeat, save restoration, chapter progression, and reset. To rerun in the prepared cloud machine:
 
 ```bash
 source /workspace/.yorgame-tools/activate
@@ -143,9 +143,9 @@ Stop Play mode. Copy **all** `.cs` files from this branch's `Assets/Scripts` int
 
 ## Party, recruitment, and named heroes
 
-Start with **Rowan**, a Common Knight. Each prototype victory recruits the next named hero when you press **Continue**. The first allies are Lucan (Paladin) and Elara (Sorceress). The active party never exceeds **three heroes**. Later recruits enter reserves; select a class button to open its named hero list. Selecting an active party member changes whose action you control. Selecting a recruited reserve replaces the currently selected party slot, before battle only. Two different named heroes of the same class can be in the party, but the same named hero cannot occupy two slots.
+Start with **Rowan**, a Common Knight. Each prototype victory recruits the next named hero when you press **Continue**. The first allies are Lucan (Paladin) and Elara (Sorceress). The active party never exceeds **five heroes**. Later recruits enter reserves; select a class button to open its named hero list. Selecting an active party member changes whose action you control. Selecting a recruited reserve replaces the currently selected party slot, before battle only. Two different named heroes of the same class can be in the party, but the same named hero cannot occupy two slots.
 
-All living heroes receive one action before the enemy responds. The enemy cycles targets across living allies. Defeated allies cannot act. Party healing does not revive defeated allies. Full party defeat ends the battle.
+All living heroes receive one action before the enemy responds. Normal attacks favor living front-row allies, back-row strikes seek living back-row allies, and party-wide attacks hit everyone. Defeated allies cannot act. Party healing does not revive defeated allies. Full party defeat ends the battle.
 
 The roster contains **30 named heroes**: five per class, across Common, Uncommon, Rare, Epic, and Legendary. Rarity scales base health, attack, skill damage, healing, and guard. This is a starting balance, not a final progression economy. See [HEROES.md](HEROES.md) for the complete roster and skill catalog.
 
@@ -159,7 +159,7 @@ Select a party hero through its class/hero list before battle, then press **Skil
 
 Named hero affinities follow class themes: Knight Physical/Fire; Paladin Fire/Light; Sorceress Cold/Lightning/Fire; Rogue Physical/Poison; Ranger Physical/Cold; Cleric Light. Basic attacks and skills without an explicit override use hero affinity. All current class skills have explicit affinities, independent of the named hero's basic attack affinity: Flame Lance uses Fire, Frost Ward uses Cold, Arcane Burst and Starfall use Lightning, and Frost Drain uses Cold. Some weapon skills use Physical, which is neutral against the current enemies. Skill affinity is displayed in the loadout panel.
 
-Enemies show their weakness and resistance before you attack. Weakness multiplies damage by **1.5**; resistance by **0.5**; other damage is neutral. Damage is rounded, with at least one damage for a positive attack. Healing and guard are unaffected. Each chapter contains five uniquely named enemies with themed weaknesses/resistances; stage three reverses the usual matchup to encourage changing skill choices. Health increases through the campaign (capped at 400). Stage five is a larger placeholder boss. These balance values remain provisional.
+Enemies show their weakness and resistance before you attack. Weakness multiplies damage by **1.5**; resistance by **0.5**; other damage is neutral. Damage is rounded, with at least one damage for a positive attack. Healing and guard are unaffected. Each chapter contains five uniquely named enemies with themed weaknesses/resistances; stage three reverses the usual matchup to encourage changing skill choices. Base health increases through the campaign (capped at 400), then scales to 1.33× in chapter 4 and 1.67× from chapter 5 onward. Stage five is a larger placeholder boss. These balance values remain provisional.
 
 **Poison is currently an elemental damage type**, not a damage-over-time status. Burn, freeze, poison ticks, stun, cleanse, and revival are future mechanics. Explicit skill affinity overrides preserve their element across all rarity tiers.
 
@@ -168,10 +168,10 @@ Enemies show their weakness and resistance before you attack. Weakness multiplie
 The combat/roster model has been exercised outside Unity. The new UI, 3D party props, and builds remain unverified until opened in Unity. Check:
 
 - Start shows the chapter menu, with Chapter 1 unlocked and later chapters locked. Choose Chapter 1; Rowan starts alone with two equipped skills.
-- Win, Continue, and recruit Lucan, then Elara; three characters appear together. Completing five encounters unlocks Chapter 2.
+- Win, Continue, and recruit Lucan, then Elara into reserves; additional active party slots unlock at chapters 2–5. Completing five stages unlocks Chapter 2.
 - Each living hero acts once before the enemy attack; the targeted ally is identified.
 - Skill selection rejects duplicates and cannot change during a fight.
-- Recruit a reserve, select an active party slot, then replace it without exceeding three heroes.
+- Recruit a reserve, select an active party slot, then replace it without exceeding five heroes.
 - Named hero lists display rarity, affinity, scaled health/attack, and recruitment status.
 - Weakness/resistance feedback agrees with the skill's shown element.
 - Restart mid-attack cancels the old coroutine and preserves the roster/loadouts.
@@ -202,7 +202,7 @@ The chapter menu has a **Summon — 100** button. New profiles start with **300 
 
 Each rarity has six named heroes with equal conditional odds. Every fifth consecutive pull without Rare-or-better guarantees Rare-or-better; every fifteenth consecutive pull without Legendary guarantees Legendary. A naturally rolled better rarity is retained. Legendary pity takes priority. Any Rare/Epic/Legendary resets the Rare+ counter, and any Legendary resets the Legendary counter, including duplicates. The displayed numbers show how many pulls remain until each guarantee; pity means actual odds differ from the base rates near the thresholds.
 
-Summons are available between encounters and after campaign completion, never during an active fight. Newly summoned heroes go to reserves, preserving the active party and its three-hero cap. Duplicate heroes return the listed crystals without adding another copy. The result shows name, class, quality, affinity, and whether it is new or a duplicate. The hero pool remains fixed across chapters. Deterministic chapter rewards now award the first hero you do not own so a summon cannot cause a duplicated story reward.
+Summons are available between encounters and after campaign completion, never during an active fight. Newly summoned heroes go to reserves, preserving the active party and its chapter-based five-hero cap. Duplicate heroes return the listed crystals without adding another copy. The result shows name, class, quality, affinity, and whether it is new or a duplicate. The hero pool remains fixed across chapters. Deterministic chapter rewards now award the first hero you do not own so a summon cannot cause a duplicated story reward.
 
 Currency, recruits, and both pity counters save immediately. The version-2 snapshot accepts existing version-1 saves and gives those profiles the one-time 300-crystal starter balance on migration, preserving chapters/roster/loadouts. Save keys remain unchanged. Each cleared encounter awards crystals once when you Continue. After restarting a completed campaign, encounters award crystals again; this deliberately allows repeat play and earning more summons in the free prototype. Existing heroes are never duplicated by story rewards; any missing hero can still be recruited on a replay. Restarting does not grant starter crystals again.
 
@@ -400,3 +400,16 @@ The **SPEED** button beside Auto Play cycles **1× → 2× → 3× → 1×**. It
 Menus and results run at normal speed; stopping Play or disabling the prototype restores normal time. Damage, energy gain, skill charges and class defense rolls are unchanged. Sound pitch remains normal. To verify in Unity, switch speed mid-action, try Auto Play across waves, open the results and chapter menus, and stop Play; confirm animations accelerate and menus return to normal.
 
 Copy updated **Assets/Scripts** to test this update. Unity playback is required to verify animation timing and the compact mobile button layout.
+
+
+## Five-hero formations
+
+The active party unlocks one slot per chapter: **1 / 2 / 3 / 4 / 5 heroes** in chapters 1 / 2 / 3 / 4 / 5+, respectively. Slots 1–2 are the front row; slots 3–5 are the back row. Before the first action, press **Formation**, tap one hero, then another to swap them. Formation changes preserve each named hero’s level, skills and equipment and save the party order. Formation controls disappear during combat and remain locked between waves.
+
+Normal single-target strikes cycle through a weighted list with three entries per living front hero and one per living back hero. With a full party, front heroes take two-thirds of normal target selections. Normal enemies’ third action is a **Back Row Strike**, which targets a living back hero and falls back to a living front hero when necessary. Boss party-wide attacks still hit every living hero. Class-based dodge/parry chances are unchanged.
+
+Enemy maximum health scales with unlocked party size: chapters 1–3 retain existing health, chapter 4 multiplies it by **4/3**, and chapters 5–6 multiply it by **5/3**, rounded up. The increase applies to every wave and both bosses, independent of how many heroes survive. For example, a 400-HP boss becomes **534 HP** in chapter 4 and **667 HP** in chapters 5–6. Damage is unchanged; these health values are provisional for playtesting.
+
+All five heroes have health/energy labels and energy bars. Equipment selection and result contributions support five heroes. The arena displays two front models and three back models with a wider camera view. Existing saves remain compatible; unlocked empty party slots fill from recruited reserves when opening the game before combat. Saved victories keep their original participating heroes until Continue claims rewards and expands the party. Campaign restart returns to one active slot while retaining the collection.
+
+Copy the updated **Assets/Scripts** and **Assets/Editor** into Unity. Test swapping Knight/Paladin to the front and ranged/healing heroes to the back, wave resource carryover, five-hero ultimates and boss results. **Ashlight > Diagnostics > Check Save Serialization** now also checks five-hero formation order and pending results using Unity’s JSON serializer without modifying player saves. Cloud checks cover combat and save-data validation; Unity compilation, serialization diagnostics, mobile layout and animation playback still need editor testing.
