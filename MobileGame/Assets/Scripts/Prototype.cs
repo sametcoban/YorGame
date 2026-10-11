@@ -128,6 +128,10 @@ namespace Ashlight {
             battleCamera = camera;
             effects = new GameObject("Combat Effects").AddComponent<CombatEffects>();
             effects.transform.SetParent(battleStage, false); effects.Initialize(camera);
+            // Unity scenes may already contain a listener on their default camera.
+            // Disable existing listeners before making the battle camera the audio viewpoint.
+            foreach (var listener in FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                listener.enabled = false;
             cameraObject.AddComponent<AudioListener>();
             sounds = new GameObject("Combat Audio").AddComponent<CombatAudio>();
             chapterStage=DarkFantasyStage.Create(battleStage,camera,battle.ChapterIndex); stageChapter=battle.ChapterIndex;
