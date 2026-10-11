@@ -91,6 +91,12 @@ namespace Ashlight {
         public int Health { get; internal set; }
         public BattleEnemy(EnemyDefinition definition) { Definition = definition; Health = definition.MaxHealth; }
     }
+    public enum CollectionSort { Power, Level, Ascension }
+    public sealed class HeroReplacement {
+        public readonly PartyHero Hero;
+        public readonly int TeamPower, HealthDelta, AttackDelta, PowerDelta;
+        public HeroReplacement(PartyHero hero,int teamPower,PartyHero previous,int previousTeamPower) { Hero=hero; TeamPower=teamPower; HealthDelta=hero.Definition.MaxHealth-previous.Definition.MaxHealth; AttackDelta=hero.Definition.AttackDamage-previous.Definition.AttackDamage; PowerDelta=teamPower-previousTeamPower; }
+    }
     public sealed class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
@@ -288,6 +294,30 @@ namespace Ashlight {
             if (!CanChangeParty || !unlocked.Contains(kind)) return false;
             foreach (var member in party) if (member.Definition.Kind == kind) return false;
             return EquipHero(HeroDefinition.Common(kind).Id);
+        }
+        public List<PartyHero> Collection(HeroClass? kind=null,HeroFaction? faction=null,HeroQuality? quality=null,CollectionSort sort=CollectionSort.Power) {
+            var list=new List<PartyHero>();
+            foreach(var recruit in recruits) { var hero=HeroProgress(recruit.Id); if((!kind.HasValue || recruit.Class==kind.Value) && (!faction.HasValue || recruit.Faction==faction.Value) && (!quality.HasValue || hero.Quality==quality.Value)) list.Add(hero); }
+            list.Sort((a,b)=> { int order=sort==CollectionSort.Level?b.CombatLevel.CompareTo(a.CombatLevel):sort==CollectionSort.Ascension?(b.UpgradeRank<5 && b.Shards>=b.UpgradeCost).CompareTo(a.UpgradeRank<5 && a.Shards>=a.UpgradeCost):b.Power.CompareTo(a.Power); if(order==0) order=b.Power.CompareTo(a.Power); if(order==0) order=string.CompareOrdinal(a.Identity.Name,b.Identity.Name); return order; }); return list;
+        }
+        static PartyHero PreviewCopy(PartyHero original,int factionBonus) {
+            var clone=new PartyHero(original.Identity); clone.Level=original.Level; clone.Experience=original.Experience; clone.UpgradeRank=original.UpgradeRank; clone.SharedLevel=original.SharedLevel; clone.FactionBonus=factionBonus;
+            for(int tier=0;tier<3;tier++) clone.SetTalent(tier,original.TalentChoice(tier));
+            for(int slot=0;slot<3;slot++) clone.SetGear((GearSlot)slot,original.Gear((GearSlot)slot));
+            for(int slot=0;slot<2;slot++) clone.Equip(slot,original.SkillIndex(slot)); clone.RefreshStats(); clone.Restore(); return clone;
+        }
+        public HeroReplacement PreviewReplacement(string id,int slot) {
+            var candidate=HeroProgress(id); if(candidate==null || slot<0 || slot>=party.Count || party.Contains(candidate)) return null;
+            var counts=new int[3]; for(int i=0;i<party.Count;i++) counts[(int)(i==slot?candidate:party[i]).Identity.Faction]++;
+            int strongest=Math.Max(counts[0],Math.Max(counts[1],counts[2])); int bonus=FactionsEnabled?(strongest>=5?20:strongest>=3?10:0):0;
+            int total=0; PartyHero replacement=null;
+            for(int i=0;i<party.Count;i++) { var cloned=PreviewCopy(i==slot?candidate:party[i],bonus); total+=cloned.Power; if(i==slot) replacement=cloned; }
+            return new HeroReplacement(replacement,total,party[slot],TeamPower);
+        }
+        public bool EquipHeroAt(string id,int slot) {
+            if(!CanChangeParty || slot<0 || slot>=party.Count || HeroProgress(id)==null) return false;
+            foreach(var member in party) if(member.Identity.Id==id) return false;
+            int previous=ActiveIndex; ActiveIndex=slot; if(EquipHero(id)) return true; ActiveIndex=previous; return false;
         }
         public bool EquipHero(string id) {
             if (!CanChangeParty) return false;

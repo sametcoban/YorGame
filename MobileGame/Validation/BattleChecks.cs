@@ -1409,6 +1409,28 @@ class BattleChecks {
   var legacyTower=tower.ExportProgress(); legacyTower.version=10; Check(towerReload.RestoreProgress(legacyTower) && towerReload.TowerFloor==1 && !towerReload.InTower);
   var afterStory=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"},30);
   Check(afterStory.CampaignComplete && afterStory.EnterTower() && !afterStory.CampaignComplete && afterStory.LeaveTower() && afterStory.CampaignComplete);
+  // Collection filters use current ascended rarity and deterministic sorting.
+  var filteredCollection=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Rare"});
+  Check(filteredCollection.Collection().Count==30 && new Battle(true).Collection().Count==1);
+  foreach(HeroClass kind in Enum.GetValues(typeof(HeroClass))) { var matches=filteredCollection.Collection(kind:kind); Check(matches.Count==5); foreach(var member in matches) Check(member.Identity.Class==kind); }
+  foreach(HeroFaction faction in Enum.GetValues(typeof(HeroFaction))) { var matches=filteredCollection.Collection(faction:faction); Check(matches.Count==10); foreach(var member in matches) Check(member.Identity.Faction==faction); }
+  foreach(HeroQuality quality in Enum.GetValues(typeof(HeroQuality))) { var matches=filteredCollection.Collection(quality:quality); Check(matches.Count==6); foreach(var member in matches) Check(member.Quality==quality); }
+  foreach(CollectionSort sorting in Enum.GetValues(typeof(CollectionSort))) { var matches=filteredCollection.Collection(sort:sorting); var repeat=filteredCollection.Collection(sort:sorting); for(int index=0;index<matches.Count;index++) { Check(matches[index].Identity.Id==repeat[index].Identity.Id); if(index>0 && sorting==CollectionSort.Power) Check(matches[index-1].Power>=matches[index].Power); } }
+  var collectionData=filteredCollection.ExportProgress(); collectionData.loadouts[0].shards=20; collectionData.loadouts[6].level=20;
+  Check(filteredCollection.RestoreProgress(collectionData) && filteredCollection.Collection(sort:CollectionSort.Ascension)[0].Identity.Id=="Knight_Common" && filteredCollection.Collection(sort:CollectionSort.Level)[0].Identity.Id==collectionData.loadouts[6].id);
+  Check(filteredCollection.UpgradeHero("Knight_Common")); Check(filteredCollection.Collection(quality:HeroQuality.Common).Count==5 && filteredCollection.Collection(quality:HeroQuality.Uncommon).Count==7);
+  // Replacement previews predict all faction changes without mutating live heroes.
+  string reserveForPreview="Sorceress_Common"; int beforePreviewPower=filteredCollection.TeamPower, beforePreviewActive=filteredCollection.ActiveIndex;
+  int reserveHp=filteredCollection.HeroProgress(reserveForPreview).Definition.MaxHealth, originalSlotHp=filteredCollection.Party[0].Definition.MaxHealth;
+  var swapPreview=filteredCollection.PreviewReplacement(reserveForPreview,0);
+  Check(swapPreview!=null && swapPreview.TeamPower<beforePreviewPower && filteredCollection.TeamPower==beforePreviewPower && filteredCollection.ActiveIndex==beforePreviewActive && filteredCollection.TeamFactionBonus==20);
+  Check(filteredCollection.HeroProgress(reserveForPreview).Definition.MaxHealth==reserveHp && filteredCollection.Party[0].Definition.MaxHealth==originalSlotHp);
+  Check(filteredCollection.EquipHeroAt(reserveForPreview,0) && filteredCollection.TeamPower==swapPreview.TeamPower && filteredCollection.Party[0].Definition.MaxHealth==swapPreview.Hero.Definition.MaxHealth && filteredCollection.Party[0].Definition.AttackDamage==swapPreview.Hero.Definition.AttackDamage);
+  Check(filteredCollection.TeamFactionBonus==10 && filteredCollection.PreviewReplacement(reserveForPreview,1)==null && !filteredCollection.EquipHeroAt(reserveForPreview,1));
+  Check(filteredCollection.PreviewReplacement("missing",0)==null && filteredCollection.PreviewReplacement("Knight_Common",-1)==null && !filteredCollection.EquipHeroAt("Knight_Common",5));
+  filteredCollection.Attack(); Check(!filteredCollection.EquipHeroAt("Knight_Common",0));
+  var slotLimited=new Battle(true); Check(!slotLimited.EquipHeroAt("Paladin_Common",0) && !slotLimited.EquipHeroAt("Knight_Common",1));
+  var collectionReload=new Battle(true,enableFactions:true); Check(collectionReload.RestoreProgress(filteredCollection.ExportProgress()) && collectionReload.Party[0].Identity.Id==reserveForPreview);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
