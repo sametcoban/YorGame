@@ -14,6 +14,18 @@ namespace Ashlight {
         }
     }
     public static class EnemySkills {
+        public static EnemySkill ForRole(int encounter, EnemyDefinition enemy, int completedStrikes) {
+            if(enemy.IsBoss) return For(encounter,true,completedStrikes);
+            var basis=For(encounter,false,1);
+            switch(enemy.Role) {
+                case EnemyRole.Archer: return new EnemySkill("Rear Volley",32,basis.Element,backRow:true);
+                case EnemyRole.Caster: return completedStrikes%3==2?new EnemySkill("Arcane Tempest",16,basis.Element,true,basis.Status):new EnemySkill("Hex Bolt",28,basis.Element,status:basis.Status);
+                case EnemyRole.Healer: return completedStrikes%3==1?new EnemySkill("Dark Renewal",0,basis.Element,action:EnemyAction.HealPartner):new EnemySkill("Withering Touch",22,basis.Element);
+                case EnemyRole.Support: return completedStrikes%3==1?new EnemySkill("Warding Sigil",0,basis.Element,action:EnemyAction.Shield):new EnemySkill("Shadow Bolt",24,basis.Element);
+                case EnemyRole.Bruiser: return new EnemySkill("Rending Assault",40,Element.Physical);
+                default: return new EnemySkill("Shield Bash",30,Element.Physical);
+            }
+        }
         public static EnemySkill For(int encounter, bool boss, int completedStrikes) {
             int chapter=encounter/5;
             var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light}[Math.Min(5,Math.Max(0,chapter))];

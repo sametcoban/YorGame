@@ -425,7 +425,7 @@ namespace Ashlight {
             if(!campaign) enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden",100)));
             else foreach(var definition in ChapterDefinition.WaveAt(Math.Min(encounter,ChapterDefinition.TotalStages-1),WaveIndex,WaveCount))
                 enemies.Add(new BattleEnemy(new EnemyDefinition(definition.Name,
-                    (int)Math.Ceiling(definition.MaxHealth*Math.Max(1,PartyLimit/3.0)),definition.Weakness,definition.Resistance,definition.IsBoss)));
+                    (int)Math.Ceiling(definition.MaxHealth*Math.Max(1,PartyLimit/3.0)),definition.Weakness,definition.Resistance,definition.IsBoss,definition.Role)));
         }
         public bool AdvanceWave() {
             if(Current!=Phase.WaveCleared || WaveIndex>=WaveCount-1) return false;
@@ -582,7 +582,7 @@ namespace Ashlight {
         }
         void PrepareEnemyStrike() {
             Defended = false; Array.Clear(defendedHeroes,0,defendedHeroes.Length);
-            IncomingSkill = campaign ? EnemySkills.For(encounter,enemies[AttackingEnemyIndex].Definition.IsBoss,enemies[AttackingEnemyIndex].CompletedStrikes) : new EnemySkill("Quick Strike",35,Element.Physical);
+            IncomingSkill = campaign ? (waveBattles?EnemySkills.ForRole(encounter,enemies[AttackingEnemyIndex].Definition,enemies[AttackingEnemyIndex].CompletedStrikes):EnemySkills.For(encounter,enemies[AttackingEnemyIndex].Definition.IsBoss,enemies[AttackingEnemyIndex].CompletedStrikes)) : new EnemySkill("Quick Strike",35,Element.Physical);
             var attacker=enemies[AttackingEnemyIndex];
             if(attacker.Definition.Name=="Cinder Sovereign") {
                 int move=attacker.CompletedStrikes%4;
@@ -647,7 +647,7 @@ namespace Ashlight {
                 int target=AttackingEnemyIndex;
                 if((attacker.CompletedStrikes/3)%2==0)
                     for(int i=0;i<enemies.Count;i++) if(i!=AttackingEnemyIndex && enemies[i].Health>0) { target=i; break; }
-                enemies[target].Shield=60; LastMechanicTarget=target;
+                enemies[target].Shield=attacker.Definition.IsBoss?60:25; LastMechanicTarget=target;
             }
             if(IncomingSkill.Action==EnemyAction.Attack && attacker.Definition.Name=="Cinder Sovereign" && attacker.CompletedStrikes%4==3) { attacker.Charged=false; attacker.ChargeDamage=0; }
             var livingKnights=new bool[FrontSlots];

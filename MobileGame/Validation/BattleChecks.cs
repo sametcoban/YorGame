@@ -1112,6 +1112,33 @@ class BattleChecks {
    } else throw new Exception("Unexpected talent campaign phase: "+chosenCampaign.Current);
   }
   Check(chosenCampaign.CampaignComplete && chosenCount>0);
+  // Stage previews describe the exact wave definitions; roleEnemy roles drive real actions.
+  for(int stage=0;stage<30;stage++) {
+   var stagePreview=ChapterDefinition.Preview(stage);
+   for(int wave=0;wave<3;wave++) foreach(var roleEnemy in ChapterDefinition.WaveAt(stage,wave,3))
+    Check(stagePreview.Contains(roleEnemy.Name+" · "+roleEnemy.Role+" / "+roleEnemy.Row+" · Weak: "+roleEnemy.Weakness));
+  }
+  Check(ChapterDefinition.WaveAt(11,0,3).Count==2 && ChapterDefinition.WaveAt(10,0,3).Count==1);
+  foreach(var role in new[]{EnemyRole.Archer,EnemyRole.Caster,EnemyRole.Healer,EnemyRole.Support}) {
+   var roleEnemy=new EnemyDefinition("Glacier Spirit",100,role:role);
+   Check(roleEnemy.Role==role && roleEnemy.Row==EnemyRow.Back);
+   var move=EnemySkills.ForRole(7,roleEnemy,role==EnemyRole.Caster?2:1);
+   Check(role==EnemyRole.Archer?move.BackRow:role==EnemyRole.Caster?move.PartyWide:role==EnemyRole.Healer?move.Action==EnemyAction.HealPartner:move.Action==EnemyAction.Shield);
+  }
+  for(int stage=7;stage<=8;stage++) {
+   var team=PassiveBattle(stage,new[]{"Knight_Common"},waves:true);
+   team.Enemies[0].Health=1; Check(team.Attack() && team.Current==Phase.WaveCleared && team.AdvanceWave());
+   Check(team.Enemies[1].Definition.Role==(stage==7?EnemyRole.Healer:EnemyRole.Support));
+   team.Enemies[1].CompletedStrikes=1; team.Enemies[0].Health-=10;
+   Check(team.Attack()); team.BeginStrike(); team.FinishStrike();
+   Check(team.Current==Phase.EnemyWindup && team.AttackingEnemyIndex==1);
+   Check(team.IncomingSkill.Action==(stage==7?EnemyAction.HealPartner:EnemyAction.Shield));
+   team.BeginStrike(); team.FinishStrike();
+   Check(stage==7?team.LastEnemyHealing>0 && team.LastMechanicTarget==0:team.Enemies[0].Shield==25);
+   var restoredTeam=new Battle(true,enableWaves:true); Check(restoredTeam.RestoreProgress(team.ExportProgress()));
+   // Unfinished-stage reload starts wave one; stagePreview remains deterministic.
+   Check(restoredTeam.WaveIndex==0 && ChapterDefinition.Preview(restoredTeam.Encounter)==ChapterDefinition.Preview(stage));
+  }
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

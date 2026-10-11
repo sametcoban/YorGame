@@ -83,6 +83,9 @@ namespace Ashlight {
         readonly Button[] gearHeroes=new Button[Battle.MaxPartySize],gearSlots=new Button[3],gearChoices=new Button[6];
         readonly System.Collections.Generic.List<GearDefinition> gearCandidates=new System.Collections.Generic.List<GearDefinition>();
         GearSlot browsingSlot;
+        GameObject previewRoot;
+        Text previewText;
+        Button previewButton;
         GameObject progressionRoot;
         Text progressionTitle;
         readonly Button[] progressionHeroes=new Button[Battle.MaxPartySize], progressionChoices=new Button[6];
@@ -192,7 +195,7 @@ namespace Ashlight {
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
             var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
-            CreateFormationPanel(); CreateProgressionPanel();
+            CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
             CreateResultsPanel();
@@ -325,11 +328,11 @@ namespace Ashlight {
                         message="Interrupt Cinder Sovereign: deal 60 damage before his next attack!";
                     } else if(skill.Action==EnemyAction.HealPartner) {
                         effects.Heal(foes[recipient].position,battle.LastEnemyHealing); sounds.Play("Heal");
-                        message="Thorn Queen restores "+battle.LastEnemyHealing+" HP to "+battle.Enemies[recipient].Definition.Name+".";
+                        message=battle.Enemies[foeIndex].Definition.Name+" restores "+battle.LastEnemyHealing+" HP to "+battle.Enemies[recipient].Definition.Name+".";
                     } else {
                         effects.Guard(foes[recipient].position); sounds.Play("Guard");
-                        effects.Floating(foes[recipient].position,"SHIELD 60",Element.Light);
-                        message="Eclipse Veil protects "+battle.Enemies[recipient].Definition.Name+". Attack the other boss.";
+                        effects.Floating(foes[recipient].position,"SHIELD "+battle.Enemies[recipient].Shield,Element.Light);
+                        message=skill.Name+" protects "+battle.Enemies[recipient].Definition.Name+".";
                     }
                     PresentPassiveHealing();
                     presentation.Warning(false);
@@ -412,7 +415,7 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || presentingAction) return;
+            if (atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
@@ -770,6 +773,24 @@ namespace Ashlight {
         void OnApplicationPause(bool paused) { if (paused) SaveProgress(); }
         void OnApplicationQuit() { SaveProgress(); }
         void OnApplicationFocus(bool focused) { if (!focused) SaveProgress(); }
+        void CreateStagePreview() {
+            previewRoot=new GameObject("Stage Preview",typeof(RectTransform),typeof(Image));
+            previewRoot.transform.SetParent(safe,false);
+            var rect=previewRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
+            previewRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            Label(previewRoot.transform,"UPCOMING ENEMIES",new Vector2(.05f,.88f),new Vector2(.95f,.98f),28);
+            previewText=Label(previewRoot.transform,"",new Vector2(.04f,.28f),new Vector2(.96f,.86f),21);
+            Label(previewRoot.transform,"Defender: protects rear allies · Archer: targets your back row\nCaster: elemental spells · Healer: restores allies · Support: shields allies",new Vector2(.04f,.14f),new Vector2(.96f,.26f),18);
+            var done=MakeButton(previewRoot.transform,"PREPARE PARTY",.25f,.75f,()=>previewRoot.SetActive(false)); PlaceGearControl(done,.25f,.025f,.75f,.12f);
+            previewRoot.SetActive(false);
+            previewButton=MakeButton(safe,"ENEMY PREVIEW",.02f,.23f,OpenStagePreview); PlaceGearControl(previewButton,.02f,.625f,.23f,.72f);
+        }
+        void OpenStagePreview() {
+            if(atChapters || !battle.CanChangeParty) return;
+            selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
+            previewText.text="Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1)+"\n\n"+ChapterDefinition.Preview(battle.Encounter);
+            previewRoot.transform.SetAsLastSibling(); previewRoot.SetActive(true);
+        }
         void CreateChapterMenu() {
             chapterRoot=new GameObject("Chapter Menu",typeof(RectTransform),typeof(Image)); chapterRoot.transform.SetParent(safe,false);
             var rect=chapterRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
@@ -820,6 +841,7 @@ namespace Ashlight {
             DarkFantasyStage.Frame(battleCamera);
             CreateEnemy();
             message="Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1)+": choose your heroes, then attack.";
+            OpenStagePreview();
         }
         void EnterChapters() {
             Time.timeScale=1;
@@ -861,7 +883,7 @@ namespace Ashlight {
         void ApplyBattleSpeed() {
             bool combat=!atChapters && (presentingAction || enemyTurn!=null ||
                 battle.Current==Phase.Player || battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike || battle.Current==Phase.WaveCleared);
-            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf);
+            bool menu=(selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf);
             Time.timeScale=combat && !menu?battleSpeed:1;
         }
         void OnDisable() { Time.timeScale=1; }
@@ -894,6 +916,8 @@ namespace Ashlight {
             if(!atChapters && !presentingAction && enemyTurn==null && battle.Current==Phase.WaveCleared && !transitioningWave) StartCoroutine(NextWave());
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
             reset.gameObject.SetActive(finished && battle.Current!=Phase.Won);
+            previewButton.gameObject.SetActive(preparing);
+            if(!preparing) previewRoot.SetActive(false);
             loadout.gameObject.SetActive(preparing); gearButton.gameObject.SetActive(preparing); formationButton.gameObject.SetActive(preparing);
             if(!preparing) { formationRoot.SetActive(false); progressionRoot.SetActive(false); }
             if(!preparing) equipmentRoot.SetActive(false);
@@ -949,7 +973,7 @@ namespace Ashlight {
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { summonButton.interactable=battle.CanSummon; summonButton.GetComponentInChildren<Text>(true).text="SUMMON — 100\nBalance: "+battle.Crystals; timing.transform.parent.gameObject.SetActive(false); cue.text=""; return; }
-            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
+            if (autoPlay && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
                 nextAutoAction = Time.time+1.3f;

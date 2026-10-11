@@ -38,11 +38,12 @@ namespace Ashlight {
         public readonly string Name;
         public readonly int MaxHealth;
         public readonly bool IsBoss;
-        public EnemyRole Role { get { return EnemyRoles.For(Name); } }
+        readonly EnemyRole? role;
+        public EnemyRole Role { get { return role ?? EnemyRoles.For(Name); } }
         public EnemyRow Row { get { return EnemyRoles.Row(Role); } }
         public readonly Element Weakness, Resistance;
-        public EnemyDefinition(string name, int health, Element weakness = Element.Physical, Element resistance = Element.Physical, bool isBoss = false) {
-            Name = name; MaxHealth = health; Weakness = weakness; Resistance = resistance; IsBoss = isBoss;
+        public EnemyDefinition(string name, int health, Element weakness = Element.Physical, Element resistance = Element.Physical, bool isBoss = false, EnemyRole? role = null) {
+            this.role=role; Name = name; MaxHealth = health; Weakness = weakness; Resistance = resistance; IsBoss = isBoss;
         }
         public int Damage(int amount, Element element) {
             if (amount <= 0) return 0;

@@ -41,20 +41,29 @@ namespace Ashlight {
             var chapter=Catalog[encounter/StagesPerChapter];
             var source=chapter.Enemies[(encounter%StagesPerChapter+wave)%4];
             var first=new EnemyDefinition(source.Name,Math.Max(20,(int)Math.Ceiling(source.MaxHealth*.3)),source.Weakness,source.Resistance);
-            if(wave==0 || encounter/StagesPerChapter==0) return Array.AsReadOnly(new[]{first});
+            if(encounter/StagesPerChapter==0 || (wave==0 && (encounter/StagesPerChapter<2 || encounter%StagesPerChapter%2==0))) return Array.AsReadOnly(new[]{first});
             // Mixed waves use a frontline enemy and a rear threat from the same chapter.
             var front=source; var next=source;
             for(int offset=0;offset<4;offset++) {
                 var candidate=chapter.Enemies[(encounter%StagesPerChapter+wave+offset)%4];
-                if(candidate.Role==EnemyRole.Defender) { front=candidate; break; }
+                if(candidate.Role==(wave==0?EnemyRole.Bruiser:EnemyRole.Defender)) { front=candidate; break; }
             }
             for(int offset=0;offset<4;offset++) {
                 var candidate=chapter.Enemies[(encounter%StagesPerChapter+wave+1+offset)%4];
                 if(candidate.Row==EnemyRow.Back) { next=candidate; break; }
             }
             first=new EnemyDefinition(front.Name,Math.Max(20,(int)Math.Ceiling(front.MaxHealth*.3)),front.Weakness,front.Resistance);
-            var second=new EnemyDefinition(next.Name,Math.Max(20,(int)Math.Ceiling(next.MaxHealth*.3)),next.Weakness,next.Resistance);
+            var second=new EnemyDefinition(next.Name,Math.Max(20,(int)Math.Ceiling(next.MaxHealth*.3)),next.Weakness,next.Resistance,role:new[]{EnemyRole.Caster,EnemyRole.Archer,EnemyRole.Healer,EnemyRole.Support,EnemyRole.Caster}[encounter%StagesPerChapter]);
             return Array.AsReadOnly(new[]{first,second});
+        }
+        public static string Preview(int encounter) {
+            var lines=new List<string>();
+            for(int wave=0;wave<3;wave++) {
+                lines.Add("WAVE "+(wave+1)+(wave==2?" · FINAL":""));
+                foreach(var enemy in WaveAt(encounter,wave,3))
+                    lines.Add(enemy.Name+" · "+enemy.Role+" / "+enemy.Row+" · Weak: "+enemy.Weakness+" · Resists: "+enemy.Resistance);
+            }
+            return string.Join("\n",lines.ToArray());
         }
         public static EnemyDefinition EnemyAt(int encounter) {
             if(encounter<0 || encounter>=TotalStages) throw new ArgumentOutOfRangeException("encounter");

@@ -463,3 +463,16 @@ The screen shows exact bonuses and level locks. Faster energy gives 35 energy pe
 Save version **6** migrates existing saves with no choices selected, preserving hero growth, equipment, formations and pending victory rewards. Invalid choices or choices below their unlock level are rejected before changing progress.
 
 Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **6,316 engine-independent checks passed**, including all 36 choices, free resets, save migration, combat interactions and the complete 90-wave campaign. **Ashlight > Diagnostics > Check Save Serialization** now also checks progression choices. Unity compilation, serialization diagnostics and progression screen layout still need local testing.
+
+
+## Varied enemy teams and stage preview
+
+Starting a stage now opens **Upcoming Enemies**, showing all three waves, roles, rows, elemental weaknesses and resistances. Choose **Prepare Party** to adjust heroes, formation, equipment or skills; **Enemy Preview** reopens it before the first action. The preview pauses Auto Play and closes when preparation ends.
+
+Chapter 1 retains single-enemy introductory waves. From chapter 2, wave 2 varies its rear opponent by stage: caster, archer, healer, support, then caster. From chapter 3, stages 2 and 4 also open with a two-enemy ambush. All enemies use existing chapter models, and final encounters keep their original boss pairs.
+
+Enemy roles now drive actions in wave battles: archers target rear heroes, casters apply elemental hexes and a party attack every third action, healers restore a living ally every third action, and support enemies grant a non-stacking 25-point shield every third action. Defenders use Shield Bash and bruisers use heavier physical attacks. Early-wave attack damage retains its 60% scaling; existing boss skills, protection, healing caps and no-revival rules remain intact.
+
+Existing saves remain compatible and unfinished stages restart from wave one. Copy updated **Assets/Scripts** into Unity. **6,706 engine-independent checks passed**, including previews, role-specific skills, actual healer/support actions, save reloads and full campaign runs. Unity compilation, UI layout, animation playback and balance need local testing.
+
+The intended direction is now an AFK Arena-inspired team-building RPG: five heroes, front/back formation, automatic combat and energy ultimates, with our own roster and visual style. Idle rewards and faction synergies are planned follow-ups, not implemented in this update.
