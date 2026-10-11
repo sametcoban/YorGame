@@ -1,12 +1,16 @@
 using System;
 using System.Collections.Generic;
 namespace Ashlight {
+    public enum HeroFaction { DawnOrder, Wilderkin, Veilborn }
     public enum HeroGender { Woman, Man }
     public enum HeroQuality { Common, Uncommon, Rare, Epic, Legendary }
     public sealed class HeroDefinition {
         public readonly string Id, Name;
         public readonly HeroClass Class;
         public readonly HeroQuality Quality;
+        public readonly HeroFaction Faction;
+        public string FactionName { get { return FactionDisplay(Faction); } }
+        public static string FactionDisplay(HeroFaction faction) { return faction==HeroFaction.DawnOrder?"Dawn Order":faction==HeroFaction.Wilderkin?"Wilderkin":"Veilborn"; }
         public readonly HeroGender Gender;
         public readonly int Age;
         public string DisplayClass { get { return Class == HeroClass.Sorceress && Gender == HeroGender.Man ? "Sorcerer" : Stats.Name; } }
@@ -16,6 +20,7 @@ namespace Ashlight {
         HeroDefinition(string id, string name, HeroClass kind, HeroQuality quality, HeroGender gender) {
             var affinities = ClassElements.For(kind);
             Affinity = affinities[(int)quality % affinities.Count];
+            Faction=Factions[(int)kind,(int)quality];
             Age = Ages[(int)kind,(int)quality];
             Gender = gender;
             Id = id; Name = name; Class = kind; Quality = quality;
@@ -39,6 +44,15 @@ namespace Ashlight {
             { "Finn", "Sylva", "Tarin", "Liora", "Cael" },
             { "Wren", "Kestrel", "Silas", "Raven", "Nyx" },
             { "Tessa", "Jonas", "Amara", "Elyse", "Ilyra" }
+        };
+        // Authored independently of elemental affinity; each faction spans all six classes.
+        static readonly HeroFaction[,] Factions = {
+            {HeroFaction.DawnOrder,HeroFaction.Wilderkin,HeroFaction.Veilborn,HeroFaction.DawnOrder,HeroFaction.Wilderkin},
+            {HeroFaction.DawnOrder,HeroFaction.Wilderkin,HeroFaction.Veilborn,HeroFaction.DawnOrder,HeroFaction.Wilderkin},
+            {HeroFaction.Wilderkin,HeroFaction.Veilborn,HeroFaction.DawnOrder,HeroFaction.Wilderkin,HeroFaction.Veilborn},
+            {HeroFaction.Wilderkin,HeroFaction.Veilborn,HeroFaction.DawnOrder,HeroFaction.Wilderkin,HeroFaction.Veilborn},
+            {HeroFaction.Veilborn,HeroFaction.DawnOrder,HeroFaction.Wilderkin,HeroFaction.Veilborn,HeroFaction.DawnOrder},
+            {HeroFaction.Veilborn,HeroFaction.DawnOrder,HeroFaction.Wilderkin,HeroFaction.Veilborn,HeroFaction.DawnOrder}
         };
         static readonly int[,] Ages = {
             { 28, 42, 31, 35, 44 }, { 33, 29, 46, 38, 51 },

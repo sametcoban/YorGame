@@ -32,6 +32,13 @@ class BattleChecks {
   foreach(var loadout in save.loadouts) { loadout.level=level; loadout.experience=0; }
   Check(battle.RestoreProgress(save)); return battle;
  }
+ static Battle FactionBattle(string[] heroes,int encounter=20) {
+  var battle=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:new FixedRoll(.99));
+  var save=battle.ExportProgress(); save.encounter=encounter; save.party=heroes;
+  var recruited=new System.Collections.Generic.List<string>(); var loadouts=new System.Collections.Generic.List<HeroLoadoutData>();
+  foreach(var hero in HeroDefinition.Catalog) { recruited.Add(hero.Id); loadouts.Add(new HeroLoadoutData{id=hero.Id,secondSkill=1}); }
+  save.recruited=recruited.ToArray(); save.loadouts=loadouts.ToArray(); Check(battle.RestoreProgress(save)); return battle;
+ }
  static void Main() {
   var b = new Battle();
   Check(b.Current == Phase.Player && b.HeroHealth == 100);
@@ -1090,7 +1097,7 @@ class BattleChecks {
   Check(gearTalent.ResetTalents("Knight_Common") && gearTalent.Party[0].Definition.MaxHealth==145 && gearTalent.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Common_Physical");
   var malformedTalent=talentedKnight.ExportProgress(); malformedTalent.loadouts[0].talents=new[]{-1,-1}; Check(!talentLoad.RestoreProgress(malformedTalent));
   malformedTalent=talentedKnight.ExportProgress(); malformedTalent.loadouts[0].talents[0]=-2; Check(!talentLoad.RestoreProgress(malformedTalent));
-  var chosenCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(321)); int chosenSteps=0,chosenCount=0;
+  var chosenCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(321),enableFactions:true); int chosenSteps=0,chosenCount=0;
   while(!chosenCampaign.CampaignComplete && chosenSteps++<6000) {
    if(chosenCampaign.Current==Phase.Player) {
     if(chosenCampaign.CanChangeParty) foreach(var hero in chosenCampaign.Party)
@@ -1105,7 +1112,7 @@ class BattleChecks {
     chosenCampaign.FinishStrike();
    } else if(chosenCampaign.Current==Phase.WaveCleared) Check(chosenCampaign.AdvanceWave());
    else if(chosenCampaign.Current==Phase.Won) {
-    var selectedSave=chosenCampaign.ExportProgress(); var selectedReload=new Battle(true,enableWaves:true,enableClassPassives:true);
+    var selectedSave=chosenCampaign.ExportProgress(); var selectedReload=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true);
     Check(selectedReload.RestoreProgress(selectedSave) && selectedReload.Results.Loot.Id==chosenCampaign.Results.Loot.Id);
     foreach(var hero in chosenCampaign.Party) for(int tier=0;tier<3;tier++) Check(selectedReload.HeroProgress(hero.Identity.Id).TalentChoice(tier)==hero.TalentChoice(tier));
     Check(chosenCampaign.ContinueAfterVictory());
@@ -1174,6 +1181,46 @@ class BattleChecks {
   idleNow=idleNow.AddMinutes(10); Check(idle.IdleCrystals==1 && idle.ClaimIdleRewards() && idle.Crystals==1000000);
   Check(new Battle(true).RestoreProgress(idle.ExportProgress()));
   var practiceIdle=new Battle(false,utcNow:()=>idleNow); idleNow=idleNow.AddHours(1); Check(!practiceIdle.ClaimIdleRewards());
+  // Factions span classes and rarities, and boost the whole active team at exact thresholds.
+  foreach(HeroFaction faction in Enum.GetValues(typeof(HeroFaction))) {
+   int total=0; var kinds=new System.Collections.Generic.HashSet<HeroClass>(); var qualities=new System.Collections.Generic.HashSet<HeroQuality>();
+   foreach(var definition in HeroDefinition.Catalog) if(definition.Faction==faction) { total++; kinds.Add(definition.Class); qualities.Add(definition.Quality); Check(!string.IsNullOrEmpty(definition.FactionName)); }
+   Check(total==10 && kinds.Count==6 && qualities.Count==5);
+  }
+  var noSynergy=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common"});
+  Check(noSynergy.TeamFactionBonus==0 && noSynergy.Party[0].Definition.MaxHealth==100);
+  var threeFaction=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Sorceress_Common","Ranger_Common"});
+  Check(threeFaction.TeamFactionBonus==10 && threeFaction.FactionCount(HeroFaction.DawnOrder)==3);
+  foreach(var member in threeFaction.Party) {
+   Check(member.Definition.MaxHealth==(member.Identity.Stats.MaxHealth*110+99)/100);
+   Check(member.Definition.AttackDamage==(member.Identity.Stats.AttackDamage*110+99)/100);
+   Check(member.Skill(0).Damage==(member.Identity.Stats.Skills[0].Damage*110+99)/100);
+   Check(member.Ultimate.Damage==(member.Identity.Ultimate.Damage*110+99)/100);
+   Check(member.Skill(0).Healing==member.Identity.Stats.Skills[0].Healing);
+  }
+  threeFaction.Party[2].Health=0; Check(threeFaction.TeamFactionBonus==10);
+  Check(!threeFaction.SwapFormation(0,1) && threeFaction.TeamFactionBonus==10 && threeFaction.Party[2].Health==0);
+  threeFaction.Reset(); Check(threeFaction.SwapFormation(0,1) && threeFaction.TeamFactionBonus==10);
+  threeFaction.Reset(); Check(threeFaction.SelectHero(2) && threeFaction.EquipHero("Cleric_Common") && threeFaction.TeamFactionBonus==0);
+  foreach(var member in threeFaction.Party) Check(member.Definition.MaxHealth==member.Identity.Stats.MaxHealth);
+  Check(threeFaction.HeroProgress("Rogue_Uncommon").Definition.MaxHealth==threeFaction.HeroProgress("Rogue_Uncommon").Identity.Stats.MaxHealth);
+  var fourFaction=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Common"});
+  Check(fourFaction.TeamFactionBonus==10);
+  var fiveFaction=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Rare"});
+  Check(fiveFaction.TeamFactionBonus==20 && fiveFaction.Party[0].Definition.MaxHealth==120 && fiveFaction.Party[0].Definition.AttackDamage==30);
+  Check(fiveFaction.HeroProgress("Ranger_Rare").FactionBonus==0);
+  var factionReload=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true);
+  Check(factionReload.RestoreProgress(fiveFaction.ExportProgress()) && factionReload.TeamFactionBonus==20 && factionReload.Party[0].Definition.MaxHealth==120);
+  Check(fiveFaction.Attack() && fiveFaction.LastDamage==30); // Boosted attack, neutral Fire matchup.
+  Check(!fiveFaction.EquipHero("Sorceress_Common"));
+  var factionGrowth=factionReload.ExportProgress(); factionGrowth.loadouts[0].level=10; factionGrowth.loadouts[0].talents=new[]{-1,0,-1};
+  factionGrowth.inventory=new[]{new GearStackData{id="Armor_Common_Physical",count=1}}; factionGrowth.loadouts[0].gear=new[]{null,"Armor_Common_Physical",null};
+  Check(factionReload.RestoreProgress(factionGrowth));
+  int expectedFactionHealth=(factionReload.Party[0].Identity.Stats.Scaled(factionReload.Party[0].Growth).WithTalentBonuses(15,0).MaxHealth+GearDefinition.Find("Armor_Common_Physical").Health)*120;
+  Check(factionReload.Party[0].Definition.MaxHealth==(expectedFactionHealth+99)/100);
+  var factionReplay=fiveFaction.ExportProgress(); factionReplay.encounter=30; factionReplay.pendingVictory=false; factionReplay.results=null;
+  Check(factionReload.RestoreProgress(factionReplay) && factionReload.RestartCampaign() && factionReload.TeamFactionBonus==0 && factionReload.Party[0].Definition.MaxHealth==100);
+  Check(factionReload.HeroProgress("Sorceress_Rare").FactionBonus==0);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

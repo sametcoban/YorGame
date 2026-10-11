@@ -22,6 +22,11 @@ namespace Ashlight {
             for(int i=0;i<skills.Length;i++) { var skill=Skills[i]; skills[i]=new SkillDefinition(skill.Name,(skill.Damage*(100+skillsDamage)+99)/100,skill.Healing,skill.Guard,skill.PartyHealing,skill.Affinity); }
             return new ClassDefinition(Kind,Name,AbilityName,Description,(MaxHealth*(100+health)+99)/100,AttackDamage,(AbilityDamage*(100+skillsDamage)+99)/100,AbilityHealing,Array.AsReadOnly(skills));
         }
+        public ClassDefinition WithFactionBonus(int percent) {
+            if(percent==0) return this;
+            var boosted=WithTalentBonuses(percent,percent);
+            return new ClassDefinition(Kind,Name,AbilityName,Description,boosted.MaxHealth,(AttackDamage*(100+percent)+99)/100,boosted.AbilityDamage,AbilityHealing,boosted.Skills);
+        }
         public ClassDefinition WithEquipment(int health,int attack,int damage) {
             if(health==0 && attack==0 && damage==0) return this;
             var skills=new SkillDefinition[Skills.Count];

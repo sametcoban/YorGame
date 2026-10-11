@@ -7,6 +7,7 @@ namespace Ashlight {
         ClassDefinition stats;
         public ClassDefinition Definition { get { return stats; } }
         public const int MaxLevel=20, MaxUpgradeRank=5;
+        internal int FactionBonus;
         readonly int[] talents={-1,-1,-1};
         public int TalentChoice(int tier) { return talents[tier]; }
         public bool HasTalent(int tier,int choice) { return Level>=ClassTalents.UnlockLevel(tier) && talents[tier]==choice; }
@@ -27,13 +28,13 @@ namespace Ashlight {
         internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; RefreshStats(); }
         public int Protection { get { var armor=Gear(GearSlot.Armor); return armor==null?0:armor.Protection; } }
         public float DamageBoost(Element element) { var accessory=Gear(GearSlot.Accessory); return accessory!=null && accessory.Element==element?1+accessory.ElementBoost:1; }
-        public UltimateDefinition Ultimate { get { var weapon=Gear(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithTalentDamage((Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger) && HasTalent(2,1)?20:0).WithDamageBonus(weapon==null?0:weapon.SkillDamage); } }
+        public UltimateDefinition Ultimate { get { var weapon=Gear(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithTalentDamage((Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger) && HasTalent(2,1)?20:0).WithDamageBonus(weapon==null?0:weapon.SkillDamage).WithTalentDamage(FactionBonus); } }
         internal void RefreshStats() {
             var weapon=Gear(GearSlot.Weapon); var armor=Gear(GearSlot.Armor);
             bool tank=Identity.Class==HeroClass.Knight || Identity.Class==HeroClass.Paladin;
             bool health=HasTalent(1,tank?0:1);
             bool skill=HasTalent(tank?1:0,1) && (tank || Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger);
-            stats=Identity.Stats.Scaled(Growth).WithTalentBonuses(health?15:0,skill?10:0).WithEquipment(armor==null?0:armor.Health,weapon==null?0:weapon.Attack,weapon==null?0:weapon.SkillDamage);
+            stats=Identity.Stats.Scaled(Growth).WithTalentBonuses(health?15:0,skill?10:0).WithEquipment(armor==null?0:armor.Health,weapon==null?0:weapon.Attack,weapon==null?0:weapon.SkillDamage).WithFactionBonus(FactionBonus);
         }
         internal void GainExperience(int amount) {
             if(Level==MaxLevel) return;
@@ -77,6 +78,15 @@ namespace Ashlight {
         readonly bool campaign;
         readonly bool waveBattles;
         public bool ClassPassivesEnabled { get; private set; }
+        public bool FactionsEnabled { get; private set; }
+        public int FactionCount(HeroFaction faction) { int count=0; foreach(var member in party) if(member.Identity.Faction==faction) count++; return count; }
+        public int TeamFactionBonus { get { if(!FactionsEnabled) return 0; int best=0; foreach(HeroFaction faction in Enum.GetValues(typeof(HeroFaction))) best=Math.Max(best,FactionCount(faction)); return best>=5?20:best>=3?10:0; } }
+        public string FactionSummary { get { return "Dawn "+FactionCount(HeroFaction.DawnOrder)+" · Wilderkin "+FactionCount(HeroFaction.Wilderkin)+" · Veilborn "+FactionCount(HeroFaction.Veilborn)+" | "+(TeamFactionBonus==0?"3 matching: +10% HP & damage": "TEAM +"+TeamFactionBonus+"% HP & damage"); } }
+        void RefreshFactionStats() {
+            int bonus=TeamFactionBonus;
+            foreach(var member in savedHeroes.Values) { member.FactionBonus=party.Contains(member)?bonus:0; member.RefreshStats(); }
+            foreach(var member in party) { member.FactionBonus=bonus; member.RefreshStats(); member.Restore(); }
+        }
         readonly Random passiveRandom;
         public string LastOffensivePassive { get; private set; }
         public readonly Debuff[] LastPassiveCleanse=new Debuff[MaxPartySize];
@@ -126,6 +136,7 @@ namespace Ashlight {
                 bool active=false; foreach(var member in party) if(member.Identity.Id==recruit.Id) active=true;
                 if(!active) { var member=HeroProgress(recruit.Id); member.Restore(); party.Add(member); added=true; }
             }
+            if(added) RefreshFactionStats();
             return added;
         }
         public bool SwapFormation(int first,int second) {
@@ -173,7 +184,7 @@ namespace Ashlight {
         public bool HeroDefended(int index) { return defendedHeroes[index]; }
         public Battle() : this(HeroClass.Knight) { }
         public Battle(HeroClass kind) { unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset(); }
-        public Battle(bool recruitmentCampaign, bool enableWaves=false, bool enableClassPassives=false, Random criticalRandom=null, Func<DateTime> utcNow=null) { this.utcNow=utcNow??(()=>DateTime.UtcNow); idleClaimTicks=this.utcNow().Ticks; campaign = recruitmentCampaign; waveBattles=enableWaves; ClassPassivesEnabled=enableClassPassives; passiveRandom=criticalRandom??new Random(); Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
+        public Battle(bool recruitmentCampaign, bool enableWaves=false, bool enableClassPassives=false, Random criticalRandom=null, Func<DateTime> utcNow=null, bool enableFactions=false) { FactionsEnabled=enableFactions; this.utcNow=utcNow??(()=>DateTime.UtcNow); idleClaimTicks=this.utcNow().Ticks; campaign = recruitmentCampaign; waveBattles=enableWaves; ClassPassivesEnabled=enableClassPassives; passiveRandom=criticalRandom??new Random(); Crystals = Summoning.StarterCrystals; unlocked.Add(HeroClass.Knight); recruits.Add(HeroDefinition.Common(HeroClass.Knight)); party.Add(new PartyHero(HeroClass.Knight)); Reset(); }
         public void SelectClass(HeroClass kind) {
             if (campaign) throw new InvalidOperationException("Campaign heroes are recruited, not replaced.");
             party.Clear(); recruits.Clear(); unlocked.Clear(); unlocked.Add(kind); recruits.Add(HeroDefinition.Common(kind)); party.Add(new PartyHero(kind)); Reset();
@@ -206,7 +217,7 @@ namespace Ashlight {
                 PartyHero replacement;
                 if (!savedHeroes.TryGetValue(id, out replacement)) replacement = new PartyHero(recruit);
                 replacement.Restore();
-                party[ActiveIndex] = replacement; return true;
+                party[ActiveIndex] = replacement; RefreshFactionStats(); return true;
             }
             return false;
         }
@@ -436,6 +447,7 @@ namespace Ashlight {
         }
         public void Reset() {
             LastOffensivePassive=null; ClearPassiveReports();
+            RefreshFactionStats();
             Results=null; LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
             foreach (var member in party) member.Restore();
             Array.Clear(defendedHeroes,0,defendedHeroes.Length); Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length); Array.Clear(LastStatusDamage,0,LastStatusDamage.Length); IncomingSkill=null; LastUltimate=null; Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
@@ -648,7 +660,8 @@ namespace Ashlight {
             if(index==ActiveIndex) Defended=true;
             if (parry) {
                 int previous=ActiveIndex; ActiveIndex=index;
-                DealDamage(10+(ClassPassivesEnabled && Active.Identity.Class==HeroClass.Knight?(Active.HasTalent(0,1)?5:0)+(Active.HasTalent(2,1)?10:0):0),null,AttackingEnemyIndex); ActiveIndex=previous;
+                int counter=10+(ClassPassivesEnabled && Active.Identity.Class==HeroClass.Knight?(Active.HasTalent(0,1)?5:0)+(Active.HasTalent(2,1)?10:0):0);
+                DealDamage((counter*(100+Active.FactionBonus)+99)/100,null,AttackingEnemyIndex); ActiveIndex=previous;
             }
             if (AllEnemiesDefeated) Victory();
             return true;

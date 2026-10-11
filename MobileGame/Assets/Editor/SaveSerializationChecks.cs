@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 public static class SaveSerializationChecks {
     static Battle RoundTrip(Battle battle) {
-        var restored=new Battle(true);
+        var restored=new Battle(true,enableFactions:true);
         if(!restored.RestoreProgress(JsonUtility.FromJson<ProgressData>(JsonUtility.ToJson(battle.ExportProgress()))))
             throw new InvalidOperationException("Unity save round-trip rejected: "+battle.Current);
         return restored;
@@ -38,13 +38,14 @@ public static class SaveSerializationChecks {
         var equipped=RoundTrip(restored);
         if(equipped.Party[0].Gear(gear.Slot)==null || equipped.Party[0].Gear(gear.Slot).Id!=item)
             throw new InvalidOperationException("Equipped gear changed during Unity serialization.");
-        var team=new Battle(true); var teamSave=team.ExportProgress(); teamSave.encounter=24;
-        teamSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"};
+        var team=new Battle(true,enableFactions:true); var teamSave=team.ExportProgress(); teamSave.encounter=24;
+        teamSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Rare","Rogue_Uncommon","Cleric_Uncommon"};
         teamSave.party=(string[])teamSave.recruited.Clone(); teamSave.loadouts=new HeroLoadoutData[teamSave.recruited.Length];
         for(int i=0;i<teamSave.loadouts.Length;i++) teamSave.loadouts[i]=new HeroLoadoutData{id=teamSave.recruited[i],firstSkill=0,secondSkill=1,level=15};
         if(!team.RestoreProgress(teamSave) || !team.SwapFormation(0,4)) throw new InvalidOperationException("Could not prepare five-hero formation.");
         foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(!team.ChooseTalent(hero.Identity.Id,tier,tier%2)) throw new InvalidOperationException("Could not prepare saved progression choices.");
         var teamRoundTrip=RoundTrip(team);
+        if(team.TeamFactionBonus!=20 || teamRoundTrip.TeamFactionBonus!=20 || team.Party[0].Definition.MaxHealth!=teamRoundTrip.Party[0].Definition.MaxHealth) throw new InvalidOperationException("Faction bonus changed during Unity serialization.");
         foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(teamRoundTrip.HeroProgress(hero.Identity.Id).TalentChoice(tier)!=hero.TalentChoice(tier)) throw new InvalidOperationException("Progression choices changed during Unity serialization.");
         for(int i=0;i<team.Party.Count;i++) if(team.Party[i].Identity.Id!=teamRoundTrip.Party[i].Identity.Id)
             throw new InvalidOperationException("Formation changed during Unity serialization.");
