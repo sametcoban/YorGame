@@ -111,6 +111,27 @@ namespace Ashlight {
         public readonly int[] LastPassiveGuard=new int[MaxPartySize], LastPassiveHealing=new int[MaxPartySize], LastPassiveProtection=new int[MaxPartySize];
         public int WaveIndex { get; private set; }
         public int WaveCount { get { return campaign && waveBattles ? 3 : 1; } }
+        long dailyDay;
+        readonly int[] dailyProgress=new int[3];
+        readonly bool[] dailyClaimed=new bool[4];
+        void RefreshDaily() {
+            long today=(utcNow==null?DateTime.UtcNow:utcNow()).Date.Ticks;
+            if(today>dailyDay) { dailyDay=today; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4); }
+        }
+        void RecordDaily(int quest) { RefreshDaily(); dailyProgress[quest]=Math.Min(quest==0?3:1,dailyProgress[quest]+1); }
+        public int DailyProgress(int quest) { RefreshDaily(); return dailyProgress[quest]; }
+        public bool DailyClaimed(int quest) { RefreshDaily(); return dailyClaimed[quest]; }
+        public bool CanClaimDaily(int quest) {
+            RefreshDaily(); if(!campaign || (!CanChangeParty && !CampaignComplete) || quest<0 || quest>3 || dailyClaimed[quest]) return false;
+            return quest==3?dailyClaimed[0] && dailyClaimed[1] && dailyClaimed[2]:dailyProgress[quest]>=(quest==0?3:1);
+        }
+        public bool ClaimDaily(int quest) {
+            if(!CanClaimDaily(quest)) return false;
+            Crystals=Math.Min(1000000,Crystals+new[]{40,20,30,100}[quest]);
+            if(quest==3) foreach(var recruit in recruits) { var hero=HeroProgress(recruit.Id); hero.Shards=Math.Min(1000000,hero.Shards+10); }
+            else { var hero=HeroProgress("Knight_Common"); hero.Shards=Math.Min(1000000,hero.Shards+(quest==1?5:10)); }
+            dailyClaimed[quest]=true; return true;
+        }
         readonly List<string> sharedHeroes=new List<string>();
         public const int SharedSlots=5;
         public bool CrystalUnlocked { get { return recruits.Count>=5; } }
@@ -147,6 +168,7 @@ namespace Ashlight {
             Crystals=Math.Min(1000000,Crystals+minutes*IdleCrystalRate);
             foreach(var recruit in recruits) { var member=HeroProgress(recruit.Id); member.GainExperience(minutes*IdleExperienceRate); member.Restore(); }
             RefreshSharedLevels(); foreach(var recruit in recruits) HeroProgress(recruit.Id).Restore();
+            RecordDaily(1);
             idleClaimTicks=now-elapsed%TimeSpan.TicksPerMinute;
             return true;
         }
@@ -292,6 +314,7 @@ namespace Ashlight {
         }
         bool ClaimVictory(GearDefinition loot) {
             if (campaign) {
+                RecordDaily(0);
                 LastLoot=loot;
                 inventory[LastLoot.Id]=Math.Min(1000000,GearCount(LastLoot.Id)+1);
                 int xp=40+ChapterIndex*10+(enemies[0].Definition.IsBoss?20:0);
@@ -339,6 +362,7 @@ namespace Ashlight {
             LegendaryMisses=quality==HeroQuality.Legendary?0:LegendaryMisses+1;
             if(!duplicate) AddRecruit(candidate,false);
             else { var member=HeroProgress(candidate.Id); member.Shards=Math.Min(1000000,member.Shards+10+(int)quality*5); }
+            RecordDaily(2);
             return new SummonResult(candidate,duplicate,refund);
         }
         public PartyHero HeroProgress(string id) {
@@ -377,7 +401,8 @@ namespace Ashlight {
             member.SetGear(slot,item); member.Restore(); return true;
         }
         public ProgressData ExportProgress() {
-            var data = new ProgressData { sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            RefreshDaily();
+            var data = new ProgressData { dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
@@ -396,13 +421,18 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
                 data.activeIndex < 0 || data.activeIndex >= data.party.Length) return false;
             if(data.version>=7 && (data.idleClaimTicks<=0 || data.idleClaimTicks>DateTime.MaxValue.Ticks || data.furthestStage<0 || data.furthestStage>ChapterDefinition.TotalStages)) return false;
             if(data.version>=2 && (data.crystals<0 || data.crystals>1000000 || data.rareMisses<0 || data.rareMisses>=Summoning.RareGuarantee || data.legendaryMisses<0 || data.legendaryMisses>=Summoning.LegendaryGuarantee)) return false;
+            if(data.version>=10) {
+                if(data.dailyDay<0 || data.dailyDay>DateTime.MaxValue.Ticks || data.dailyDay%TimeSpan.TicksPerDay!=0 || data.dailyProgress==null || data.dailyProgress.Length!=3 || data.dailyClaimed==null || data.dailyClaimed.Length!=4) return false;
+                for(int q=0;q<3;q++) if(data.dailyProgress[q]<0 || data.dailyProgress[q]>(q==0?3:1) || (data.dailyClaimed[q] && data.dailyProgress[q]<(q==0?3:1))) return false;
+                if(data.dailyClaimed[3] && (!data.dailyClaimed[0] || !data.dailyClaimed[1] || !data.dailyClaimed[2])) return false;
+            }
             var restoredInventory=new Dictionary<string,int>();
             if(data.version>=4) {
                 if(data.inventory==null || data.inventory.Length>GearDefinition.Catalog.Count) return false;
@@ -466,6 +496,8 @@ namespace Ashlight {
                     (data.results.damage!=null && data.results.damage.Length>0) ||
                     (data.results.healing!=null && data.results.healing.Length>0))) return false;
             }
+            dailyDay=data.version>=10?data.dailyDay:0; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4);
+            if(data.version>=10) { Array.Copy(data.dailyProgress,dailyProgress,3); Array.Copy(data.dailyClaimed,dailyClaimed,4); } RefreshDaily();
             sharedHeroes.Clear(); foreach(var id in restoredShared) sharedHeroes.Add(id);
             inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();

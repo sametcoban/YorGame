@@ -13,7 +13,10 @@ namespace Ashlight {
     public sealed class GearStackData { public string id; public int count; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 9;
+        public int version = 10;
+        public long dailyDay;
+        public int[] dailyProgress=new int[3];
+        public bool[] dailyClaimed=new bool[4];
         public string[] sharedHeroes=new string[0];
         public long idleClaimTicks;
         public int furthestStage;

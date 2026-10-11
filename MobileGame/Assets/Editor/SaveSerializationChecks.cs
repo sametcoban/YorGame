@@ -22,6 +22,11 @@ public static class SaveSerializationChecks {
         if(!sharedTest.RestoreProgress(sharedSave) || !sharedTest.SetShared("Cleric_Common",true)) throw new InvalidOperationException("Could not prepare shared level fixture.");
         var sharedRoundTrip=RoundTrip(sharedTest);
         if(sharedRoundTrip.SharedCount!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").Level!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").CombatLevel!=15) throw new InvalidOperationException("Shared levels changed during Unity serialization.");
+        var dailyClock=new DateTime(2026,10,11,12,0,0,DateTimeKind.Utc); var dailyTest=new Battle(true,utcNow:()=>dailyClock);
+        var dailySave=dailyTest.ExportProgress(); dailySave.dailyProgress=new[]{3,1,1};
+        if(!dailyTest.RestoreProgress(dailySave) || !dailyTest.ClaimDaily(0)) throw new InvalidOperationException("Could not prepare daily quest fixture.");
+        var dailyRoundTrip=new Battle(true,utcNow:()=>dailyClock);
+        if(!dailyRoundTrip.RestoreProgress(JsonUtility.FromJson<ProgressData>(JsonUtility.ToJson(dailyTest.ExportProgress()))) || !dailyRoundTrip.DailyClaimed(0) || dailyRoundTrip.ClaimDaily(0) || dailyRoundTrip.DailyProgress(1)!=1) throw new InvalidOperationException("Daily quest claims changed during Unity serialization.");
         battle.Attack(); RoundTrip(battle);
         battle.Reset(); var progress=battle.ExportProgress(); progress.loadouts[0].experience=90;
         if(!battle.RestoreProgress(progress)) throw new InvalidOperationException("Could not prepare serialization test battle.");

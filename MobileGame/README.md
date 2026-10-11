@@ -532,3 +532,19 @@ Hero ratings use maximum health, attack, the two equipped skills, healing/Guard 
 Enemy ratings include the actual chapter-scaled HP, role-specific attacks, early-wave damage scaling, party-wide targeting, healing/shields and unique boss threats. Stage power combines the strongest wave with 25% of the other waves to represent resource carryover. Boss pairs include both enemies. **Easy** means team power is at least 125% of stage power; **Hard** means at most 85%; otherwise it is **Even**. These are initial tuning estimates, not win probabilities or combat modifiers: elemental matchups, formation, enemy protection and targeting still matter.
 
 Scores derive from existing progress, so the save format stays at version 9. Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **11,374 engine-independent checks passed**, including all hero growth paths, equipment/faction/shared-level changes, steady ratings during combat, all stage previews, difficulty thresholds and reload consistency. Unity compilation, UI readability, serialization diagnostics and difficulty calibration still require local playtesting.
+
+
+## Daily quests
+
+Open **Daily Quests** on the chapter screen. Quests reset at **00:00 UTC** and have explicit reward-claim buttons:
+
+| Quest | Reward |
+| --- | --- |
+| Win three stages and claim their victory results | 40 crystals + 10 Rowan shards |
+| Successfully claim idle rewards | 20 crystals + 5 Rowan shards |
+| Successfully summon a hero, including a duplicate | 30 crystals + 10 Rowan shards |
+| Claim all three quest rewards | 100 crystals + 10 shards for every hero currently recruited |
+
+Failed actions and individual waves do not count. Stage wins count when Continue claims the result, avoiding unclaimed or repeated-victory credit. Completed quests cap their counters and each reward can be claimed once per UTC day. Claiming quests locks during combat and pending victory results. Unclaimed rewards expire on the next day; campaign replay preserves that day's quest state. Moving the clock backward does not reset the day or previously claimed rewards. The prototype uses the device clock and local storage, like idle rewards.
+
+Save version **10** stores the day, counters and claim flags. Older saves migrate to a fresh current-day quest set without retroactive credit. Invalid counters, impossible claims and malformed data are rejected before changing progress. Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **11,426 engine-independent checks passed**, including real stage wins, successful/failed actions, exact reward amounts, repeat claims, reloads, UTC midnight, clock rollback and migration. The Unity serialization diagnostic includes daily claim state. Unity compilation, diagnostic execution and daily-screen layout still require local testing.

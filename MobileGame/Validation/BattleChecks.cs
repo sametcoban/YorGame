@@ -330,7 +330,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==9);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==10);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1068,7 +1068,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==9 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==10 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1174,7 +1174,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==9);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==10);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=31; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1313,6 +1313,42 @@ class BattleChecks {
   Check(sharedRating.RestoreProgress(sharedRatingSave)); int beforeLinkedRating=sharedRating.HeroProgress("Cleric_Common").Power;
   Check(sharedRating.SetShared("Cleric_Common",true) && sharedRating.HeroProgress("Cleric_Common").Power>beforeLinkedRating);
   Check(sharedRating.SetShared("Cleric_Common",false) && sharedRating.HeroProgress("Cleric_Common").Power==beforeLinkedRating);
+  // Daily quests count successful actions and claimed stage wins, once per UTC day.
+  var questNow=new DateTime(2026,10,11,12,0,0,DateTimeKind.Utc); var quests=new Battle(true,utcNow:()=>questNow);
+  Check(!quests.ClaimDaily(0) && !quests.ClaimDaily(3) && !quests.ClaimDaily(-1) && !quests.ClaimDaily(4));
+  Check(!quests.ClaimIdleRewards() && quests.DailyProgress(1)==0);
+  Check(quests.Summon(double.NaN,0)==null && quests.DailyProgress(2)==0);
+  for(int stage=0;stage<3;stage++) {
+   int moves=0;
+   while(quests.Current!=Phase.Won && moves++<100) {
+    if(quests.Current==Phase.Player) Check(quests.Attack());
+    else if(quests.Current==Phase.EnemyWindup) { quests.BeginStrike(); quests.Defend(false,.1f); quests.FinishStrike(); }
+    else throw new Exception("Unexpected daily quest battle phase.");
+   }
+   Check(quests.Current==Phase.Won && quests.DailyProgress(0)==stage && !quests.ClaimDaily(0));
+   Check(quests.ContinueAfterVictory() && quests.DailyProgress(0)==stage+1 && !quests.ContinueAfterVictory());
+  }
+  questNow=questNow.AddMinutes(1); Check(quests.ClaimIdleRewards() && quests.DailyProgress(1)==1 && !quests.ClaimIdleRewards());
+  Check(quests.Summon(0,0)!=null && quests.DailyProgress(2)==1 && !quests.CanClaimDaily(3));
+  int preQuestCrystals=quests.Crystals, preQuestShards=quests.HeroProgress("Knight_Common").Shards;
+  Check(quests.ClaimDaily(0) && quests.ClaimDaily(1) && quests.ClaimDaily(2));
+  Check(quests.Crystals==preQuestCrystals+90 && quests.HeroProgress("Knight_Common").Shards==preQuestShards+25);
+  Check(quests.ClaimDaily(3) && quests.Crystals==preQuestCrystals+190 && quests.HeroProgress("Knight_Common").Shards==preQuestShards+35);
+  foreach(var recruit in quests.Recruits) if(recruit.Id!="Knight_Common") Check(quests.HeroProgress(recruit.Id).Shards==10);
+  var questReload=new Battle(true,utcNow:()=>questNow); Check(questReload.RestoreProgress(quests.ExportProgress()));
+  for(int q=0;q<4;q++) Check(questReload.DailyClaimed(q) && !questReload.ClaimDaily(q));
+  questNow=questNow.AddHours(-1); Check(questReload.DailyClaimed(3) && !questReload.ClaimDaily(3));
+  questNow=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
+  for(int q=0;q<4;q++) Check(!questReload.DailyClaimed(q) && !questReload.CanClaimDaily(q));
+  for(int q=0;q<3;q++) Check(questReload.DailyProgress(q)==0);
+  var questInvalid=questReload.ExportProgress(); questInvalid.dailyProgress=new[]{4,0,0}; Check(!questReload.RestoreProgress(questInvalid));
+  questInvalid=questReload.ExportProgress(); questInvalid.dailyClaimed[3]=true; Check(!questReload.RestoreProgress(questInvalid));
+  questInvalid=questReload.ExportProgress(); questInvalid.dailyClaimed[0]=true; Check(!questReload.RestoreProgress(questInvalid));
+  questInvalid=questReload.ExportProgress(); questInvalid.dailyDay++; Check(!questReload.RestoreProgress(questInvalid));
+  questInvalid=questReload.ExportProgress(); questInvalid.dailyProgress=null; Check(!questReload.RestoreProgress(questInvalid));
+  questInvalid=questReload.ExportProgress(); questInvalid.dailyClaimed=new bool[3]; Check(!questReload.RestoreProgress(questInvalid));
+  var questLegacy=quests.ExportProgress(); questLegacy.version=9; questLegacy.dailyProgress=null;
+  Check(questReload.RestoreProgress(questLegacy) && questReload.DailyProgress(0)==0 && !questReload.DailyClaimed(3));
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
