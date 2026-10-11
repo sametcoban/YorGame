@@ -42,7 +42,17 @@ namespace Ashlight {
             var source=chapter.Enemies[(encounter%StagesPerChapter+wave)%4];
             var first=new EnemyDefinition(source.Name,Math.Max(20,(int)Math.Ceiling(source.MaxHealth*.3)),source.Weakness,source.Resistance);
             if(wave==0 || encounter/StagesPerChapter==0) return Array.AsReadOnly(new[]{first});
-            var next=chapter.Enemies[(encounter%StagesPerChapter+wave+1)%4];
+            // Mixed waves use a frontline enemy and a rear threat from the same chapter.
+            var front=source; var next=source;
+            for(int offset=0;offset<4;offset++) {
+                var candidate=chapter.Enemies[(encounter%StagesPerChapter+wave+offset)%4];
+                if(candidate.Role==EnemyRole.Defender) { front=candidate; break; }
+            }
+            for(int offset=0;offset<4;offset++) {
+                var candidate=chapter.Enemies[(encounter%StagesPerChapter+wave+1+offset)%4];
+                if(candidate.Row==EnemyRow.Back) { next=candidate; break; }
+            }
+            first=new EnemyDefinition(front.Name,Math.Max(20,(int)Math.Ceiling(front.MaxHealth*.3)),front.Weakness,front.Resistance);
             var second=new EnemyDefinition(next.Name,Math.Max(20,(int)Math.Ceiling(next.MaxHealth*.3)),next.Weakness,next.Resistance);
             return Array.AsReadOnly(new[]{first,second});
         }

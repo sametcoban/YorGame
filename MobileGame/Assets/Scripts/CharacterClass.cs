@@ -27,8 +27,8 @@ namespace Ashlight {
                 case HeroClass.Knight: return "Vanguard · while in front, reduces direct damage to the other front hero by 20%.";
                 case HeroClass.Paladin: return "Sacred Aegis · grants at least 8 Guard to living allies before each enemy round.";
                 case HeroClass.Sorceress: return "Arcane Exposure · +20% damage when exploiting an elemental weakness.";
-                case HeroClass.Ranger: return "Hunter's Mark · +20% damage against ranged enemies.";
-                case HeroClass.Rogue: return "Deadly Precision · 25% chance to deal 1.5× damage on a damaging attack, skill or ultimate hit.";
+                case HeroClass.Ranger: return "Hunter's Mark · +20% damage against back-row enemies.";
+                case HeroClass.Rogue: return "Deadly Precision · 25% chance to deal 1.5× damage on a damaging hit; ignores enemy defender protection.";
                 default: return "Mending Prayer · after each enemy round, heals the living ally with the lowest health percentage for 10% of the Cleric's max HP.";
             }
         }

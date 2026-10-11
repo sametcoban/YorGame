@@ -430,7 +430,12 @@ namespace Ashlight {
             DealDamage(skill.Damage, skill.Affinity);
             CompleteAction(); return true;
         }
-        void DealDamage(int amount, Element? skillElement = null, int target = -1) {
+        public bool EnemyProtected(int index) {
+            if(index<0 || index>=enemies.Count || enemies[index].Health==0 || enemies[index].Definition.Row!=EnemyRow.Back) return false;
+            foreach(var protector in enemies) if(protector.Health>0 && protector.Definition.Row==EnemyRow.Front && protector.Definition.Role==EnemyRole.Defender) return true;
+            return false;
+        }
+        void DealDamage(int amount, Element? skillElement = null, int target = -1, bool areaDamage=false) {
             var foe = enemies[target < 0 ? SelectedEnemyIndex : target];
             var definition = foe.Definition;
             LastElement = skillElement ?? Active.Identity.Affinity;
@@ -443,6 +448,10 @@ namespace Ashlight {
             }
             damage=(int)Math.Ceiling(damage*Active.DamageBoost(LastElement));
             if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
+            if(damage>0 && !areaDamage && EnemyProtected(target<0?SelectedEnemyIndex:target)) {
+                if(Active.Identity.Class!=HeroClass.Rogue) damage=(int)Math.Ceiling(damage*.8);
+                else if(Current==Phase.Player && string.IsNullOrEmpty(LastOffensivePassive)) LastOffensivePassive="BYPASS GUARD";
+            }
             LastShieldAbsorbed=Math.Min(foe.Shield,damage); foe.Shield-=LastShieldAbsorbed; damage-=LastShieldAbsorbed;
             LastDamage = Math.Min(foe.Health, damage);
             if(foe.Charged && Current==Phase.Player) {
@@ -464,7 +473,7 @@ namespace Ashlight {
                 int normalDamage=LastDamage; Element normalElement=LastElement; float normalMultiplier=LastElementMultiplier;
                 for(int i=0;i<enemies.Count;i++) {
                     if(enemies[i].Health==0 || (!LastUltimate.AreaDamage && i!=UltimateTarget)) continue;
-                    DealDamage(LastUltimate.Damage,LastUltimate.Affinity,i); LastUltimateDamage[i]=LastDamage;
+                    DealDamage(LastUltimate.Damage,LastUltimate.Affinity,i,LastUltimate.AreaDamage); LastUltimateDamage[i]=LastDamage;
                 }
                 for(int i=0;i<party.Count;i++) if(party[i].Health>0) {
                     var member=party[i]; int hp=member.Health,guard=member.Guard;
@@ -493,8 +502,7 @@ namespace Ashlight {
         public double PassiveDamageMultiplier(PartyHero hero,EnemyDefinition foe,Element element) {
             if(!ClassPassivesEnabled) return 1;
             if(hero.Identity.Class==HeroClass.Sorceress && foe.Multiplier(element)>1) return 1.2;
-            var visual=EnemyVisualDefinition.For(foe.Name);
-            if(hero.Identity.Class==HeroClass.Ranger && visual!=null && visual.IsRanged) return 1.2;
+            if(hero.Identity.Class==HeroClass.Ranger && foe.Row==EnemyRow.Back) return 1.2;
             return 1;
         }
         void ApplyPaladinGuard() {

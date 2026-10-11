@@ -16,10 +16,30 @@ namespace Ashlight {
             return Array.AsReadOnly(elements);
         }
     }
+    public enum EnemyRole { Defender, Bruiser, Archer, Caster, Healer, Support }
+    public enum EnemyRow { Front, Back }
+    public static class EnemyRoles {
+        public static EnemyRole For(string name) {
+            if(name=="Thorn Queen") return EnemyRole.Healer;
+            if(name=="Veiled Monarch") return EnemyRole.Support;
+            if(name=="Cinder Scout" || name=="Thunder Hawk") return EnemyRole.Archer;
+            if(name=="Rotbound Consort" || name=="Eclipse Harbinger") return EnemyRole.Defender;
+            var art=EnemyVisualDefinition.For(name);
+            if(art==null) return EnemyRole.Bruiser;
+            if(art.IsRanged) return EnemyRole.Caster;
+            if(art.SourceModel=="LanternWarden" || art.SourceModel=="IronWatcher") return EnemyRole.Defender;
+            return EnemyRole.Bruiser;
+        }
+        public static EnemyRow Row(EnemyRole role) {
+            return role==EnemyRole.Defender || role==EnemyRole.Bruiser?EnemyRow.Front:EnemyRow.Back;
+        }
+    }
     public sealed class EnemyDefinition {
         public readonly string Name;
         public readonly int MaxHealth;
         public readonly bool IsBoss;
+        public EnemyRole Role { get { return EnemyRoles.For(Name); } }
+        public EnemyRow Row { get { return EnemyRoles.Row(Role); } }
         public readonly Element Weakness, Resistance;
         public EnemyDefinition(string name, int health, Element weakness = Element.Physical, Element resistance = Element.Physical, bool isBoss = false) {
             Name = name; MaxHealth = health; Weakness = weakness; Resistance = resistance; IsBoss = isBoss;

@@ -424,10 +424,23 @@ Passives are enabled in the game for every named hero, alongside the two equippe
 | Knight | **Vanguard:** while alive in a front slot, reduces direct damage to the other front hero by 20%, rounded up after reduction. Does not protect itself or reduce damage over time; multiple Knights do not stack the reduction. |
 | Paladin | **Sacred Aegis:** before each enemy round, raises each living ally’s Guard to at least 8. Existing stronger Guard stays intact. Applies once per round, including paired bosses; multiple Paladins do not stack it. |
 | Sorceress / Sorcerer | **Arcane Exposure:** 20% extra damage when that hit’s element exploits the target’s weakness. |
-| Ranger | **Hunter’s Mark:** 20% extra damage against ranged enemies. Enemies currently have no formation rows, so this targets the existing ranged enemy types. |
-| Rogue | **Deadly Precision:** each damaging player attack, skill hit or ultimate hit has a 25% chance to deal 1.5× damage. Healing, Guard and enemy-turn counters do not roll critical hits. |
+| Ranger | **Hunter’s Mark:** 20% extra damage against back-row enemies. |
+| Rogue | **Deadly Precision:** each damaging player attack, skill hit or ultimate hit has a 25% chance to deal 1.5× damage. Healing, Guard and enemy-turn counters do not roll critical hits. Rogues also bypass enemy Defender protection. |
 | Cleric | **Mending Prayer:** after the complete enemy round and damage-over-time ticks, heals the living ally with the lowest health percentage for 10% of the Cleric’s maximum HP, capped at the ally’s maximum. Fallen Clerics do not heal and fallen allies stay defeated. Each living Cleric heals once. |
 
 Offensive bonuses apply before equipped elemental boosts, weakened/chilled penalties and enemy shield absorption. Result contributions count actual health damage and healing; passive healing belongs to its Cleric. Auto Play evaluates the Sorceress and Ranger bonuses when choosing a skill. Floating labels identify passive damage, protection, Guard and healing effects.
 
 Existing progress and formations remain compatible. Copy the updated **Assets/Scripts** into Unity, then try different front heroes, ranged enemies, wounded allies and Rogue ultimates. Pure C# checks cover the original combat rules and a complete 90-wave campaign with passives enabled. Unity compilation, floating labels and battle balance still require local playtesting.
+
+
+## Enemy roles and formations
+
+Enemies now have **Defender, Bruiser, Archer, Caster, Healer or Support** roles. Defenders and bruisers stand in front; archers, casters, healers and support enemies stand in back. Their role and row appear beside their name and in target buttons. A back enemy can stand alone; defeat of its front partner removes protection without changing its row.
+
+From chapter 2 onward, wave 2 pairs a chapter Defender with a back-row threat. Final stages retain their existing boss pairs. Thorn Queen is a Healer behind Rotbound Consort; Veiled Monarch is Support behind Eclipse Harbinger. Their existing healing and shield mechanics still work.
+
+A living front Defender reduces damage to back enemies by **20%** (remaining damage rounded up), without stacking. **Rogues bypass this protection**; **area ultimates bypass it** for every class. Basic attacks, single-target skills/ultimates and other heroes’ counters are reduced. Enemy shields then absorb the remaining damage as before. Defeating the Defender removes its protection immediately. Protected enemies show **GUARDED**.
+
+The Ranger’s **Hunter’s Mark** now grants +20% damage to actual back-row enemies. Auto Play prioritizes healers and support enemies, gives Rangers and Rogues priority on other rear threats, and accounts for Defender protection when choosing a skill. Formation and roles derive from the existing enemy roster, so saves remain compatible and no art imports are required.
+
+Copy updated **Assets/Scripts** into Unity. Test chapter 2 wave 2, then the chapter 5/6 boss pairs: attack a protected rear enemy, defeat its Defender, compare Ranger/Rogue damage and try an area ultimate. Pure C# checks cover all enemy roles, mixed waves, protection removal, shield interaction, single/area ultimates and the full campaign. Unity rendering, target-button readability and difficulty still require playtesting.

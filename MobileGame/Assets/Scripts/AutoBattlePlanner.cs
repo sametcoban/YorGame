@@ -22,7 +22,7 @@ namespace Ashlight {
             for (int i=0; i<battle.Enemies.Count; i++) {
                 var foe=battle.Enemies[i];
                 if(foe.Health==0) continue;
-                int priority=foe.Charged?3:foe.Shield>0?0:foe.Definition.Name=="Thorn Queen"?2:1;
+                int priority=foe.Charged?3:foe.Shield>0?0:(foe.Definition.Role==EnemyRole.Healer || foe.Definition.Role==EnemyRole.Support || (foe.Definition.Row==EnemyRow.Back && (battle.Party[battle.ActiveIndex].Identity.Class==HeroClass.Rogue || battle.Party[battle.ActiveIndex].Identity.Class==HeroClass.Ranger)))?2:1;
                 if(target<0 || priority>bestPriority || (priority==bestPriority && foe.Health<battle.Enemies[target].Health)) {
                     target=i; bestPriority=priority;
                 }
@@ -37,6 +37,7 @@ namespace Ashlight {
             best=(float)System.Math.Ceiling(best*battle.PassiveDamageMultiplier(hero,battle.Enemy,hero.Identity.Affinity));
             best=(float)System.Math.Ceiling(best*hero.DamageBoost(hero.Identity.Affinity));
             if(weakened) best=(float)System.Math.Ceiling(best*.75f);
+            if(battle.EnemyProtected(battle.SelectedEnemyIndex) && hero.Identity.Class!=HeroClass.Rogue) best=(float)System.Math.Ceiling(best*.8);
             for (int slot=0;slot<2;slot++) {
                 if (hero.SkillCharges(slot)==0) continue;
                 var skill=hero.Skill(slot);
@@ -44,6 +45,7 @@ namespace Ashlight {
                 score=(float)System.Math.Ceiling(score*battle.PassiveDamageMultiplier(hero,battle.Enemy,skill.Affinity ?? hero.Identity.Affinity));
                 score=(float)System.Math.Ceiling(score*hero.DamageBoost(skill.Affinity ?? hero.Identity.Affinity));
                 if(weakened) score=(float)System.Math.Ceiling(score*.75f);
+                if(battle.EnemyProtected(battle.SelectedEnemyIndex) && hero.Identity.Class!=HeroClass.Rogue) score=(float)System.Math.Ceiling(score*.8);
                 if (skill.PartyHealing) {
                     foreach (var ally in battle.Party) if (ally.Health>0) score+=System.Math.Min(skill.Healing,ally.Definition.MaxHealth-ally.Health);
                 } else score+=System.Math.Min(skill.Healing,hero.Definition.MaxHealth-hero.Health);

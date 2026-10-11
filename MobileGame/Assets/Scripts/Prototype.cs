@@ -45,7 +45,11 @@ namespace Ashlight {
         Button reset;
         readonly Vector3 enemyHome = new Vector3(2, 1.3f, 0);
         readonly Vector3[] pairHomes = { new Vector3(1.9f,1.3f,-1.4f), new Vector3(3f,1.3f,1.4f) };
-        Vector3 FoeHome(int index) { return battle.Enemies.Count == 1 ? enemyHome : pairHomes[index]; }
+        Vector3 FoeHome(int index) {
+            var home=battle.Enemies.Count==1?enemyHome:pairHomes[index];
+            home.x=battle.Enemies[index].Definition.Row==EnemyRow.Front?1.8f:3.6f;
+            return home;
+        }
         float attackTime = -10, feedbackUntil;
         bool parried;
         Color enemyColor {
@@ -142,7 +146,7 @@ namespace Ashlight {
                 int index = i; float left = .57f+i*.205f;
                 enemyTargets[i] = MakeButton(safe,"",left,left+.19f,()=> { if (!presentingAction) battle.SelectEnemy(index); });
                 var targetRect = enemyTargets[i].GetComponent<RectTransform>();
-                targetRect.anchorMin = new Vector2(left,.752f); targetRect.anchorMax = new Vector2(left+.19f,.797f);
+                targetRect.anchorMin = new Vector2(left,.725f); targetRect.anchorMax = new Vector2(left+.19f,.797f);
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMinSize = 10;
                 enemyTargets[i].GetComponentInChildren<Text>().resizeTextMaxSize = 16;
             }
@@ -183,7 +187,7 @@ namespace Ashlight {
             CreateChapterMenu();
             CreateSelectionPanel(); CreateEquipmentPanel();
             gearButton=MakeButton(safe,"EQUIPMENT",.78f,.95f,OpenEquipment);
-            var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.635f); gearRect.anchorMax=new Vector2(.95f,.735f);
+            var gearRect=gearButton.GetComponent<RectTransform>(); gearRect.anchorMin=new Vector2(.78f,.625f); gearRect.anchorMax=new Vector2(.95f,.72f);
             if (FindFirstObjectByType<EventSystem>() == null) new GameObject("Input", typeof(EventSystem), typeof(StandaloneInputModule));
             CreateFormationPanel();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
@@ -382,7 +386,7 @@ namespace Ashlight {
         }
         string EnemyMechanicLabel(int index) {
             var foe=battle.Enemies[index];
-            return (foe.Shield>0?" · SHIELD "+foe.Shield:"") + (foe.Charged?" · CHARGE "+foe.ChargeDamage+"/60":"");
+            return (battle.EnemyProtected(index)?" · GUARDED":"") + (foe.Shield>0?" · SHIELD "+foe.Shield:"") + (foe.Charged?" · CHARGE "+foe.ChargeDamage+"/60":"");
         }
         int VisibleEnemyHealth(int index) {
             return presentingAction ? Mathf.Max(0,actionEnemyBefore[index]-shownEnemyDamage[index]) : battle.Enemies[index].Health;
@@ -824,7 +828,7 @@ namespace Ashlight {
             string roster = "";
             for (int i = 0; i < party.Count; i++)
                 roster += (i == battle.ActiveIndex ? "[" : "") + party[i].Identity.Name + " Lv" + party[i].Level + " " + party[i].Health + (party[i].Status == Debuff.None ? "" : " · " + party[i].Status) + (i == battle.ActiveIndex ? "] " : " ");
-            status.text = "ASHLIGHT — Wave "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" · Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
+            status.text = "ASHLIGHT — Wave "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" · Party " + party.Count + "/" + battle.PartyLimit + " | " + (visibleEnemy.IsBoss ? "BOSS · " : "") + visibleEnemy.Name + " · "+visibleEnemy.Row+" "+visibleEnemy.Role+" " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) + "\nWeak: " + visibleEnemy.Weakness + " | Resists: " + visibleEnemy.Resistance + " | " + roster + " | " + party[battle.ActiveIndex].Identity.DisplayClass + " / " + party[battle.ActiveIndex].Identity.Affinity + "\n" +
                 (battle.Current == Phase.Won ? "Victory! Continue saves this clear and recruits a hero." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
@@ -885,7 +889,7 @@ namespace Ashlight {
                 if (!paired) continue;
                 var foe = battle.Enemies[i];
                 enemyTargets[i].interactable = battle.Current == Phase.Player && !presentingAction && foe.Health > 0;
-                enemyTargets[i].GetComponentInChildren<Text>().text = (i == visibleTarget ? "▶ " : "") + foe.Definition.Name + " " + VisibleEnemyHealth(i) + "/" + foe.Definition.MaxHealth + EnemyMechanicLabel(i);
+                enemyTargets[i].GetComponentInChildren<Text>().text = (i == visibleTarget ? "▶ " : "") + foe.Definition.Name + "\n"+foe.Definition.Row+" "+foe.Definition.Role+" · " + VisibleEnemyHealth(i) + "/" + foe.Definition.MaxHealth + EnemyMechanicLabel(i);
                 enemyTargets[i].GetComponent<Image>().color = i == visibleTarget ? new Color(.31f,.25f,.15f) : new Color(.075f,.085f,.105f);
             }
             soundButton.GetComponentInChildren<Text>().text=sounds.Muted?"SOUND OFF":"SOUND ON";

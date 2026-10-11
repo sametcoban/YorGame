@@ -965,6 +965,45 @@ class BattleChecks {
    else throw new Exception("Unexpected passive campaign phase: "+passiveCampaign.Current);
   }
   Check(passiveCampaign.CampaignComplete && passiveWaves==90 && passiveCampaign.Party.Count==5);
+  // Every campaign enemy has a role; mixed waves always pair a defender and rear threat.
+  foreach(var visualRole in EnemyVisualDefinition.Catalog) {
+   var roleDefinition=new EnemyDefinition(visualRole.EnemyName,100);
+   Check(roleDefinition.Row==EnemyRoles.Row(roleDefinition.Role));
+   Check(roleDefinition.Row==EnemyRow.Back || roleDefinition.Role==EnemyRole.Defender || roleDefinition.Role==EnemyRole.Bruiser);
+  }
+  for(int stage=5;stage<ChapterDefinition.TotalStages;stage++) {
+   var mixed=ChapterDefinition.WaveAt(stage,1,3);
+   Check(mixed.Count==2 && mixed[0].Role==EnemyRole.Defender && mixed[0].Row==EnemyRow.Front && mixed[1].Row==EnemyRow.Back && mixed[0].Name!=mixed[1].Name);
+  }
+  Check(ChapterDefinition.EnemiesAt(24)[0].Role==EnemyRole.Healer && ChapterDefinition.EnemiesAt(24)[1].Role==EnemyRole.Defender);
+  Check(ChapterDefinition.EnemiesAt(29)[0].Role==EnemyRole.Support && ChapterDefinition.EnemiesAt(29)[1].Role==EnemyRole.Defender);
+  var guardedBoss=PassiveBattle(24,new[]{"Knight_Common"});
+  Check(guardedBoss.EnemyProtected(0) && !guardedBoss.EnemyProtected(1) && !guardedBoss.EnemyProtected(-1));
+  int guardedBase=guardedBoss.Enemy.Damage(guardedBoss.Hero.AttackDamage,guardedBoss.Party[0].Identity.Affinity);
+  Check(guardedBoss.Attack() && guardedBoss.LastDamage==(int)Math.Ceiling(guardedBase*.8));
+  guardedBoss.BeginStrike(); Check(guardedBoss.Defend(true,.1f) && guardedBoss.LastDamage==8); guardedBoss.FinishStrike(); ResolveEnemies(guardedBoss);
+  Check(guardedBoss.SelectEnemy(1)); guardedBoss.Enemies[1].Health=1; Check(guardedBoss.Attack());
+  Check(!guardedBoss.EnemyProtected(0)); ResolveEnemies(guardedBoss);
+  guardedBoss.SelectEnemy(0); Check(guardedBoss.Attack() && guardedBoss.LastDamage==guardedBase);
+  var infiltrator=PassiveBattle(24,new[]{"Rogue_Common"},.99);
+  int bypassBase=infiltrator.Enemy.Damage(infiltrator.Hero.AttackDamage,infiltrator.Party[0].Identity.Affinity);
+  Check(infiltrator.Attack() && infiltrator.LastDamage==bypassBase && infiltrator.LastOffensivePassive=="BYPASS GUARD");
+  var rearHunter=PassiveBattle(24,new[]{"Ranger_Common"});
+  int rearBase=rearHunter.Enemy.Damage(rearHunter.Hero.AttackDamage,rearHunter.Party[0].Identity.Affinity);
+  Check(rearHunter.PassiveDamageMultiplier(rearHunter.Party[0],rearHunter.Enemies[0].Definition,rearHunter.Party[0].Identity.Affinity)==1.2);
+  Check(rearHunter.PassiveDamageMultiplier(rearHunter.Party[0],rearHunter.Enemies[1].Definition,rearHunter.Party[0].Identity.Affinity)==1);
+  Check(rearHunter.Attack() && rearHunter.LastDamage==(int)Math.Ceiling(Math.Ceiling(rearBase*1.2)*.8));
+  var areaBypass=PassiveBattle(24,new[]{"Paladin_Uncommon"}); areaBypass.Party[0].Energy=75;
+  int areaExpected=areaBypass.Enemy.Damage(areaBypass.Party[0].Ultimate.Damage,areaBypass.Party[0].Ultimate.Affinity);
+  Check(areaBypass.Attack() && areaBypass.LastUltimate.AreaDamage && areaBypass.LastUltimateDamage[0]==areaExpected);
+  var singleGuard=PassiveBattle(24,new[]{"Knight_Common"}); singleGuard.Party[0].Energy=75;
+  int singleExpected=(int)Math.Ceiling(singleGuard.Enemy.Damage(singleGuard.Party[0].Ultimate.Damage,singleGuard.Party[0].Ultimate.Affinity)*.8);
+  Check(singleGuard.Attack() && !singleGuard.LastUltimate.AreaDamage && singleGuard.LastUltimateDamage[0]==singleExpected);
+  var shieldAndGuard=PassiveBattle(29,new[]{"Knight_Common"}); shieldAndGuard.Enemies[0].Shield=60;
+  int protectedHealth=shieldAndGuard.Enemies[0].Health; Check(shieldAndGuard.Attack());
+  Check(shieldAndGuard.Enemies[0].Health==protectedHealth && shieldAndGuard.LastShieldAbsorbed==11 && shieldAndGuard.Enemies[0].Shield==49);
+  var roleReload=new Battle(true); Check(roleReload.RestoreProgress(singleGuard.ExportProgress()) && roleReload.EnemyProtected(0));
+  Check(roleReload.Enemies[0].Definition.Role==EnemyRole.Healer && roleReload.Enemies[0].Definition.Row==EnemyRow.Back);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }
