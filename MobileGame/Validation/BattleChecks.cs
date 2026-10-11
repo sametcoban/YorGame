@@ -1526,6 +1526,34 @@ class BattleChecks {
   elementGearSave.inventory=new[]{new GearStackData{id="Accessory_Common_Cold",count=1},new GearStackData{id="Accessory_Legendary_Lightning",count=1}};
   Check(elementGear.RestoreProgress(elementGearSave) && elementGear.EquipBestGear("Sorceress_Common") && elementGear.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Common_Cold");
   Check(elementGear.EquipSkill(0,0) && elementGear.EquipBestGear("Sorceress_Common") && elementGear.Party[0].Gear(GearSlot.Accessory).Id=="Accessory_Legendary_Lightning");
+  // Formation recommendations reorder only current heroes and preserve resources and active identity.
+  var autoFormation=FactionBattle(new[]{"Cleric_Common","Sorceress_Common","Ranger_Common","Knight_Common","Paladin_Common"},20);
+  var autoFormationSave=autoFormation.ExportProgress();
+  autoFormationSave.inventory=new[]{new GearStackData{id="Weapon_Rare_Physical",count=1}};
+  foreach(var loadout in autoFormationSave.loadouts) {
+   if(loadout.id=="Knight_Common") { loadout.gear=new[]{"Weapon_Rare_Physical",null,null}; loadout.firstSkill=4; loadout.secondSkill=5; }
+   if(loadout.id=="Cleric_Common") { loadout.experience=10; loadout.shards=12; }
+  }
+  Check(autoFormation.RestoreProgress(autoFormationSave));
+  var recommended=autoFormation.RecommendedFormation();
+  Check(string.Join(",",recommended)=="Paladin_Common,Knight_Common,Cleric_Common,Sorceress_Common,Ranger_Common");
+  recommended[0]="unknown"; Check(autoFormation.RecommendedFormation()[0]=="Paladin_Common");
+  autoFormation.Party[0].Energy=50; autoFormation.Party[0].Guard=11;
+  int formationPowerBefore=autoFormation.TeamPower,formationCrystalsBefore=autoFormation.Crystals,formationRecruitsBefore=autoFormation.Recruits.Count;
+  var originalActive=autoFormation.Party[autoFormation.ActiveIndex];
+  Check(autoFormation.AutoArrangeFormation() && object.ReferenceEquals(originalActive,autoFormation.Party[autoFormation.ActiveIndex]) && autoFormation.ActiveIndex==2);
+  Check(autoFormation.Party[0].Identity.Id=="Paladin_Common" && autoFormation.Party[1].Identity.Id=="Knight_Common" && autoFormation.Party[4].Identity.Id=="Ranger_Common");
+  Check(autoFormation.TeamPower==formationPowerBefore && autoFormation.Crystals==formationCrystalsBefore && autoFormation.Recruits.Count==formationRecruitsBefore);
+  Check(autoFormation.HeroProgress("Cleric_Common").Energy==50 && autoFormation.HeroProgress("Cleric_Common").Guard==11 && autoFormation.HeroProgress("Cleric_Common").Experience==10 && autoFormation.HeroProgress("Cleric_Common").Shards==12);
+  Check(autoFormation.HeroProgress("Knight_Common").Gear(GearSlot.Weapon).Id=="Weapon_Rare_Physical" && autoFormation.HeroProgress("Knight_Common").SkillIndex(0)==4 && autoFormation.HeroProgress("Knight_Common").SkillIndex(1)==5);
+  Check(!autoFormation.AutoArrangeFormation());
+  var arrangedReload=new Battle(true,enableWaves:true,enableFactions:true);
+  Check(arrangedReload.RestoreProgress(autoFormation.ExportProgress()) && arrangedReload.ActiveIndex==2 && arrangedReload.Party[0].Identity.Id=="Paladin_Common" && arrangedReload.Party[1].Identity.Id=="Knight_Common");
+  Check(autoFormation.Attack()); var lockedFormation=autoFormation.ExportProgress();
+  Check(!autoFormation.AutoArrangeFormation() && string.Join(",",autoFormation.ExportProgress().party)==string.Join(",",lockedFormation.party));
+  var soloFormation=new Battle(true); Check(soloFormation.RecommendedFormation().Length==1 && !soloFormation.AutoArrangeFormation());
+  var nonTankFormation=FactionBattle(new[]{"Cleric_Common","Sorceress_Common","Ranger_Common","Rogue_Common","Cleric_Uncommon"},20);
+  Check(nonTankFormation.AutoArrangeFormation() && nonTankFormation.Party[0].Identity.Class==HeroClass.Rogue && nonTankFormation.Party[1].Identity.Class==HeroClass.Ranger);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

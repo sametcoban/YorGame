@@ -660,3 +660,11 @@ Tap an owned hero card in Collection to view a rotatable model preview, effectiv
 The model preview uses an isolated camera and render texture, without an AudioListener, and releases its objects/texture when closed. It reuses matching named or class/gender prefabs and has left/right rotation controls. Auto Play and combat input cannot run while details are open. This changes presentation and navigation; no save-format or progression changes.
 
 Copy all updated Scripts, including `HeroModelPreview.cs`. In Unity, check models across genders/classes, rotation and framing, long gear/skill descriptions, one/five-hero teams, reserve inspection, ascension, correct-hero management shortcuts, returning to Collection, and repeated opening/closing. Actual Unity rendering, imports, mobile layout and preview resource behavior remain unverified in the cloud.
+
+### Formation recommendations and Auto Arrange
+
+Formation shows a suggested pair of front heroes, based on maximum health, armor, class defense probabilities, a tank-class preference, and a preference to protect Clerics. **Auto Arrange** moves that pair to the front and preserves the relative order of the remaining heroes in back. A leveled or well-armored non-tank can outrank a weaker tank. This is general guidance, not an enemy-specific optimal lineup. Manual swaps remain available.
+
+Only current party heroes are reordered. Their objects, equipment, skills, XP, shards, guard/energy, and active-hero identity are preserved; reserves, currency, and faction membership do not change. It locks once combat starts. The button reads **Formation Ready** when the current order matches the recommendation. One-hero formations need no rearrangement.
+
+Pure C# validation covers tank and non-tank recommendations, stable back-row order, repeat calls, one-hero parties, isolation of returned recommendations, preserved loadouts/resources/active identity, save round-trips, and combat locks. Unity button layout and interactions remain to be tested locally.

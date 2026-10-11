@@ -124,7 +124,8 @@ namespace Ashlight {
         Text progressionTitle;
         readonly Button[] progressionHeroes=new Button[Battle.MaxPartySize], progressionChoices=new Button[6];
         GameObject formationRoot;
-        Button formationButton;
+        Button formationButton, formationAuto;
+        string formationNotice="";
         readonly Button[] formationSlots=new Button[Battle.MaxPartySize];
         int formationSelected=-1;
         int gearPage;
@@ -725,6 +726,7 @@ namespace Ashlight {
                 float bottom=front?.50f:.18f;
                 formationSlots[i]=MakeButton(formationRoot.transform,"",left,left+.28f,()=> {
                     if(!battle.CanChangeParty || index>=battle.Party.Count) return;
+                    formationNotice="";
                     if(formationSelected<0) { formationSelected=index; battle.SelectHero(index); }
                     else {
                         if(battle.SwapFormation(formationSelected,index)) { RefreshAppearance(); SaveProgress(); }
@@ -734,20 +736,32 @@ namespace Ashlight {
                 });
                 PlaceGearControl(formationSlots[i],left,bottom,left+.28f,bottom+.20f);
             }
-            var presets=MakeButton(formationRoot.transform,"TEAM PRESETS",.05f,.33f,OpenTeamPresets); PlaceGearControl(presets,.05f,.035f,.33f,.12f);
-            var collection=MakeButton(formationRoot.transform,"COLLECTION",.36f,.64f,OpenCollection); PlaceGearControl(collection,.36f,.035f,.64f,.12f);
-            var done=MakeButton(formationRoot.transform,"DONE",.67f,.95f,()=>formationRoot.SetActive(false));
-            PlaceGearControl(done,.67f,.035f,.95f,.12f);
+            var presets=MakeButton(formationRoot.transform,"TEAM PRESETS",.05f,.26f,OpenTeamPresets); PlaceGearControl(presets,.05f,.035f,.26f,.12f);
+            var collection=MakeButton(formationRoot.transform,"COLLECTION",.28f,.49f,OpenCollection); PlaceGearControl(collection,.28f,.035f,.49f,.12f);
+            formationAuto=MakeButton(formationRoot.transform,"AUTO ARRANGE",.51f,.72f,()=> {
+                if(battle.AutoArrangeFormation()) { formationSelected=-1; formationNotice="Formation arranged · Your heroes and equipment stay together."; RefreshAppearance(); SaveProgress(); }
+                RefreshFormation();
+            }); PlaceGearControl(formationAuto,.51f,.035f,.72f,.12f);
+            formationAuto.GetComponentInChildren<Text>().resizeTextMaxSize=22;
+            var done=MakeButton(formationRoot.transform,"DONE",.74f,.95f,()=>formationRoot.SetActive(false));
+            PlaceGearControl(done,.74f,.035f,.95f,.12f);
             formationRoot.SetActive(false);
         }
         void OpenFormation() {
             if(atChapters || !battle.CanChangeParty) return;
-            selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationSelected=-1;
+            selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationSelected=-1; formationNotice="";
             formationRoot.transform.SetAsLastSibling(); formationRoot.SetActive(true); RefreshFormation();
         }
         void RefreshFormation() {
-            formationHint.text="FORMATION · 2 FRONT / 3 BACK\n"+(formationSelected<0?"Tap two heroes to swap · Collection replaces a hero.":"Selected "+battle.Party[formationSelected].Identity.Name+" · Tap a destination, or tap again to cancel.");
-            formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\n5 matching: +20% HP & damage. Bonuses apply to the whole party.";
+            formationHint.text="FORMATION · 2 FRONT / 3 BACK\n"+(formationSelected<0?(formationNotice==""?"Tap two heroes to swap · Auto Arrange suggests your front line.":formationNotice):"Selected "+battle.Party[formationSelected].Identity.Name+" · Tap a destination, or tap again to cancel.");
+            var suggested=battle.RecommendedFormation(); bool differs=false; string front="";
+            for(int i=0;i<suggested.Length;i++) {
+                if(suggested[i]!=battle.Party[i].Identity.Id) differs=true;
+                if(i<Battle.FrontSlots) front+=(i==0?"":" + ")+battle.HeroProgress(suggested[i]).Identity.Name;
+            }
+            formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\nSUGGESTED FRONT · "+front+" · Based on health, armor, defense chances and class.";
+            formationAuto.interactable=battle.CanChangeParty && differs;
+            formationAuto.GetComponentInChildren<Text>().text=differs?"AUTO ARRANGE":"FORMATION READY";
             for(int i=0;i<formationSlots.Length;i++) {
                 var button=formationSlots[i]; bool occupied=i<battle.Party.Count;
                 button.interactable=occupied && battle.CanChangeParty;

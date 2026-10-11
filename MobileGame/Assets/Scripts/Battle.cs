@@ -249,6 +249,31 @@ namespace Ashlight {
             if(ActiveIndex==first) ActiveIndex=second; else if(ActiveIndex==second) ActiveIndex=first;
             return true;
         }
+        static double FrontlineScore(PartyHero hero) {
+            double dodge,parry; AutoBattlePlanner.DefenseChances(hero.Identity.Class,out dodge,out parry);
+            double score=hero.Definition.MaxHealth/(1-dodge-parry)+hero.Protection*12;
+            if(hero.Identity.Class==HeroClass.Knight || hero.Identity.Class==HeroClass.Paladin) score+=100;
+            if(hero.Identity.Class==HeroClass.Cleric) score-=60;
+            return score;
+        }
+        public string[] RecommendedFormation() {
+            var ranked=new List<int>(); for(int i=0;i<party.Count;i++) ranked.Add(i);
+            ranked.Sort((a,b)=> { int order=FrontlineScore(party[b]).CompareTo(FrontlineScore(party[a])); return order!=0?order:a.CompareTo(b); });
+            var orderIds=new List<string>();
+            for(int i=0;i<Math.Min(FrontSlots,ranked.Count);i++) orderIds.Add(party[ranked[i]].Identity.Id);
+            // Preserve the original relative order of heroes left in back.
+            foreach(var hero in party) if(!orderIds.Contains(hero.Identity.Id)) orderIds.Add(hero.Identity.Id);
+            return orderIds.ToArray();
+        }
+        public bool AutoArrangeFormation() {
+            if(!CanChangeParty || party.Count<2) return false;
+            var ids=RecommendedFormation(); bool changed=false;
+            for(int i=0;i<ids.Length;i++) if(party[i].Identity.Id!=ids[i]) changed=true;
+            if(!changed) return false;
+            var active=party[ActiveIndex]; var arranged=new List<PartyHero>();
+            foreach(var id in ids) foreach(var hero in party) if(hero.Identity.Id==id) { arranged.Add(hero); break; }
+            party.Clear(); party.AddRange(arranged); ActiveIndex=party.IndexOf(active); return true;
+        }
         public int TeamPower { get { int total=0; foreach(var member in party) total+=member.Power; return total; } }
         public double TowerPowerScale { get { return TowerHealthScale*(InTower?Math.Max(1,PartyLimit/3.0)/Math.Max(1,Math.Min(5,EnemyEncounter/5+1)/3.0):1); } }
         public int StagePower { get { return (int)Math.Ceiling(ChapterDefinition.StagePower(EnemyEncounter,WaveCount,!InTower)*TowerPowerScale); } }
