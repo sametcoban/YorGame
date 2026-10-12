@@ -73,5 +73,67 @@ class BalanceChecks {
    Console.WriteLine("{0}-{1}: {2}/{3} wins",stage/5+1,stage%5+1,wins,Runs);
   }
  }
- static void Main() { Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples and 400 first-arc campaign runs"); }
+ static void PrepareTeam(Battle b) {
+  b.FillAvailableSlots();
+  foreach(var hero in b.Recruits) {
+   while(b.UpgradeHero(hero.Id)) {}
+   for(int tier=0;tier<3;tier++) b.ChooseTalent(hero.Id,tier,0);
+  }
+  var classes=new[]{HeroClass.Knight,HeroClass.Paladin,HeroClass.Sorceress,HeroClass.Ranger,HeroClass.Cleric};
+  for(int slot=0;slot<b.Party.Count;slot++) {
+   var candidates=b.Collection(classes[slot]);
+   if(candidates.Count>0 && candidates[0].Power>b.Party[slot].Power) b.EquipHeroAt(candidates[0].Identity.Id,slot);
+  }
+  b.AutoArrangeFormation();
+  foreach(var member in b.Party) b.EquipBestGear(member.Identity.Id);
+ }
+ static void FullProgression(bool earnedSummons) {
+  int complete=0, retries=0, waiting=0, summons=0; int[] failures=new int[60];
+  for(int seed=0;seed<Runs;seed++) {
+   var rng=new Random(40000+seed); var now=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
+   var b=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng,utcNow:()=>now);
+   while(!b.CampaignComplete) {
+    // At most three earned pulls between wins; no real money or injected resources.
+    for(int pull=0;earnedSummons && pull<3 && b.CanSummon;pull++) { if(b.Summon(rng.NextDouble(),rng.Next(6))==null) throw new Exception("Earned summon rejected"); summons++; }
+    PrepareTeam(b); bool won=false;
+    for(int attempt=0;attempt<4;attempt++) {
+     if(Fight(b,rng)) { won=true; break; }
+     retries++; b.Reset(); now=now.AddMinutes(30); waiting+=30;
+     if(!b.ClaimIdleRewards()) throw new Exception("Retry idle claim rejected");
+     PrepareTeam(b);
+    }
+    if(!won) { failures[b.Encounter]++; break; }
+    if(!b.ContinueAfterVictory(rng.NextDouble(),rng.Next(18))) throw new Exception("Progression claim rejected");
+    // Prove actual earned/save state survives normal reloads after each completed chapter.
+    if(b.Encounter%5==0) {
+     var restored=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng,utcNow:()=>now);
+     if(!restored.RestoreProgress(b.ExportProgress())) throw new Exception("Progression save rejected"); b=restored;
+    }
+   }
+   if(b.CampaignComplete) complete++;
+  }
+  Console.WriteLine("FULL PROGRESSION (summons {5}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons);
+  for(int stage=0;stage<failures.Length;stage++) if(failures[stage]>0) Console.WriteLine("Progression stopped at {0}-{1}: {2} runs",stage/5+1,stage%5+1,failures[stage]);
+  if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete twelve chapters");
+ }
+ static void Economy() {
+  int storyCrystals=0;
+  var now=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
+  var b=new Battle(true,utcNow:()=>now);
+  for(int stage=0;stage<60;stage++) {
+   var save=b.ExportProgress(); save.encounter=stage;
+   if(!b.RestoreProgress(save)) throw new Exception("Economy stage restore rejected");
+   storyCrystals+=b.CampaignVictoryCrystals;
+  }
+  if(storyCrystals!=4425) throw new Exception("Campaign reward budget changed unexpectedly");
+  foreach(int stage in new[]{0,30,60}) {
+   var rewards=new Battle(true,utcNow:()=>now); var save=rewards.ExportProgress(); save.encounter=stage;
+   if(!rewards.RestoreProgress(save)) throw new Exception("Idle budget fixture rejected");
+   now=now.AddHours(12); int amount=rewards.IdleCrystals, xp=rewards.IdleExperience;
+   if(amount!=72*(1+stage/5) || xp!=720*(2+stage/5) || !rewards.ClaimIdleRewards() || rewards.Crystals!=300+amount || rewards.ClaimIdleRewards()) throw new Exception("Idle budget or single-claim semantics regressed");
+   Console.WriteLine("ECONOMY stage {0}: capped idle {1} crystals ({2:F2} base-cost pulls), {3} XP per hero",stage,amount,amount/100.0,xp);
+  }
+  Console.WriteLine("ECONOMY: {0} story crystals + {1} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,Summoning.StarterCrystals);
+ }
+ static void Main() { Economy(); FullProgression(false); FullProgression(true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 400 full progression campaigns"); }
 }

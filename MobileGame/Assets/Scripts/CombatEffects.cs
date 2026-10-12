@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ashlight {
     // Reuses up to 48 simple effect objects. No downloaded art or particle dependencies.
     public sealed class CombatEffects : MonoBehaviour {
-        enum Mode { Spark, Ring, GroundRing, Beam, Text, Slash, Charge, Projectile, Sigil, Shield, Cleave, Arrow, Meteor }
+        enum Mode { Spark, Ring, GroundRing, Beam, Text, Slash, Charge, Projectile, Sigil, Shield, Cleave, Arrow, Meteor, Crest }
         sealed class Effect {
             public GameObject Root;
             public Renderer Mesh;
@@ -13,6 +13,7 @@ namespace Ashlight {
             public Element Element;
             public float Age, Duration, Size;
             public Vector3 Start, Velocity, Destination;
+            public UltimateSignature Signature;
         }
         readonly List<Effect> pool = new List<Effect>();
         readonly Dictionary<Element, Material> materials = new Dictionary<Element, Material>();
@@ -21,10 +22,10 @@ namespace Ashlight {
         Camera view;
         Font font;
         Vector3 cameraOffset;
-        float shakeLeft;
+        float shakeLeft, focusLeft, focusDuration, focusStrength, restingFov;
         const int Limit = 48;
         public void Initialize(Camera camera) {
-            view = camera;
+            view = camera; restingFov=camera.fieldOfView;
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var template = Resources.Load<Material>("CombatEffects");
             var shader = template != null ? template.shader : Shader.Find("Unlit/Color");
@@ -77,12 +78,12 @@ namespace Ashlight {
             }
             effect.Root.SetActive(true); effect.Root.transform.position = position; effect.Root.transform.localScale = Vector3.one;
             effect.Root.transform.rotation = Quaternion.identity;
-            effect.Kind = mode; effect.Element = element; effect.Start = position; effect.Age = 0; effect.Duration = duration; effect.Size = size; effect.Velocity = Vector3.zero;
+            effect.Kind = mode; effect.Element = element; effect.Start = position; effect.Age = 0; effect.Duration = duration; effect.Size = size; effect.Velocity = Vector3.zero; effect.Destination=Vector3.zero;
             effect.Mesh.gameObject.SetActive(mode == Mode.Spark || mode == Mode.Projectile || mode == Mode.Arrow || mode == Mode.Meteor);
             effect.Text.gameObject.SetActive(mode == Mode.Text);
-            effect.Line.enabled = mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam || mode == Mode.Slash || mode == Mode.Charge || mode == Mode.Sigil || mode == Mode.Shield || mode == Mode.Cleave;
+            effect.Line.enabled = mode == Mode.Crest || mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam || mode == Mode.Slash || mode == Mode.Charge || mode == Mode.Sigil || mode == Mode.Shield || mode == Mode.Cleave;
             effect.Mesh.sharedMaterial = materials[element]; effect.Line.sharedMaterial = materials[element]; effect.Text.color = Tint(element);
-            effect.Line.loop = mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Sigil;
+            effect.Line.loop = mode == Mode.Crest || mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Sigil;
             effect.Line.startWidth = effect.Line.endWidth = size;
             effect.Line.positionCount = (mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Slash || mode == Mode.Shield || mode == Mode.Cleave) ? 24 : mode == Mode.Sigil ? 10 : 2;
             if (mode == Mode.Spark || mode == Mode.Projectile || mode == Mode.Arrow || mode == Mode.Meteor) effect.Mesh.transform.localScale = Vector3.one * size;
@@ -139,6 +140,29 @@ namespace Ashlight {
                 var shot = Get(Mode.Projectile,from,element,Mathf.Max(.05f,duration),.14f);
                 if (shot != null) shot.Destination = to;
             } else Get(Mode.Charge,from,element,Mathf.Max(.05f,duration),.055f);
+        }
+        public void BeginUltimate(Vector3 actor,Element element,UltimateSignature signature,bool autoPlay) {
+            focusDuration=autoPlay?.5f:.8f; focusLeft=focusDuration; focusStrength=autoPlay?2f:4f;
+            var crest=Get(Mode.Crest,actor+Vector3.up*.7f,element,focusDuration,.055f);
+            if(crest!=null) { crest.Signature=signature; crest.Line.positionCount=signature.Points*2; }
+        }
+        public void SignatureImpact(Vector3 from,Vector3 to,Element element,UltimateSignature signature,bool area) {
+            // Each class has a recognizable shape; named heroes vary crown count, angle and sound.
+            int decorations=area?Mathf.Min(4,signature.Satellites):signature.Satellites;
+            for(int i=0;i<decorations;i++) {
+                float angle=(i*360f/decorations+signature.Rotation)*Mathf.Deg2Rad;
+                Vector3 offset=new Vector3(Mathf.Cos(angle),0,Mathf.Sin(angle))*(area?.75f:.55f);
+                switch(signature.Class) {
+                    case HeroClass.Knight:
+                        var cut=Get(Mode.Slash,to+offset*.5f,element,.32f,.10f); if(cut!=null) cut.Destination=new Vector3(0,0,signature.Rotation+i*25); break;
+                    case HeroClass.Paladin: Get(Mode.Shield,to+offset*.3f,element,.45f,.055f); break;
+                    case HeroClass.Sorceress: Spark(to+Vector3.up*.8f,element,offset*2+Vector3.up,.13f,.6f); break;
+                    case HeroClass.Ranger:
+                        var arrow=Get(Mode.Arrow,from+offset+Vector3.up*.3f,element,.18f+i*.025f,.07f); if(arrow!=null) arrow.Destination=to; break;
+                    case HeroClass.Rogue: Get(Mode.Cleave,to+offset,element,.25f+i*.025f,.07f); break;
+                    case HeroClass.Cleric: Get(Mode.Ring,to+Vector3.up*(i*.16f),element,.45f+i*.035f,.05f); break;
+                }
+            }
         }
         public void UltimateCharge(Vector3 position, Element element, float duration) {
             Get(Mode.Charge,position,element,Mathf.Max(.05f,duration),.12f);
@@ -230,6 +254,16 @@ namespace Ashlight {
                         effect.Mesh.transform.localScale=new Vector3(effect.Size,effect.Size,effect.Size*5);
                     } else effect.Mesh.transform.localScale=Vector3.one*effect.Size*(1+progress*.4f);
                 }
+                if(effect.Kind==Mode.Crest) {
+                    effect.Root.transform.rotation=view.transform.rotation;
+                    var sig=effect.Signature; float radius=.55f+Mathf.Sin(progress*Mathf.PI)*.2f;
+                    for(int i=0;i<sig.Points*2;i++) {
+                        float angle=(i*180f/sig.Points+sig.Rotation+progress*30)*Mathf.Deg2Rad;
+                        float r=radius*(i%2==0?1:.72f);
+                        effect.Line.SetPosition(i,new Vector3(Mathf.Cos(angle)*r,Mathf.Sin(angle)*r,0));
+                    }
+                    effect.Line.startWidth=effect.Line.endWidth=effect.Size*(1-progress);
+                }
                 if(effect.Kind==Mode.Sigil) {
                     float radius=.35f+progress*.65f;
                     for(int i=0;i<10;i++) { float angle=i*Mathf.PI*2/10; float r=radius*(i%2==0?1:.45f); effect.Line.SetPosition(i,new Vector3(Mathf.Cos(angle)*r,0,Mathf.Sin(angle)*r)); }
@@ -239,7 +273,7 @@ namespace Ashlight {
                     effect.Root.transform.position = Vector3.Lerp(effect.Start,effect.Destination,progress) + Vector3.up*Mathf.Sin(progress*Mathf.PI)*.3f;
                 }
                 if (effect.Kind == Mode.Slash || effect.Kind == Mode.Charge || effect.Kind == Mode.Shield || effect.Kind == Mode.Cleave) {
-                    effect.Root.transform.rotation = view.transform.rotation;
+                    effect.Root.transform.rotation = view.transform.rotation*Quaternion.Euler(effect.Destination);
                     float radius = effect.Kind == Mode.Charge ? .65f*(1-progress)+.15f : effect.Kind==Mode.Shield?.8f:effect.Kind==Mode.Cleave?.7f+progress: .35f+progress*.7f;
                     for (int i=0;i<24;i++) {
                         float angle = effect.Kind == Mode.Charge ? i*Mathf.PI*2/24 : (-.65f+i/23f*1.3f+progress*.7f)*Mathf.PI;
@@ -264,6 +298,8 @@ namespace Ashlight {
         void LateUpdate() {
             if (view == null) return;
             view.transform.position -= cameraOffset; cameraOffset = Vector3.zero;
+            if(focusLeft>0) { focusLeft=Mathf.Max(0,focusLeft-Time.deltaTime); view.fieldOfView=restingFov-Mathf.Sin(focusLeft/focusDuration*Mathf.PI)*focusStrength; }
+            else view.fieldOfView=restingFov;
             if (shakeLeft > 0) {
                 shakeLeft = Mathf.Max(0,shakeLeft-Time.deltaTime);
                 cameraOffset = Vector3.up*Mathf.Sin(Time.time*80)*.035f*(shakeLeft/.12f);
@@ -274,7 +310,7 @@ namespace Ashlight {
             foreach (var effect in pool) effect.Root.SetActive(false);
             foreach(var marker in targetMarkers) if(marker!=null) marker.gameObject.SetActive(false);
             if (view != null) view.transform.position -= cameraOffset;
-            cameraOffset = Vector3.zero; shakeLeft = 0;
+            cameraOffset = Vector3.zero; shakeLeft = 0; focusLeft=0; if(view!=null) view.fieldOfView=restingFov;
         }
         void OnDisable() { Clear(); }
         void OnDestroy() { foreach (var material in materials.Values) Destroy(material); if(targetMaterial!=null) Destroy(targetMaterial); }

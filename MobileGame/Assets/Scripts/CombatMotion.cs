@@ -33,6 +33,16 @@ namespace Ashlight {
             if (elapsed <= contact) return Smooth(elapsed/contact);
             return 1-Smooth((elapsed-contact)/(recovery-contact));
         }
+        // Short recoil returns exactly to the formation anchor, including after a second hit.
+        public static float Recoil(float elapsed, float duration=.34f) {
+            if(elapsed<0 || elapsed>=duration || duration<=0) return 0;
+            float t=elapsed/duration;
+            return t<.2f?Smooth(t/.2f):1-Smooth((t-.2f)/.8f);
+        }
+        public static float Stride(float elapsed, float duration, float distance) {
+            if(elapsed<=0 || elapsed>=duration || distance<=0 || duration<=0) return 0;
+            return (float)Math.Sin(elapsed/duration*Math.PI*2)*.035f*Math.Min(1,distance);
+        }
         public static float EnemyAdvance(float elapsed) { return Advance(elapsed,.45f,.85f); }
         public static float Dodge(float elapsed) { return Advance(elapsed,.12f,.55f); }
     }

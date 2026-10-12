@@ -20,6 +20,9 @@ namespace Ashlight {
     public enum EnemyRow { Front, Back }
     public static class EnemyRoles {
         public static EnemyRole For(string name) {
+            if(name=="Scarlet Priest" || name=="Crimson Pontiff" || name=="Blood Confessor") return EnemyRole.Healer;
+            if(name=="Ash Prophet" || name=="Glass Warden") return EnemyRole.Support;
+            if(name=="Ember Ranger" || name=="Grave Archer" || name=="Sanguine Hunter" || name=="Cinder Stalker" || name=="Frost Hunter" || name=="Dread Archer") return EnemyRole.Archer;
             if(name=="Thorn Queen") return EnemyRole.Healer;
             if(name=="Veiled Monarch") return EnemyRole.Support;
             if(name=="Cinder Scout" || name=="Thunder Hawk") return EnemyRole.Archer;

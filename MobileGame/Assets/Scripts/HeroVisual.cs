@@ -20,7 +20,7 @@ namespace Ashlight {
         public void SetDefeated(bool value) {
             if(value==defeated || Animator==null) return;
             pauseUntil = 0; Animator.speed = 1; defeated=value;
-            Animator.CrossFadeInFixedTime(value?"Death":"Idle",.1f); returnAt=0;
+            Animator.CrossFadeInFixedTime(value?"Death":"Idle",value?.055f:.12f,0,0f); returnAt=0;
         }
         void OnEnable() { if(Animator!=null) { Animator.speed=1; pauseUntil=0; defeated=false; Animator.Play("Idle",0,0); } returnAt=0; }
         void OnDisable() { pauseUntil=0; if(Animator!=null) Animator.speed=1; }

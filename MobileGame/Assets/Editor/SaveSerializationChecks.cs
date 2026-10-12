@@ -13,8 +13,17 @@ public static class SaveSerializationChecks {
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
         var battle=new Battle(true); var fresh=RoundTrip(battle);
-        if(fresh.ExportProgress().idleClaimTicks!=battle.ExportProgress().idleClaimTicks || fresh.FurthestStage!=battle.FurthestStage)
+        if(fresh.ExportProgress().idleClaimTicks!=battle.ExportProgress().idleClaimTicks || fresh.FurthestStage!=battle.FurthestStage || fresh.ExportProgress().idleCrystalRemainder!=battle.ExportProgress().idleCrystalRemainder)
             throw new InvalidOperationException("Idle reward timestamp changed during Unity serialization.");
+        var fractionClock=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
+        var fractionTest=new Battle(true,utcNow:()=>fractionClock); fractionClock=fractionClock.AddMinutes(9);
+        if(!fractionTest.ClaimIdleRewards()) throw new InvalidOperationException("Could not prepare fractional idle rewards.");
+        var fractionReload=new Battle(true,utcNow:()=>fractionClock);
+        if(!fractionReload.RestoreProgress(JsonUtility.FromJson<ProgressData>(JsonUtility.ToJson(fractionTest.ExportProgress()))) || fractionReload.ExportProgress().idleCrystalRemainder!=9)
+            throw new InvalidOperationException("Fractional idle rewards changed during serialization.");
+        fractionClock=fractionClock.AddMinutes(1);
+        if(!fractionReload.ClaimIdleRewards() || fractionReload.Crystals!=301 || fractionReload.ExportProgress().idleCrystalRemainder!=0)
+            throw new InvalidOperationException("Reload lost fractional idle crystals.");
         var sharedTest=new Battle(true); var sharedSave=sharedTest.ExportProgress();
         sharedSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common","Cleric_Common"};
         sharedSave.loadouts=new HeroLoadoutData[6];

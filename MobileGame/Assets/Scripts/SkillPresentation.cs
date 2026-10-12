@@ -1,4 +1,15 @@
 namespace Ashlight {
+    public sealed class UltimateSignature {
+        public readonly int Points, Satellites;
+        public readonly float Rotation, Pitch;
+        public readonly HeroClass Class;
+        UltimateSignature(HeroDefinition hero) {
+            Class=hero.Class; int tier=(int)hero.Quality;
+            Points=6+(int)hero.Class*2; Satellites=tier+3;
+            Rotation=tier*18; Pitch=.86f+(int)hero.Class*.035f+tier*.02f;
+        }
+        public static UltimateSignature For(HeroDefinition hero) { return new UltimateSignature(hero); }
+    }
     public enum SkillEffectStyle { Slash, HeavyStrike, Cleave, ShieldBash, Heal, Barrier, HolyStrike, Burst, Lance, Drain, Meteor, Arrow, Volley, Poison, Shadow, TwinStrike }
     // Authored mappings use stable skill names; presentation never changes damage or targets.
     public sealed class SkillPresentation {

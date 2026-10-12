@@ -79,6 +79,8 @@ namespace Ashlight {
         readonly Image[] energyBars = new Image[Battle.MaxPartySize];
         readonly Image[] partyHealthBars = new Image[Battle.MaxPartySize];
         readonly Text[] energyLabels = new Text[Battle.MaxPartySize];
+        readonly float[] heroHitAt={-10,-10,-10,-10,-10}, enemyHitAt={-10,-10,-10};
+        readonly Vector3[] heroHitDirection=new Vector3[Battle.MaxPartySize], enemyHitDirection=new Vector3[Battle.MaxEnemies];
         readonly float[] dodgeAt = { -10, -10, -10, -10, -10 };
         readonly float[] foeAttackAt = { -10, -10, -10 };
         readonly Vector3[] foeAttackTarget = new Vector3[Battle.MaxEnemies];
@@ -184,14 +186,14 @@ namespace Ashlight {
             var camera = cameraObject.AddComponent<Camera>();
             battleCamera = camera;
             effects = new GameObject("Combat Effects").AddComponent<CombatEffects>();
-            effects.transform.SetParent(battleStage, false); effects.Initialize(camera);
+            effects.transform.SetParent(battleStage, false);
             // Unity scenes may already contain a listener on their default camera.
             // Disable existing listeners before making the battle camera the audio viewpoint.
             foreach (var listener in FindObjectsByType<AudioListener>(FindObjectsInactive.Include, FindObjectsSortMode.None))
                 listener.enabled = false;
             cameraObject.AddComponent<AudioListener>();
             sounds = new GameObject("Combat Audio").AddComponent<CombatAudio>();
-            chapterStage=DarkFantasyStage.Create(battleStage,camera,battle.ChapterIndex); stageChapter=battle.ChapterIndex;
+            chapterStage=DarkFantasyStage.Create(battleStage,camera,battle.ChapterIndex); stageChapter=battle.ChapterIndex; effects.Initialize(camera);
             CreateEnemy();
             var canvas = new GameObject("Touch HUD", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -477,6 +479,11 @@ namespace Ashlight {
                 while (Time.time < strikeTime+.30f) yield return null;
                 if (battle.Enemies[foeIndex].Health > 0)
                     sounds.Play(skill.Element != Element.Physical ? skill.Element.ToString() : art != null && art.SourceModel == "AshHound" ? "HoundBite" : art != null && art.IsBoss ? "HeavySwing" : "SwordSwing");
+                while (Time.time < strikeTime+.35f) yield return null;
+                if(art!=null && art.IsRanged) {
+                    for(int i=0;i<battle.Party.Count;i++) if(battle.Party[i].Health>0 && (skill.PartyWide || i==battle.ActiveIndex))
+                        effects.Windup(actor.position+Vector3.up*.7f,allies[i].position+Vector3.up*.7f,skill.Element,.10f,true);
+                }
                 while (Time.time < strikeTime+.45f) yield return null;
                 bool defended = battle.Defended;
                 if (!defended) { feedbackUntil = Time.time+.7f; parried = false; }
@@ -489,6 +496,7 @@ namespace Ashlight {
                     int damage=battle.LastIncomingDamage[i];
                     if(battle.LastPassiveProtection[i]>0) effects.Floating(allies[i].position,"VANGUARD −"+battle.LastPassiveProtection[i],Element.Light);
                     if(damage>0) {
+                        heroHitAt[i]=Time.time; heroHitDirection[i]=(homes[i]-actor.position).normalized;
                         var targetVisual=allies[i].GetComponent<HeroVisual>(); if(targetVisual!=null) targetVisual.Play("Hit");
                         effects.Attack(actor.position,allies[i].position,skill.Element,damage,1); sounds.PlayElement(skill.Element);
                         if(visual!=null) visual.ContactPause();
@@ -500,6 +508,7 @@ namespace Ashlight {
                 PresentPassiveHealing();
                 presentation.Warning(false);
                 if (battle.Current == Phase.Player) message = defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
+                if(battle.Current==Phase.EnemyWindup) yield return new WaitForSeconds(.16f);
             }
             enemyTurn = null;
         }
@@ -557,11 +566,13 @@ namespace Ashlight {
         void CancelActionPresentation() {
             if (actionPresentation != null) StopCoroutine(actionPresentation);
             actionPresentation = null; presentingAction = false; attacker = null;
-            for(int i=0;i<dodgeAt.Length;i++) dodgeAt[i]=-10;
+            for(int i=0;i<dodgeAt.Length;i++) { dodgeAt[i]=-10; heroHitAt[i]=-10; }
+            for(int i=0;i<enemyHitAt.Length;i++) enemyHitAt[i]=-10;
             for (int i = 0; i < foeAttackAt.Length; i++) foeAttackAt[i] = -10;
         }
         void HeroImpact(Transform acting, int target, int damage, Element element, float multiplier, bool pause, SkillPresentation profile=null, bool ultimate=false) {
             shownEnemyDamage[target] += damage;
+            if(damage>0) { enemyHitAt[target]=Time.time; enemyHitDirection[target]=(foes[target].position-acting.position).normalized; }
             effects.Attack(acting.position,foes[target].position,element,damage,multiplier);
             if (damage <= 0) return;
             if(profile!=null) effects.SkillImpact(profile.Style,acting.position,foes[target].position,element,ultimate);
@@ -620,7 +631,9 @@ namespace Ashlight {
             if(ultimate!=null) {
                 message=battle.Party[actingIndex].Identity.Name+" — ULTIMATE: "+ultimate.Name+"!";
                 effects.Floating(actor.position,"ULTIMATE · "+ultimate.Name,ultimate.Affinity);
-                effects.Ring(actor.position,ultimate.Affinity,.15f); sounds.Play("Charge");
+                var signature=UltimateSignature.For(battle.Party[actingIndex].Identity);
+                effects.BeginUltimate(actor.position,ultimate.Affinity,signature,autoPlay);
+                sounds.Play("Charge",.85f,signature.Pitch);
                 var ultimateProfile=SkillPresentation.Ultimate(kind,ultimate);
                 bool ultimateCast=ultimateProfile.Casting;
                 var ultimateMotion=ultimateProfile.Motion(kind); float ultimateAt=Time.time;
@@ -636,12 +649,14 @@ namespace Ashlight {
                     float mult=battle.Enemies[i].Definition.Multiplier(ultimate.Affinity);
                     HeroImpact(actor,i,battle.LastUltimateDamage[i],ultimate.Affinity,mult,!ultimateCast,ultimateProfile,true);
                     effects.UltimateImpact(foes[i].position,ultimate.Affinity,ultimate.AreaDamage);
+                    effects.SignatureImpact(actor.position,foes[i].position,ultimate.Affinity,signature,ultimate.AreaDamage);
                 }
                 actionEnergy=battle.Party[actingIndex].Energy;
                 for(int i=0;i<battle.Party.Count;i++) {
                     if(battle.LastUltimateHealing[i]>0) effects.Heal(allies[i].position,battle.LastUltimateHealing[i]);
                     if(battle.LastUltimateGuard[i]>0) effects.Guard(allies[i].position);
                 }
+                sounds.Play(kind==HeroClass.Knight?"HeavySwing":kind==HeroClass.Ranger?"BowRelease":kind==HeroClass.Rogue?"DaggerSwipe":ultimate.Affinity.ToString(),.9f,signature.Pitch);
                 if(ultimate.Healing>0) sounds.Play("Heal"); if(ultimate.Guard>0) sounds.Play("Guard");
                 while(Time.time<ultimateAt+ultimateMotion.Duration+.04f) yield return null;
             }
@@ -1533,7 +1548,7 @@ namespace Ashlight {
             cue.color = Time.time < feedbackUntil && battle.Defended ? Color.cyan : Color.yellow;
             float advance = actionMotion == null ? 0 : CombatMotion.Advance(Time.time-attackTime,actionMotion.Impact,actionMotion.Duration)*actionMotion.Advance;
             for (int i = 0; i < party.Count; i++) {
-                allies[i].position = homes[i];
+                allies[i].position = homes[i]+heroHitDirection[i]*(.20f*CombatMotion.Recoil(Time.time-heroHitAt[i]));
                 allies[i].localScale = Vector3.one;
                 var visual = allies[i].GetComponent<HeroVisual>();
                 if (visual != null) { visual.SetDefeated(party[i].Health == 0); allies[i].localRotation = Quaternion.identity; }
@@ -1542,6 +1557,14 @@ namespace Ashlight {
             if (attacker != null && advance > 0 && foes[actionTarget] != null) {
                 var direction = foes[actionTarget].position-attacker.position; direction.y=0;
                 attacker.position += direction.normalized*advance;
+                attacker.position += Vector3.up*Mathf.Abs(CombatMotion.Stride(Time.time-attackTime,actionMotion.Duration,actionMotion.Advance));
+                if(party[actionHero].Identity.Class==HeroClass.Rogue) attacker.position+=Vector3.forward*Mathf.Sin(Mathf.Clamp01((Time.time-attackTime)/actionMotion.Duration)*Mathf.PI)*.22f;
+            }
+            if(presentingAction && attacker!=null && actionMotion!=null && foes[actionTarget]!=null) {
+                Vector3 aim=foes[actionTarget].position-homes[actionHero];
+                float turn=CombatMotion.Advance(Time.time-attackTime,actionMotion.Impact,actionMotion.Duration);
+                attacker.localRotation=Quaternion.Euler(0,Mathf.Atan2(-aim.z,aim.x)*Mathf.Rad2Deg*turn,0);
+                if(party[actionHero].Identity.Class==HeroClass.Ranger) attacker.position+=Vector3.left*.12f*CombatMotion.Recoil(Time.time-attackTime-actionMotion.Impact);
             }
             for(int i=0;i<party.Count;i++) if(party[i].Health>0) allies[i].position += Vector3.back*.8f*CombatMotion.Dodge(Time.time-dodgeAt[i]);
             hero.localScale = hero.GetComponent<HeroVisual>() == null && striking && battle.Defended && !parried ? new Vector3(1, .6f, 1) : Vector3.one;
@@ -1550,6 +1573,7 @@ namespace Ashlight {
                 var actor = foes[i]; var art = EnemyVisualDefinition.For(battle.Enemies[i].Definition.Name);
                 float lunge = VisibleEnemyHealth(i) > 0 ? CombatMotion.EnemyAdvance(Time.time-foeAttackAt[i]) : 0;
                 actor.position = art == null || !art.IsRanged ? Vector3.Lerp(FoeHome(i),foeAttackTarget[i],lunge) : FoeHome(i);
+                actor.position+=enemyHitDirection[i]*(.25f*CombatMotion.Recoil(Time.time-enemyHitAt[i]));
                 var visual = actor.GetComponent<HeroVisual>();
                 bool dead = VisibleEnemyHealth(i) == 0;
                 if (visual != null) { visual.SetDefeated(dead); actor.localRotation = Quaternion.identity; }

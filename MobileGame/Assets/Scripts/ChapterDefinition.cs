@@ -48,9 +48,12 @@ namespace Ashlight {
                 var chapterRoster=Catalog[encounter/StagesPerChapter];
                 int count=2+(encounter%StagesPerChapter+wave)%2;
                 var group=new EnemyDefinition[count];
-                var roles=new[]{EnemyRole.Defender, new[]{EnemyRole.Caster,EnemyRole.Archer,EnemyRole.Healer,EnemyRole.Support,EnemyRole.Caster}[(encounter+wave)%5],EnemyRole.Bruiser};
+                int chapterIndex=encounter/StagesPerChapter;
+                var rearRole=chapterIndex==8?EnemyRole.Healer:chapterIndex==9?EnemyRole.Support:chapterIndex==7?EnemyRole.Archer:chapterIndex==10?EnemyRole.Caster:new[]{EnemyRole.Caster,EnemyRole.Archer}[(encounter+wave)%2];
+                var roles=new[]{EnemyRole.Defender,rearRole,EnemyRole.Bruiser};
                 for(int i=0;i<count;i++) {
-                    var sourceEnemy=chapterRoster.Enemies[(encounter%StagesPerChapter+wave+i)%4];
+                    // Match silhouettes to roles: guardian, priest/archer, beast.
+                    var sourceEnemy=chapterRoster.Enemies[i==0?0:i==2?1:rearRole==EnemyRole.Archer?3:2];
                     group[i]=new EnemyDefinition(sourceEnemy.Name,Math.Max(20,(int)Math.Ceiling(sourceEnemy.MaxHealth*(wave==waveCount-1?.55:.22))),sourceEnemy.Weakness,sourceEnemy.Resistance,role:roles[i]);
                 }
                 return Array.AsReadOnly(group);
@@ -109,6 +112,7 @@ namespace Ashlight {
         }
         public static string Preview(int encounter,double powerScale=1,bool scaleCampaignDamage=true) {
             var lines=new List<string>();
+            lines.Add(EnemySkills.Family(encounter)+" · "+EnemySkills.Tactics(encounter));
             for(int wave=0;wave<3;wave++) {
                 lines.Add("WAVE "+(wave+1)+(wave==2?" · FINAL":"")+" · Power "+(int)Math.Ceiling(WavePower(encounter,wave,3,scaleCampaignDamage)*powerScale));
                 foreach(var enemy in WaveAt(encounter,wave,3))
