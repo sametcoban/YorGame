@@ -1,0 +1,54 @@
+{
+  "looks": [
+    {
+      "id": "Rogue_Common",
+      "name": "Wren",
+      "gender": "Woman",
+      "armor": "#526171",
+      "cloth": "#253A4B",
+      "trim": "#A08D66",
+      "glow": "#8ACBFF",
+      "feature": "mask"
+    },
+    {
+      "id": "Rogue_Uncommon",
+      "name": "Kestrel",
+      "gender": "Man",
+      "armor": "#695C47",
+      "cloth": "#51412B",
+      "trim": "#D1B478",
+      "glow": "#FFC36F",
+      "feature": "feather"
+    },
+    {
+      "id": "Rogue_Rare",
+      "name": "Silas",
+      "gender": "Man",
+      "armor": "#486259",
+      "cloth": "#294937",
+      "trim": "#A9BCAE",
+      "glow": "#8CEABF",
+      "feature": "crest"
+    },
+    {
+      "id": "Rogue_Epic",
+      "name": "Raven",
+      "gender": "Woman",
+      "armor": "#413A60",
+      "cloth": "#462858",
+      "trim": "#A590C1",
+      "glow": "#C48EFF",
+      "feature": "dread"
+    },
+    {
+      "id": "Rogue_Legendary",
+      "name": "Nyx",
+      "gender": "Woman",
+      "armor": "#B5B0A1",
+      "cloth": "#642D45",
+      "trim": "#D9B45B",
+      "glow": "#FFE092",
+      "feature": "crown"
+    }
+  ]
+}

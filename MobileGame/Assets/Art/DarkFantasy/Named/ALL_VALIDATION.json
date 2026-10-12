@@ -1,0 +1,452 @@
+[
+  {
+    "model": "Named_Knight_Common",
+    "triangles": 17646,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8984,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Knight_Uncommon",
+    "triangles": 17734,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9032,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Knight_Rare",
+    "triangles": 17286,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8934,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Knight_Epic",
+    "triangles": 17954,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9152,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Knight_Legendary",
+    "triangles": 17550,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9078,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Paladin_Common",
+    "triangles": 18174,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9272,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Paladin_Uncommon",
+    "triangles": 18298,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9486,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Paladin_Rare",
+    "triangles": 18262,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9320,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Paladin_Epic",
+    "triangles": 18034,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9342,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Paladin_Legendary",
+    "triangles": 18298,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9486,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Sorceress_Common",
+    "triangles": 17758,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9189,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Sorceress_Uncommon",
+    "triangles": 17274,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8925,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Sorceress_Rare",
+    "triangles": 17450,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9021,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Sorceress_Epic",
+    "triangles": 18074,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9215,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Sorceress_Legendary",
+    "triangles": 17758,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9189,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Ranger_Common",
+    "triangles": 18134,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9249,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Ranger_Uncommon",
+    "triangles": 17642,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9127,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Ranger_Rare",
+    "triangles": 18002,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9177,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Ranger_Epic",
+    "triangles": 17730,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9175,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Ranger_Legendary",
+    "triangles": 18574,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9489,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Rogue_Common",
+    "triangles": 16890,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8723,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Rogue_Uncommon",
+    "triangles": 17602,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8965,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Rogue_Rare",
+    "triangles": 17470,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8893,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Rogue_Epic",
+    "triangles": 17110,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8843,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Rogue_Legendary",
+    "triangles": 17198,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 8891,
+    "material_slots": 7
+  },
+  {
+    "model": "Named_Cleric_Common",
+    "triangles": 17518,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9065,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Cleric_Uncommon",
+    "triangles": 18098,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9235,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Cleric_Rare",
+    "triangles": 17958,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9305,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Cleric_Epic",
+    "triangles": 17650,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9137,
+    "material_slots": 6
+  },
+  {
+    "model": "Named_Cleric_Legendary",
+    "triangles": 17958,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ],
+    "weighted_vertices": 9305,
+    "material_slots": 6
+  }
+]

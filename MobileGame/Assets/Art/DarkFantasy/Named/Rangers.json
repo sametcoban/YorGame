@@ -1,0 +1,54 @@
+{
+  "looks": [
+    {
+      "id": "Ranger_Common",
+      "name": "Finn",
+      "gender": "Man",
+      "armor": "#526171",
+      "cloth": "#253A4B",
+      "trim": "#A08D66",
+      "glow": "#8ACBFF",
+      "feature": "feather"
+    },
+    {
+      "id": "Ranger_Uncommon",
+      "name": "Sylva",
+      "gender": "Woman",
+      "armor": "#695C47",
+      "cloth": "#51412B",
+      "trim": "#D1B478",
+      "glow": "#FFC36F",
+      "feature": "antler"
+    },
+    {
+      "id": "Ranger_Rare",
+      "name": "Tarin",
+      "gender": "Man",
+      "armor": "#486259",
+      "cloth": "#294937",
+      "trim": "#A9BCAE",
+      "glow": "#8CEABF",
+      "feature": "crest"
+    },
+    {
+      "id": "Ranger_Epic",
+      "name": "Liora",
+      "gender": "Woman",
+      "armor": "#413A60",
+      "cloth": "#462858",
+      "trim": "#A590C1",
+      "glow": "#C48EFF",
+      "feature": "wingsun"
+    },
+    {
+      "id": "Ranger_Legendary",
+      "name": "Cael",
+      "gender": "Man",
+      "armor": "#B5B0A1",
+      "cloth": "#642D45",
+      "trim": "#D9B45B",
+      "glow": "#FFE092",
+      "feature": "crescent"
+    }
+  ]
+}

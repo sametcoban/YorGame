@@ -1,0 +1,54 @@
+{
+  "looks": [
+    {
+      "id": "Paladin_Common",
+      "name": "Lucan",
+      "gender": "Man",
+      "armor": "#526171",
+      "cloth": "#253A4B",
+      "trim": "#A08D66",
+      "glow": "#8ACBFF",
+      "feature": "cross"
+    },
+    {
+      "id": "Paladin_Uncommon",
+      "name": "Mira",
+      "gender": "Woman",
+      "armor": "#695C47",
+      "cloth": "#51412B",
+      "trim": "#D1B478",
+      "glow": "#FFC36F",
+      "feature": "sun"
+    },
+    {
+      "id": "Paladin_Rare",
+      "name": "Garrick",
+      "gender": "Man",
+      "armor": "#486259",
+      "cloth": "#294937",
+      "trim": "#A9BCAE",
+      "glow": "#8CEABF",
+      "feature": "bastion"
+    },
+    {
+      "id": "Paladin_Epic",
+      "name": "Aurelia",
+      "gender": "Woman",
+      "armor": "#413A60",
+      "cloth": "#462858",
+      "trim": "#A590C1",
+      "glow": "#C48EFF",
+      "feature": "wingsun"
+    },
+    {
+      "id": "Paladin_Legendary",
+      "name": "Solenne",
+      "gender": "Woman",
+      "armor": "#B5B0A1",
+      "cloth": "#642D45",
+      "trim": "#D9B45B",
+      "glow": "#FFE092",
+      "feature": "halo"
+    }
+  ]
+}

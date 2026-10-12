@@ -6,10 +6,11 @@ from pathlib import Path
 folder=Path(sys.argv[sys.argv.index('--')+1]);reports=[]
 states={'Idle','Attack','Cast','Dodge','Parry','Hit','Death'}
 roster='--roster' in sys.argv
-named='--named-knights' in sys.argv
+named='--named-knights' in sys.argv or '--named-all' in sys.argv
 classes=['Knight','Paladin','Sorceress','Ranger','Rogue','Cleric']
 names=[kind+'_'+gender for kind in classes for gender in ['Man','Woman']] if roster else ['Rowan','LanternWarden']
 if named: names=['Named_Knight_'+quality for quality in ['Common','Uncommon','Rare','Epic','Legendary']]
+if '--named-all' in sys.argv: names=['Named_'+kind+'_'+quality for kind in classes for quality in ['Common','Uncommon','Rare','Epic','Legendary']]
 for name in names:
     bpy.ops.object.select_all(action='SELECT');bpy.ops.object.delete(use_global=False)
     for action in list(bpy.data.actions):bpy.data.actions.remove(action)
@@ -27,7 +28,7 @@ for name in names:
     assert mesh.data.uv_layers and any(uv.uv.length>.01 for uv in mesh.data.uv_layers.active.data), 'Missing UVs for surface maps'
     roles={m.name.split('.')[0] for m in mesh.data.materials if m}
     assert {'Iron','Brass','Leather','Recess'}.issubset(roles)
-    kind=name.split('_')[0]
+    kind=name.split('_')[1] if named else name.split('_')[0]
     fabric={'Knight':'Wool','Paladin':'WineWool','Sorceress':'VioletWool','Ranger':'MossWool','Rogue':'SootWool','Cleric':'AshWool'}.get(kind,'Wool')
     glow={'Paladin':'Light','Sorceress':'Arcane','Ranger':'Venom','Rogue':'Venom','Cleric':'Light'}.get(kind,'Ember')
     assert {fabric,glow}.issubset(roles), 'Missing class palette'

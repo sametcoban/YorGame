@@ -1,9 +1,9 @@
-"""Blender contact sheet for named Knights; not a Unity/device render."""
+"""Blender contact sheet for a named hero class; not a Unity/device render. Optional final argument selects a palette group."""
 import bpy,sys,json
 from pathlib import Path
 from mathutils import Vector
 args=sys.argv[sys.argv.index('--')+1:];folder=Path(args[0]);root=Path(args[1]);target=Path(args[2])
-looks=json.loads((root/'Named/Knights.json').read_text())['looks']
+looks=json.loads((root/('Named/'+(args[3] if len(args)>3 else 'Knights')+'.json')).read_text())['looks']
 bpy.ops.wm.read_factory_settings(use_empty=True)
 for i,look in enumerate(looks):
     with bpy.data.libraries.load(str(folder/('Named_'+look['id']+'.blend')),link=False) as (source,data):data.objects=source.objects

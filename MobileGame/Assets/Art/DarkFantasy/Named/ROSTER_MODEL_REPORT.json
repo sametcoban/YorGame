@@ -1,0 +1,377 @@
+[
+  {
+    "id": "Paladin_Common",
+    "gender": "Man",
+    "feature": "cross",
+    "triangles": 18174,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Paladin_Uncommon",
+    "gender": "Woman",
+    "feature": "sun",
+    "triangles": 18298,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Paladin_Rare",
+    "gender": "Man",
+    "feature": "bastion",
+    "triangles": 18262,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Paladin_Epic",
+    "gender": "Woman",
+    "feature": "wingsun",
+    "triangles": 18034,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Paladin_Legendary",
+    "gender": "Woman",
+    "feature": "halo",
+    "triangles": 18298,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Sorceress_Common",
+    "gender": "Woman",
+    "feature": "crescent",
+    "triangles": 17758,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Sorceress_Uncommon",
+    "gender": "Woman",
+    "feature": "crystal",
+    "triangles": 17274,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Sorceress_Rare",
+    "gender": "Woman",
+    "feature": "stars",
+    "triangles": 17450,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Sorceress_Epic",
+    "gender": "Man",
+    "feature": "crown",
+    "triangles": 18074,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Sorceress_Legendary",
+    "gender": "Woman",
+    "feature": "halo",
+    "triangles": 17758,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Ranger_Common",
+    "gender": "Man",
+    "feature": "feather",
+    "triangles": 18134,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Ranger_Uncommon",
+    "gender": "Woman",
+    "feature": "antler",
+    "triangles": 17642,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Ranger_Rare",
+    "gender": "Man",
+    "feature": "crest",
+    "triangles": 18002,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Ranger_Epic",
+    "gender": "Woman",
+    "feature": "wingsun",
+    "triangles": 17730,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Ranger_Legendary",
+    "gender": "Man",
+    "feature": "crescent",
+    "triangles": 18574,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Rogue_Common",
+    "gender": "Woman",
+    "feature": "mask",
+    "triangles": 16890,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Rogue_Uncommon",
+    "gender": "Man",
+    "feature": "feather",
+    "triangles": 17602,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Rogue_Rare",
+    "gender": "Man",
+    "feature": "crest",
+    "triangles": 17470,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Rogue_Epic",
+    "gender": "Woman",
+    "feature": "dread",
+    "triangles": 17110,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Rogue_Legendary",
+    "gender": "Woman",
+    "feature": "crown",
+    "triangles": 17198,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Cleric_Common",
+    "gender": "Woman",
+    "feature": "cross",
+    "triangles": 17518,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Cleric_Uncommon",
+    "gender": "Man",
+    "feature": "bastion",
+    "triangles": 18098,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Cleric_Rare",
+    "gender": "Woman",
+    "feature": "crescent",
+    "triangles": 17958,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Cleric_Epic",
+    "gender": "Woman",
+    "feature": "stars",
+    "triangles": 17650,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  },
+  {
+    "id": "Cleric_Legendary",
+    "gender": "Woman",
+    "feature": "halo",
+    "triangles": 17958,
+    "states": [
+      "Attack",
+      "Cast",
+      "Death",
+      "Dodge",
+      "Hit",
+      "Idle",
+      "Parry"
+    ]
+  }
+]

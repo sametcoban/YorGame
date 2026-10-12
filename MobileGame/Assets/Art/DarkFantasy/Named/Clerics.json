@@ -1,0 +1,54 @@
+{
+  "looks": [
+    {
+      "id": "Cleric_Common",
+      "name": "Tessa",
+      "gender": "Woman",
+      "armor": "#526171",
+      "cloth": "#253A4B",
+      "trim": "#A08D66",
+      "glow": "#8ACBFF",
+      "feature": "cross"
+    },
+    {
+      "id": "Cleric_Uncommon",
+      "name": "Jonas",
+      "gender": "Man",
+      "armor": "#695C47",
+      "cloth": "#51412B",
+      "trim": "#D1B478",
+      "glow": "#FFC36F",
+      "feature": "bastion"
+    },
+    {
+      "id": "Cleric_Rare",
+      "name": "Amara",
+      "gender": "Woman",
+      "armor": "#486259",
+      "cloth": "#294937",
+      "trim": "#A9BCAE",
+      "glow": "#8CEABF",
+      "feature": "crescent"
+    },
+    {
+      "id": "Cleric_Epic",
+      "name": "Elyse",
+      "gender": "Woman",
+      "armor": "#413A60",
+      "cloth": "#462858",
+      "trim": "#A590C1",
+      "glow": "#C48EFF",
+      "feature": "stars"
+    },
+    {
+      "id": "Cleric_Legendary",
+      "name": "Ilyra",
+      "gender": "Woman",
+      "armor": "#B5B0A1",
+      "cloth": "#642D45",
+      "trim": "#D9B45B",
+      "glow": "#FFE092",
+      "feature": "halo"
+    }
+  ]
+}
