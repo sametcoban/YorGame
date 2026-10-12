@@ -54,6 +54,28 @@ namespace Ashlight {
         int actionTarget, actionHero, actionEnergy;
         readonly int[] actionEnemyBefore = new int[Battle.MaxEnemies], shownEnemyDamage = new int[Battle.MaxEnemies], actionChargeBefore=new int[Battle.MaxEnemies];
         readonly bool[] actionChargedBefore=new bool[Battle.MaxEnemies];
+        sealed class PortraitView { public GameObject Root; public Image Face, Border; public Text Element; }
+        readonly PortraitView[] battlePortraits=new PortraitView[Battle.MaxPartySize], formationPortraits=new PortraitView[Battle.MaxPartySize], collectionPortraits=new PortraitView[4];
+        readonly System.Collections.Generic.Dictionary<string,Sprite> portraitCache=new System.Collections.Generic.Dictionary<string,Sprite>();
+        PortraitView CreatePortrait(Transform parent, Vector2 min, Vector2 max) {
+            var frameObject=new GameObject("Portrait frame",typeof(RectTransform),typeof(Image)); frameObject.transform.SetParent(parent,false);
+            var frameRect=frameObject.GetComponent<RectTransform>(); frameRect.anchorMin=min; frameRect.anchorMax=max; frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
+            var frame=frameObject.GetComponent<Image>();
+            var face=new GameObject("Hero portrait",typeof(RectTransform),typeof(Image)); face.transform.SetParent(frame.transform,false);
+            var rect=face.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=new Vector2(3,3); rect.offsetMax=new Vector2(-3,-3);
+            var picture=face.GetComponent<Image>(); picture.preserveAspect=true; picture.raycastTarget=false;
+            frame.raycastTarget=false;
+            var badge=Label(frame.transform,"",new Vector2(0,0),new Vector2(1,.23f),12); badge.raycastTarget=false;
+            return new PortraitView { Root=frame.gameObject,Face=picture,Border=frame,Element=badge };
+        }
+        void ShowPortrait(PortraitView view, PartyHero hero) {
+            view.Root.SetActive(hero!=null); if(hero==null) return;
+            Sprite sprite;
+            if(!portraitCache.TryGetValue(hero.Identity.Id,out sprite)) { sprite=Resources.Load<Sprite>("HeroPortraits/"+hero.Identity.Id); if(sprite!=null) portraitCache[hero.Identity.Id]=sprite; }
+            view.Face.sprite=sprite; view.Face.enabled=sprite!=null; view.Border.color=RarityTint(hero.Quality);
+            view.Face.color=hero.Health<=0?new Color(.4f,.4f,.4f):Color.white;
+            view.Element.text=hero.Identity.Affinity.ToString().ToUpperInvariant(); view.Element.color=CombatEffects.Tint(hero.Identity.Affinity);
+        }
         readonly Image[] energyBars = new Image[Battle.MaxPartySize];
         readonly Image[] partyHealthBars = new Image[Battle.MaxPartySize];
         readonly Text[] energyLabels = new Text[Battle.MaxPartySize];
@@ -190,8 +212,9 @@ namespace Ashlight {
             factionStatus=Label(safe,"",new Vector2(.035f,.82f),new Vector2(.965f,.845f),17);
             for(int i=0;i<energyBars.Length;i++) {
                 float left=.025f+i*.194f;
-                energyLabels[i]=Label(safe,"",new Vector2(left,.225f),new Vector2(left+.18f,.28f),20);
-                partyHealthBars[i]=Bar(safe,new Vector2(left,.205f),new Vector2(left+.18f,.218f),new Color(.35f,.7f,.43f));
+                battlePortraits[i]=CreatePortrait(safe,new Vector2(left,.20f),new Vector2(left+.043f,.28f));
+                energyLabels[i]=Label(safe,"",new Vector2(left+.047f,.225f),new Vector2(left+.18f,.28f),20);
+                partyHealthBars[i]=Bar(safe,new Vector2(left+.047f,.205f),new Vector2(left+.18f,.218f),new Color(.35f,.7f,.43f));
                 energyBars[i]=Bar(safe,new Vector2(left,.18f),new Vector2(left+.18f,.193f),new Color(.25f,.65f,.9f));
             }
             heroHealth = Bar(safe, new Vector2(.035f, .805f), new Vector2(.43f, .818f), new Color(.65f, .27f, .18f));
@@ -776,6 +799,8 @@ namespace Ashlight {
                     RefreshFormation();
                 });
                 PlaceGearControl(formationSlots[i],left,bottom,left+.28f,bottom+.20f);
+                var caption=formationSlots[i].GetComponentInChildren<Text>().GetComponent<RectTransform>(); caption.anchorMin=new Vector2(.34f,.04f); caption.anchorMax=new Vector2(.98f,.96f); caption.offsetMin=caption.offsetMax=Vector2.zero;
+                formationPortraits[i]=CreatePortrait(formationSlots[i].transform,new Vector2(.025f,.19f),new Vector2(.32f,.88f));
             }
             var presets=MakeButton(formationRoot.transform,"TEAM PRESETS",.05f,.26f,OpenTeamPresets); PlaceGearControl(presets,.05f,.035f,.26f,.12f);
             var collection=MakeButton(formationRoot.transform,"COLLECTION",.28f,.49f,OpenCollection); PlaceGearControl(collection,.28f,.035f,.49f,.12f);
@@ -805,6 +830,7 @@ namespace Ashlight {
             formationAuto.GetComponentInChildren<Text>().text=differs?"AUTO ARRANGE":"FORMATION READY";
             for(int i=0;i<formationSlots.Length;i++) {
                 var button=formationSlots[i]; bool occupied=i<battle.Party.Count;
+                ShowPortrait(formationPortraits[i],occupied?battle.Party[i]:null);
                 button.interactable=occupied && battle.CanChangeParty;
                 button.GetComponentInChildren<Text>().text=(i<Battle.FrontSlots?"FRONT "+(i+1):"BACK "+(i-Battle.FrontSlots+1))+"\n"+
                     (occupied?battle.Party[i].Identity.Name+" · "+battle.Party[i].RarityLabel+"\n"+battle.Party[i].Identity.DisplayClass+" · "+battle.Party[i].Identity.Affinity+"\nLv "+battle.Party[i].LevelLabel+" · Power "+battle.Party[i].Power:"LOCKED · Chapter "+(i+1));
@@ -1027,11 +1053,12 @@ namespace Ashlight {
                 });
                 PlaceGearControl(collectionCards[i],x,y,x+.43f,y+.16f);
                 var caption=collectionCards[i].GetComponentInChildren<Text>();
-                var captionRect=caption.GetComponent<RectTransform>(); captionRect.anchorMin=new Vector2(.03f,.49f); captionRect.anchorMax=new Vector2(.97f,.97f);
+                var captionRect=caption.GetComponent<RectTransform>(); captionRect.anchorMin=new Vector2(.23f,.49f); captionRect.anchorMax=new Vector2(.97f,.97f);
                 captionRect.offsetMin=new Vector2(4,0); captionRect.offsetMax=new Vector2(-4,0);
-                caption.resizeTextMinSize=18; caption.resizeTextMaxSize=24;
-                collectionTraits[i]=Label(collectionCards[i].transform,"",new Vector2(.04f,.23f),new Vector2(.96f,.48f),18);
-                collectionMeta[i]=Label(collectionCards[i].transform,"",new Vector2(.04f,.025f),new Vector2(.96f,.22f),17);
+                caption.resizeTextMinSize=16; caption.resizeTextMaxSize=24;
+                collectionPortraits[i]=CreatePortrait(collectionCards[i].transform,new Vector2(.025f,.15f),new Vector2(.21f,.95f));
+                collectionTraits[i]=Label(collectionCards[i].transform,"",new Vector2(.23f,.23f),new Vector2(.96f,.48f),18);
+                collectionMeta[i]=Label(collectionCards[i].transform,"",new Vector2(.23f,.025f),new Vector2(.96f,.22f),17);
             }
             for(int i=0;i<collectionTargets.Length;i++) {
                 int slot=i; float x=.04f+i*.187f;
@@ -1154,7 +1181,7 @@ namespace Ashlight {
             collectionAscend.interactable=hero!=null && hero.UpgradeRank<5 && hero.Shards>=hero.UpgradeCost; collectionAscend.GetComponentInChildren<Text>().text=hero==null?"ASCEND":hero.UpgradeRank==5?"ASCENSION MAX":"ASCEND → "+hero.NextAscension+"\n"+hero.Shards+"/"+hero.UpgradeCost+" shards";
             for(int i=0;i<4;i++) {
                 int entry=collectionPage*4+i; collectionCards[i].gameObject.SetActive(entry<collectionItems.Count); if(entry>=collectionItems.Count) continue;
-                var member=collectionItems[entry]; int partySlot=-1;
+                var member=collectionItems[entry]; ShowPortrait(collectionPortraits[i],member); int partySlot=-1;
                 for(int slot=0;slot<battle.Party.Count;slot++) if(battle.Party[slot].Identity.Id==member.Identity.Id) partySlot=slot;
                 collectionCards[i].GetComponentInChildren<Text>().text=member.Identity.Name+"\n"+member.RarityLabel+" · Lv "+member.LevelLabel;
                 collectionCards[i].GetComponentInChildren<Text>().color=RarityTint(member.Quality);
@@ -1411,6 +1438,7 @@ namespace Ashlight {
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
                 bool visible=!atChapters && i<party.Count;
+                ShowPortrait(battlePortraits[i],visible?party[i]:null);
                 energyBars[i].transform.parent.gameObject.SetActive(visible); energyLabels[i].gameObject.SetActive(visible);
                 partyHealthBars[i].transform.parent.gameObject.SetActive(visible);
                 if(!visible) continue;

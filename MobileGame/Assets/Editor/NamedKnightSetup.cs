@@ -16,7 +16,7 @@ public static class NamedKnightSetup {
     public static void Ensure(bool rebuild=false) {
         string[] groups={"Knights","Paladins","Sorceresses","Rangers","Rogues","Clerics"};
         for(int i=0;i<groups.Length;i++) EnsureClass(groups[i],(HeroClass)i,rebuild);
-        AssetDatabase.SaveAssets();
+        AssetDatabase.SaveAssets(); HeroPortraitSetup.Ensure();
     }
     static void EnsureClass(string group,HeroClass kind,bool rebuild) {
         if(EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode) return;

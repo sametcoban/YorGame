@@ -704,3 +704,11 @@ Copy **Assets/Scripts**, **Assets/Editor**, and **Assets/Art/DarkFantasy**, then
 Blender round-trip validation covers all 30 consolidated weighted meshes, 53-bone rigs, seven clips, UVs, material slot budgets and sub-25,000 triangle budgets. Palettes are checked against the actual named roster and gender assignments. Class lineups are in `ArtPreviews/Named*.png`; these are Blender previews, not Unity/device screenshots. Local Unity import, material and animation playback, and mobile performance tests are still required.
 
 To reproduce the 25 non-Knight additions, run `blender -b --factory-startup --python-exit-code 1 --python Tools/build_named_knights.py -- Assets/Art/DarkFantasy /tmp/named-roster-preview --all-new`. Validate the full roster with `blender -b --factory-startup --python-exit-code 1 --python Tools/validate_dark_fantasy.py -- Assets/Art/DarkFantasy/Models --named-all`. The default generator invocation continues producing the five Knights; `--paladins` produces only Paladins.
+
+### Named hero portraits
+
+All 30 named heroes now have bundled 256×256 bust portraits rendered from their matching models. Collection and formation cards display portraits with borders based on current ascended rarity and element labels. The battle HUD places portraits alongside names and health bars; energy bars remain above the action buttons. Fallen heroes have dimmed portraits. Portraits are decorative and do not intercept taps.
+
+When updating an existing Unity project, copy `Assets/Scripts`, `Assets/Editor`, and `Assets/Art/DarkFantasy`, then run **Ashlight > Art > Build All Named Heroes** outside Play Mode. This also imports portraits into `Assets/Resources/HeroPortraits`; **Build Hero Portraits** can import them separately. Missing portraits retain readable hero text. No save migration is required.
+
+Offline reproduction: `blender -b --factory-startup -t 4 --python-exit-code 1 --python MobileGame/Tools/render_hero_portraits.py -- MobileGame/Assets/Art/DarkFantasy /tmp/knight-preview /tmp/named-roster-preview` after generating named model preview blends. These are Blender renders; Unity import, screen layout, and device rendering require local verification.
