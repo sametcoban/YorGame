@@ -106,6 +106,7 @@ class BalanceChecks {
     if(!b.ContinueAfterVictory(rng.NextDouble(),rng.Next(18))) throw new Exception("Progression claim rejected");
     // Prove actual earned/save state survives normal reloads after each completed chapter.
     if(b.Encounter%5==0) {
+     if(!b.ClaimMilestone(b.Encounter/5-1)) throw new Exception("Earned chapter milestone rejected");
      var restored=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng,utcNow:()=>now);
      if(!restored.RestoreProgress(b.ExportProgress())) throw new Exception("Progression save rejected"); b=restored;
     }
@@ -133,7 +134,9 @@ class BalanceChecks {
    if(amount!=72*(1+stage/5) || xp!=720*(2+stage/5) || !rewards.ClaimIdleRewards() || rewards.Crystals!=300+amount || rewards.ClaimIdleRewards()) throw new Exception("Idle budget or single-claim semantics regressed");
    Console.WriteLine("ECONOMY stage {0}: capped idle {1} crystals ({2:F2} base-cost pulls), {3} XP per hero",stage,amount,amount/100.0,xp);
   }
-  Console.WriteLine("ECONOMY: {0} story crystals + {1} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,Summoning.StarterCrystals);
+  int milestones=0; for(int chapter=0;chapter<12;chapter++) milestones+=ChapterMilestone.For(chapter).Crystals;
+  if(milestones!=2850) throw new Exception("Milestone reward budget changed unexpectedly");
+  Console.WriteLine("ECONOMY: {0} story crystals + {1} milestones + {2} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,milestones,Summoning.StarterCrystals);
  }
  static void Main() { Economy(); FullProgression(false); FullProgression(true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 400 full progression campaigns"); }
 }

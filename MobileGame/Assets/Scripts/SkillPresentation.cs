@@ -15,10 +15,11 @@ namespace Ashlight {
     public sealed class SkillPresentation {
         public readonly SkillEffectStyle Style;
         public readonly bool Casting;
+        readonly bool finisher;
         public readonly int Projectiles;
         static readonly ActionMotion RogueFinisher=new ActionMotion(12,26,1.35f);
-        public SkillPresentation(SkillEffectStyle style,bool casting=false,int projectiles=1) { Style=style; Casting=casting; Projectiles=projectiles; }
-        public ActionMotion Motion(HeroClass kind) { return kind==HeroClass.Rogue && Style==SkillEffectStyle.HeavyStrike?RogueFinisher:CombatMotion.For(kind,Casting); }
+        public SkillPresentation(SkillEffectStyle style,bool casting=false,int projectiles=1,bool finishingStrike=false) { Style=style; Casting=casting; Projectiles=projectiles; finisher=finishingStrike; }
+        public ActionMotion Motion(HeroClass kind) { return kind==HeroClass.Rogue && (Style==SkillEffectStyle.HeavyStrike || finisher)?RogueFinisher:CombatMotion.For(kind,Casting); }
         public static SkillPresentation Basic(HeroClass kind) {
             return new SkillPresentation(kind==HeroClass.Ranger?SkillEffectStyle.Arrow:kind==HeroClass.Rogue?SkillEffectStyle.TwinStrike:kind==HeroClass.Sorceress?SkillEffectStyle.Burst:kind==HeroClass.Cleric?SkillEffectStyle.HolyStrike:SkillEffectStyle.Slash,kind==HeroClass.Sorceress || kind==HeroClass.Cleric);
         }
@@ -52,7 +53,7 @@ namespace Ashlight {
                 case HeroClass.Paladin: return new SkillPresentation(SkillEffectStyle.HolyStrike,true);
                 case HeroClass.Sorceress: return new SkillPresentation(skill.AreaDamage?SkillEffectStyle.Meteor:skill.Affinity==Element.Lightning?SkillEffectStyle.Burst:SkillEffectStyle.Lance,true);
                 case HeroClass.Ranger: return new SkillPresentation(skill.AreaDamage?SkillEffectStyle.Volley:SkillEffectStyle.Arrow,false,skill.AreaDamage?3:1);
-                case HeroClass.Rogue: return new SkillPresentation(skill.AreaDamage?SkillEffectStyle.Poison:SkillEffectStyle.Shadow,skill.AreaDamage);
+                case HeroClass.Rogue: return new SkillPresentation(skill.AreaDamage?SkillEffectStyle.Poison:SkillEffectStyle.Shadow,skill.AreaDamage,1,!skill.AreaDamage);
                 default: return new SkillPresentation(SkillEffectStyle.HolyStrike,true);
             }
         }

@@ -1,6 +1,30 @@
 using System;
 using System.Collections.Generic;
 namespace Ashlight {
+    public sealed class ChapterMilestone {
+        public readonly string Story;
+        public readonly int Crystals, Experience, Shards;
+        ChapterMilestone(int chapter,string story) { Story=story; Crystals=100+chapter*25; Experience=100+chapter*25; Shards=5; }
+        public string Rewards { get { return "+"+Crystals+" crystals · +"+Experience+" XP and +"+Shards+" shards for every recruited hero"; } }
+        static readonly string[] Stories={
+            "The Roadkeeper's lantern fades. Rowan carries its last ember toward the mountains, where the frozen gates have begun to open.",
+            "The Winter Matriarch falls, and a path thaws through the pass. Beyond it, smoke rises from the Ember Citadel.",
+            "The Cinder Sovereign and his marshal lie silent. A stolen furnace seal points the party toward the lightning above Storm Spire.",
+            "The storm loses its voice. Beneath the spire, roots split the stone and lead into a garden that should have died centuries ago.",
+            "The Thorn Queen's communion breaks. Between the dying vines, the party finds a black road leading to the Eclipse Throne.",
+            "The Monarch's veil tears. Dawn reveals an army of ashes marching beyond the throne; the journey is far from over.",
+            "The Pyre Legion's banners burn out. Its retreat leaves a drowned staircase descending into the crypt beneath the battlefield.",
+            "The Drowned King sinks beneath the last dark tide. A crimson bell rings far above: the Blood Cathedral is calling.",
+            "The Crimson Covenant's bell falls silent. Its broken altar hides a map through the Obsidian Wastes.",
+            "The Glass Legion shatters. The party crosses the wastes toward a pale horizon where winter has stolen the sun.",
+            "The Pale Sovereign's crown cracks. Beyond the returning light waits a final gate, leading into the Abyssal Crown.",
+            "The Abyssal Emperor's crown is broken. The heroes return with a living ember, and the world begins to remember the dawn."
+        };
+        public static ChapterMilestone For(int chapter) {
+            if(chapter<0 || chapter>=ChapterDefinition.Catalog.Count) throw new ArgumentOutOfRangeException("chapter");
+            return new ChapterMilestone(chapter,Stories[chapter]);
+        }
+    }
     public sealed class ChapterDefinition {
         public readonly string Name;
         public readonly IReadOnlyList<EnemyDefinition> Enemies;

@@ -320,7 +320,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==13);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==14);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1067,7 +1067,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==13 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==14 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1173,7 +1173,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==13);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==14);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1619,6 +1619,62 @@ class BattleChecks {
   Check(rewardSafety<1000 && lateRewards.Results.Crystals==105 && lateRewards.Results.Experience==120);
   Check(lateRewards.ContinueAfterVictory(.5,0) && lateRewards.Crystals==1000000);
   Check(new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true).RestoreProgress(lateRewards.ExportProgress()));
+  // One-time chapter rewards unlock only after the finale is claimed, never from Tower.
+  var chapterRewards=new Battle(true,enableWaves:true); var chapterRewardSave=chapterRewards.ExportProgress();
+  Check(!chapterRewards.CanClaimMilestone(0) && !chapterRewards.ClaimMilestone(0) && !chapterRewards.ClaimMilestone(-1) && !chapterRewards.ClaimMilestone(12));
+  chapterRewardSave.encounter=5; chapterRewardSave.recruited=new[]{"Knight_Common","Paladin_Common","Cleric_Common"};
+  chapterRewardSave.party=new[]{"Knight_Common","Paladin_Common"}; chapterRewardSave.loadouts=new[]{new HeroLoadoutData{id="Knight_Common",secondSkill=1},new HeroLoadoutData{id="Paladin_Common",secondSkill=1},new HeroLoadoutData{id="Cleric_Common",secondSkill=1}};
+  Check(chapterRewards.RestoreProgress(chapterRewardSave) && chapterRewards.ReadyMilestones==1 && chapterRewards.ChapterCleared(0) && !chapterRewards.ChapterCleared(1));
+  Check(chapterRewards.ClaimMilestone(0) && chapterRewards.Crystals==400 && chapterRewards.ReadyMilestones==0 && chapterRewards.MilestoneClaimed(0));
+  foreach(var hero in chapterRewards.Recruits) Check(chapterRewards.HeroProgress(hero.Id).Level==2 && chapterRewards.HeroProgress(hero.Id).Shards==5);
+  Check(!chapterRewards.ClaimMilestone(0) && chapterRewards.Crystals==400 && chapterRewards.ExportProgress().claimedMilestones==1);
+  var chapterRewardReload=new Battle(true,enableWaves:true); Check(chapterRewardReload.RestoreProgress(chapterRewards.ExportProgress()) && !chapterRewardReload.ClaimMilestone(0));
+  var invalidMilestones=chapterRewards.ExportProgress(); invalidMilestones.claimedMilestones=2;
+  Check(!chapterRewardReload.RestoreProgress(invalidMilestones) && chapterRewardReload.Crystals==400 && chapterRewardReload.MilestoneClaimed(0));
+  invalidMilestones.claimedMilestones=-1; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
+  invalidMilestones.claimedMilestones=4096; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
+  var previousMilestones=chapterRewards.ExportProgress(); previousMilestones.version=13; previousMilestones.claimedMilestones=4096;
+  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==14 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
+  Check(chapterRewardReload.Attack() && !chapterRewardReload.ClaimMilestone(0));
+  var completeRewards=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},59);
+  var completeRewardSave=completeRewards.ExportProgress(); completeRewardSave.encounter=60; completeRewardSave.crystals=999999;
+  Check(completeRewards.RestoreProgress(completeRewardSave) && completeRewards.ReadyMilestones==12 && completeRewards.EnterTower());
+  Check(!completeRewards.ClaimMilestone(0) && completeRewards.ReadyMilestones==0 && completeRewards.LeaveTower());
+  Check(completeRewards.ClaimMilestone(11) && completeRewards.Crystals==1000000 && completeRewards.MilestoneClaimed(11));
+  var lastChapterReload=new Battle(true,enableWaves:true,enableFactions:true); Check(lastChapterReload.RestoreProgress(completeRewards.ExportProgress()) && lastChapterReload.MilestoneClaimed(11) && lastChapterReload.ReadyMilestones==11);
+  int milestoneBudget=0;
+  for(int chapter=0;chapter<12;chapter++) { var reward=ChapterMilestone.For(chapter); milestoneBudget+=reward.Crystals; Check(reward.Crystals==100+chapter*25 && reward.Experience==100+chapter*25 && reward.Shards==5 && !string.IsNullOrEmpty(reward.Story)); }
+  Check(milestoneBudget==2850);
+  // Reserve loadouts can be managed without replacing a hero or changing the active slot.
+  var reserveLoadout=new Battle(true,enableWaves:true); var reserveLoadoutSave=chapterRewardSave;
+  Check(reserveLoadout.RestoreProgress(reserveLoadoutSave)); int reserveActive=reserveLoadout.ActiveIndex;
+  Check(reserveLoadout.EquipHeroSkill("Cleric_Common",0,2) && reserveLoadout.HeroProgress("Cleric_Common").SkillIndex(0)==2 && reserveLoadout.Party.Count==2 && reserveLoadout.ActiveIndex==reserveActive);
+  Check(!reserveLoadout.EquipHeroSkill("missing",0,2) && !reserveLoadout.EquipHeroSkill(null,0,2) && !reserveLoadout.EquipHeroSkill("Cleric_Common",-1,2) && !reserveLoadout.EquipHeroSkill("Cleric_Common",0,6) && !reserveLoadout.EquipHeroSkill("Cleric_Common",0,1));
+  var reserveReload=new Battle(true,enableWaves:true); Check(reserveReload.RestoreProgress(reserveLoadout.ExportProgress()) && reserveReload.HeroProgress("Cleric_Common").SkillIndex(0)==2);
+  Check(reserveLoadout.Attack() && !reserveLoadout.EquipHeroSkill("Cleric_Common",0,3));
+  Check(completeRewards.EquipHeroSkill("Knight_Common",0,2));
+  // Upgrade comparisons preserve all live resources and match the stats actually awarded.
+  var upgradePreview=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},20);
+  var upgradePreviewSave=upgradePreview.ExportProgress(); upgradePreviewSave.inventory=new[]{new GearStackData{id="Weapon_Rare_Physical",count=1}};
+  foreach(var loadout in upgradePreviewSave.loadouts) if(loadout.id=="Knight_Common") { loadout.level=5; loadout.experience=15; loadout.shards=20; loadout.gear=new[]{"Weapon_Rare_Physical",null,null}; loadout.talents=new[]{0,-1,-1}; }
+  Check(upgradePreview.RestoreProgress(upgradePreviewSave)); var previewMember=upgradePreview.HeroProgress("Knight_Common");
+  previewMember.Health=42; previewMember.Energy=50; previewMember.Guard=9;
+  int previewMemberPower=previewMember.Power; var higherQuality=upgradePreview.PreviewAscension("Knight_Common"); var higherLevel=upgradePreview.PreviewNextLevel("Knight_Common");
+  Check(higherQuality!=null && higherQuality.Quality==HeroQuality.Uncommon && higherQuality.Power>previewMemberPower && higherQuality.Shards==20);
+  Check(higherLevel!=null && higherLevel.Level==6 && higherLevel.Power>previewMemberPower && higherLevel.TalentChoice(0)==0 && higherLevel.Gear(GearSlot.Weapon).Id=="Weapon_Rare_Physical");
+  Check(previewMember.Health==42 && previewMember.Energy==50 && previewMember.Guard==9 && previewMember.Level==5 && previewMember.Experience==15 && previewMember.UpgradeRank==0 && previewMember.Shards==20 && previewMember.Power==previewMemberPower);
+  Check(upgradePreview.PreviewAscension(null)==null && upgradePreview.PreviewAscension("missing")==null && upgradePreview.PreviewNextLevel(null)==null);
+  upgradePreview.Reset(); Check(upgradePreview.UpgradeHero("Knight_Common") && previewMember.Power==higherQuality.Power && previewMember.Definition.MaxHealth==higherQuality.Definition.MaxHealth && previewMember.Ultimate.Damage==higherQuality.Ultimate.Damage);
+  var maxPreviewSave=upgradePreview.ExportProgress(); foreach(var loadout in maxPreviewSave.loadouts) if(loadout.id=="Knight_Common") { loadout.level=20; loadout.experience=0; loadout.upgradeRank=5; }
+  Check(upgradePreview.RestoreProgress(maxPreviewSave) && upgradePreview.PreviewAscension("Knight_Common")==null && upgradePreview.PreviewNextLevel("Knight_Common")==null);
+  // A boss killed by a counter cannot finish its party-wide strike against other heroes.
+  var counterCancel=PassiveBattle(44,new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"});
+  counterCancel.Enemies[0].Health=5; counterCancel.Enemies[0].CompletedStrikes=2; Check(counterCancel.SelectEnemy(1));
+  int counterSafety=0; while(counterCancel.Current==Phase.Player && counterSafety++<10) Check(counterCancel.Attack());
+  Check(counterSafety<10 && counterCancel.BeginStrike() && counterCancel.IncomingSkill.PartyWide && counterCancel.DefendHero(0,true,.12f) && counterCancel.Enemies[0].Health==0);
+  int otherHeroHealth=counterCancel.Party[2].Health; counterCancel.FinishStrike(); Check(counterCancel.Party[2].Health==otherHeroHealth);
+  foreach(int amount in counterCancel.LastIncomingDamage) Check(amount==0);
+  foreach(var hero in HeroDefinition.Catalog) if(hero.Class==HeroClass.Rogue && !hero.Ultimate.AreaDamage) Check(SkillPresentation.Ultimate(hero.Class,hero.Ultimate).Motion(hero.Class).SecondImpact==0);
   Console.WriteLine("PASS: " + count + " checks: party/recruitment, 36 skills, loadouts, rarity scaling, elements, defense, battle outcomes, enemy targeting, and simultaneous bosses.");
  }
 }

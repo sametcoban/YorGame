@@ -335,10 +335,15 @@ namespace Ashlight {
                 return true;
             }
         }
-        public bool EquipSkill(int slot, int skillIndex) {
-            if (!CanChangeParty || slot < 0 || slot > 1 || skillIndex < 0 || skillIndex >= Hero.Skills.Count) return false;
-            if (Active.SkillIndex(1 - slot) == skillIndex) return false;
-            Active.Equip(slot, skillIndex); return true;
+        public bool EquipSkill(int slot,int skillIndex) {
+            if(!CanChangeParty) return false;
+            return EquipHeroSkill(Active.Identity.Id,slot,skillIndex);
+        }
+        public bool EquipHeroSkill(string id,int slot,int skillIndex) {
+            if(id==null || (!campaign && id!=Active.Identity.Id) || (!CanChangeParty && !CampaignComplete) || slot<0 || slot>1) return false;
+            var member=campaign?HeroProgress(id):Active;
+            if(member==null || skillIndex<0 || skillIndex>=member.Definition.Skills.Count || member.SkillIndex(1-slot)==skillIndex) return false;
+            member.Equip(slot,skillIndex); return true;
         }
         public bool ReplaceActiveHero(HeroClass kind) {
             if (!CanChangeParty || !unlocked.Contains(kind)) return false;
@@ -351,7 +356,7 @@ namespace Ashlight {
             list.Sort((a,b)=> { int order=sort==CollectionSort.Level?b.CombatLevel.CompareTo(a.CombatLevel):sort==CollectionSort.Ascension?(b.UpgradeRank<5 && b.Shards>=b.UpgradeCost).CompareTo(a.UpgradeRank<5 && a.Shards>=a.UpgradeCost):b.Power.CompareTo(a.Power); if(order==0) order=b.Power.CompareTo(a.Power); if(order==0) order=string.CompareOrdinal(a.Identity.Name,b.Identity.Name); return order; }); return list;
         }
         static PartyHero PreviewCopy(PartyHero original,int factionBonus) {
-            var clone=new PartyHero(original.Identity); clone.Level=original.Level; clone.Experience=original.Experience; clone.UpgradeRank=original.UpgradeRank; clone.SharedLevel=original.SharedLevel; clone.FactionBonus=factionBonus;
+            var clone=new PartyHero(original.Identity); clone.Level=original.Level; clone.Experience=original.Experience; clone.Shards=original.Shards; clone.UpgradeRank=original.UpgradeRank; clone.SharedLevel=original.SharedLevel; clone.FactionBonus=factionBonus;
             for(int tier=0;tier<3;tier++) clone.SetTalent(tier,original.TalentChoice(tier));
             for(int slot=0;slot<3;slot++) clone.SetGear((GearSlot)slot,original.Gear((GearSlot)slot));
             for(int slot=0;slot<2;slot++) clone.Equip(slot,original.SkillIndex(slot)); clone.RefreshStats(); clone.Restore(); return clone;
@@ -501,6 +506,26 @@ namespace Ashlight {
             int used=0; foreach(var recruit in recruits) { var owner=HeroProgress(recruit.Id); if(owner!=null && owner.Gear(item.Slot)==item) used++; }
             return Math.Max(0,GearCount(itemId)-used);
         }
+        public PartyHero PreviewAscension(string id) {
+            var member=id==null?null:HeroProgress(id); if(member==null || member.UpgradeRank>=PartyHero.MaxUpgradeRank) return null;
+            var preview=PreviewCopy(member,member.FactionBonus); preview.UpgradeRank++; preview.RefreshStats(); return preview;
+        }
+        public PartyHero PreviewNextLevel(string id) {
+            var member=id==null?null:HeroProgress(id); if(member==null || member.Level>=PartyHero.MaxLevel) return null;
+            var preview=PreviewCopy(member,member.FactionBonus); preview.Level++; preview.Experience=0; preview.RefreshStats(); return preview;
+        }
+        int claimedMilestones;
+        public bool ChapterCleared(int chapter) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && encounter>=(chapter+1)*ChapterDefinition.StagesPerChapter; }
+        public bool MilestoneClaimed(int chapter) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && (claimedMilestones&(1<<chapter))!=0; }
+        public bool CanClaimMilestone(int chapter) { return campaign && !InTower && (CanChangeParty || CampaignComplete) && ChapterCleared(chapter) && !MilestoneClaimed(chapter); }
+        public int ReadyMilestones { get { int count=0; for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) if(CanClaimMilestone(chapter)) count++; return count; } }
+        public bool ClaimMilestone(int chapter) {
+            if(!CanClaimMilestone(chapter)) return false;
+            var reward=ChapterMilestone.For(chapter); claimedMilestones|=1<<chapter;
+            Crystals=Math.Min(1000000,Crystals+reward.Crystals);
+            foreach(var recruit in recruits) { var member=HeroProgress(recruit.Id); member.GainExperience(reward.Experience); member.Shards=Math.Min(1000000,member.Shards+reward.Shards); }
+            RefreshSharedLevels(); foreach(var recruit in recruits) HeroProgress(recruit.Id).Restore(); return true;
+        }
         public PartyHero PreviewGear(string heroId,GearSlot slot,string itemId) {
             if(heroId==null) return null;
             var member=HeroProgress(heroId);
@@ -548,7 +573,7 @@ namespace Ashlight {
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
@@ -567,11 +592,15 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
                 data.activeIndex < 0 || data.activeIndex >= data.party.Length) return false;
+            if(data.version>=14) {
+                int earned=(1<<(data.encounter/ChapterDefinition.StagesPerChapter))-1;
+                if(data.claimedMilestones<0 || (data.claimedMilestones&~earned)!=0) return false;
+            }
             if(data.version>=13 && (data.idleCrystalRemainder<0 || data.idleCrystalRemainder>=IdleCrystalInterval)) return false;
             if(data.version>=7 && (data.idleClaimTicks<=0 || data.idleClaimTicks>DateTime.MaxValue.Ticks || data.furthestStage<0 || data.furthestStage>ChapterDefinition.TotalStages)) return false;
             if(data.version>=2 && (data.crystals<0 || data.crystals>1000000 || data.rareMisses<0 || data.rareMisses>=Summoning.RareGuarantee || data.legendaryMisses<0 || data.legendaryMisses>=Summoning.LegendaryGuarantee)) return false;
@@ -678,6 +707,7 @@ namespace Ashlight {
             RareMisses=data.version==1?0:data.rareMisses; LegendaryMisses=data.version==1?0:data.legendaryMisses;
             idleClaimTicks=data.version>=7?data.idleClaimTicks:utcNow().Ticks;
             idleCrystalRemainder=data.version>=13?data.idleCrystalRemainder:0;
+            claimedMilestones=data.version>=14?data.claimedMilestones:0;
             furthestStage=data.version>=7?Math.Max(data.furthestStage,data.encounter):data.encounter;
             encounter = data.encounter; Reset(); ActiveIndex = Math.Min(data.activeIndex,party.Count-1);
             if (data.pendingVictory) {
@@ -939,7 +969,7 @@ namespace Ashlight {
             for(int i=0;i<Math.Min(FrontSlots,party.Count);i++) livingKnights[i]=party[i].Health>0 && party[i].Identity.Class==HeroClass.Knight;
             for(int i=0;i<party.Count;i++) {
                 var member=party[i];
-                if(IncomingSkill.Action!=EnemyAction.Attack || member.Health==0 || (!IncomingSkill.PartyWide && i!=ActiveIndex) || defendedHeroes[i]) continue;
+                if(attacker.Health==0 || IncomingSkill.Action!=EnemyAction.Attack || member.Health==0 || (!IncomingSkill.PartyWide && i!=ActiveIndex) || defendedHeroes[i]) continue;
                 int damage=IncomingSkill.Damage+(member.Status==Debuff.Shock?5:0);
                 bool resistant=IncomingSkill.Element!=Element.Physical && member.Identity.Affinity==IncomingSkill.Element;
                 if(resistant) damage=(int)Math.Ceiling(damage*.75f);

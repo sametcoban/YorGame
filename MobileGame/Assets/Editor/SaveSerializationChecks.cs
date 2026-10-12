@@ -24,13 +24,19 @@ public static class SaveSerializationChecks {
         fractionClock=fractionClock.AddMinutes(1);
         if(!fractionReload.ClaimIdleRewards() || fractionReload.Crystals!=301 || fractionReload.ExportProgress().idleCrystalRemainder!=0)
             throw new InvalidOperationException("Reload lost fractional idle crystals.");
+        var milestoneTest=new Battle(true); var milestoneSave=milestoneTest.ExportProgress(); milestoneSave.encounter=5;
+        if(!milestoneTest.RestoreProgress(milestoneSave) || !milestoneTest.ClaimMilestone(0)) throw new InvalidOperationException("Could not prepare chapter milestone fixture.");
+        var milestoneReload=RoundTrip(milestoneTest);
+        if(!milestoneReload.MilestoneClaimed(0) || milestoneReload.ClaimMilestone(0) || milestoneReload.Crystals!=milestoneTest.Crystals || milestoneReload.HeroProgress("Knight_Common").Shards!=5)
+            throw new InvalidOperationException("Chapter rewards changed or became claimable twice during serialization.");
         var sharedTest=new Battle(true); var sharedSave=sharedTest.ExportProgress();
         sharedSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common","Cleric_Common"};
         sharedSave.loadouts=new HeroLoadoutData[6];
         for(int i=0;i<6;i++) sharedSave.loadouts[i]=new HeroLoadoutData{id=sharedSave.recruited[i],secondSkill=1,level=i<5?15:1};
         if(!sharedTest.RestoreProgress(sharedSave) || !sharedTest.SetShared("Cleric_Common",true)) throw new InvalidOperationException("Could not prepare shared level fixture.");
+        if(!sharedTest.EquipHeroSkill("Cleric_Common",0,2)) throw new InvalidOperationException("Could not prepare reserve skill fixture.");
         var sharedRoundTrip=RoundTrip(sharedTest);
-        if(sharedRoundTrip.SharedCount!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").Level!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").CombatLevel!=15) throw new InvalidOperationException("Shared levels changed during Unity serialization.");
+        if(sharedRoundTrip.SharedCount!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").Level!=1 || sharedRoundTrip.HeroProgress("Cleric_Common").CombatLevel!=15 || sharedRoundTrip.HeroProgress("Cleric_Common").SkillIndex(0)!=2) throw new InvalidOperationException("Shared levels changed during Unity serialization.");
         var dailyClock=new DateTime(2026,10,11,12,0,0,DateTimeKind.Utc); var dailyTest=new Battle(true,utcNow:()=>dailyClock);
         var dailySave=dailyTest.ExportProgress(); dailySave.dailyProgress=new[]{3,1,1};
         if(!dailyTest.RestoreProgress(dailySave) || !dailyTest.ClaimDaily(0)) throw new InvalidOperationException("Could not prepare daily quest fixture.");
