@@ -404,7 +404,7 @@ namespace Ashlight {
             transitioningWave=true;
             message="WAVE "+(battle.WaveIndex+1)+" CLEARED — next wave incoming!";
             cue.text="WAVE CLEARED";
-            yield return new WaitForSeconds(skill.Action==EnemyAction.Interrupted?.25f:1.2f);
+            yield return new WaitForSeconds(1.2f);
             if(battle.AdvanceWave()) {
                 effects.Clear(); CreateEnemy();
                 for(int i=0;i<foeAttackAt.Length;i++) foeAttackAt[i]=-10;
