@@ -32,9 +32,11 @@ The report contains the build tag, runtime/device model/OS, screen resolution, s
 - [ ] Story, suggestions, portraits, summon summaries, feedback fields and overlays fit the target screen.
 - [ ] Story and modal screens block combat actions; recommendation previews spend nothing.
 - [ ] Pending results, summon batches, milestones and daily boss rewards survive reload without duplicate claims.
-- [ ] An existing version-17 save migrates without losing heroes, Wishlist, gear upgrades, records or progress.
+- [ ] An existing version-18 save migrates without losing heroes, Wishlist, gear upgrades, records or progress.
 - [ ] iPhone Safari or the target browser has working controls, saving, clipboard fallback, audio after backgrounding and acceptable sustained battle performance.
 - [ ] Android candidate is checked on a device or emulator before Android distribution.
 - [ ] Record and resolve blocking crashes, lost saves and unreadable controls; list remaining known issues with the candidate.
 
 The cloud model checks support development, but do not replace these build/device gates. Testing and distribution remain pending until those capabilities are available.
+
+The second preparation update adds Sets, Bonds and Weekly Challenges. Include their playtest checklist before distributing `ashlight-beta-prep-2`; device gates remain pending.

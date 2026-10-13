@@ -73,8 +73,10 @@ namespace Ashlight {
         }
         public bool FinishDailyBoss(Battle run,out bool rewarded) {
             rewarded=false;
+            if(run!=null && run.IsWeeklyTrial) return FinishWeeklyTrial(run,out rewarded);
             if(run==null || run.bossOwner!=this || run.runClaimed || (run.Current!=Phase.Lost && run.Current!=Phase.Won)) return false;
             run.runClaimed=true;
+            if(run.DailyBossScore>0) { RecordDaily(0); RecordBonds(run.Party); }
             foreach(var key in run.discoveredEnemies) discoveredEnemies.Add(key);
             var fought=new EnemyGuideEntry(run.bossEncounter,run.Enemy); if(EnemyGuideEntry.Find(fought.Key)!=null) discoveredEnemies.Add(fought.Key);
             bossRecords[run.bossIndex]=Math.Max(bossRecords[run.bossIndex],run.DailyBossScore);

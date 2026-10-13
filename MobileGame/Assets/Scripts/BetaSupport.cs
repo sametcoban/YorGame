@@ -35,17 +35,18 @@ namespace Ashlight {
         }
     }
     public static class BetaSupport {
-        public const string BuildTag="ashlight-beta-prep-1";
+        public const string BuildTag="ashlight-beta-prep-2";
         public static string Feedback(ProgressData progress,string category,string notes,string runtime,DateTime time) {
             var report=new StringBuilder();
             report.AppendLine("ASHLIGHT PLAYTEST REPORT · "+BuildTag).AppendLine("UTC: "+time.ToUniversalTime().ToString("u"));
             report.AppendLine("Category: "+category).AppendLine("Runtime: "+runtime);
             report.AppendLine("Save version: "+progress.version+" · Stage index: "+progress.encounter+" · Tower: "+progress.inTower+" / "+progress.towerFloor);
             report.AppendLine("Crystals: "+progress.crystals+" · Materials: "+progress.forgeMaterials+" · Rare/Legendary misses: "+progress.rareMisses+" / "+progress.legendaryMisses);
+            report.AppendLine("Daily claim UTC ticks: "+progress.bossClaimDay+" · Weekly claim UTC ticks: "+progress.weeklyClaim);
             report.AppendLine("Wishlist: "+string.Join(", ",progress.wishlist));
             report.AppendLine("Formation: "+string.Join(", ",progress.party));
             foreach(var id in progress.party) foreach(var hero in progress.loadouts) if(hero.id==id) {
-                report.AppendLine(id+" · own Lv "+hero.level+" · rank "+hero.upgradeRank+" · skills "+hero.firstSkill+", "+hero.secondSkill+" · talents "+string.Join(", ",Array.ConvertAll(hero.talents,n=>n.ToString())));
+                report.AppendLine(id+" · own Lv "+hero.level+" · rank "+hero.upgradeRank+" · bond participations "+hero.bondBattles+" · skills "+hero.firstSkill+", "+hero.secondSkill+" · talents "+string.Join(", ",Array.ConvertAll(hero.talents,n=>n.ToString())));
                 report.AppendLine("Gear: "+string.Join(", ",hero.gear??new string[0]));
             }
             foreach(var gear in progress.enhancements) report.AppendLine("Forged: "+gear.id+" +"+gear.level);

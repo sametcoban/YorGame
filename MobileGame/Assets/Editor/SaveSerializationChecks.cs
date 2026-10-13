@@ -13,6 +13,11 @@ public static class SaveSerializationChecks {
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
         var battle=new Battle(true); var fresh=RoundTrip(battle);
+        var seasonal=new Battle(true); var seasonalSave=seasonal.ExportProgress(); seasonalSave.loadouts[0].bondBattles=10;
+        seasonalSave.weeklyClock=new DateTime(2026,10,19,0,0,0,DateTimeKind.Utc).Ticks; seasonalSave.weeklyClaim=seasonalSave.weeklyClock; seasonalSave.weeklyRecords=new[]{123,234,345};
+        if(!seasonal.RestoreProgress(seasonalSave)) throw new InvalidOperationException("Could not prepare weekly/bond fixture.");
+        var seasonalReload=RoundTrip(seasonal);
+        if(seasonalReload.Party[0].BondBattles!=10 || seasonalReload.WeeklyBest(0)!=123 || seasonalReload.WeeklyBest(2)!=345 || seasonalReload.ExportProgress().weeklyClaim!=seasonalSave.weeklyClaim) throw new InvalidOperationException("Weekly records or bonds changed during Unity serialization.");
         var storySeen=new Battle(true);
         if(!storySeen.MarkStorySeen(0,false) || !RoundTrip(storySeen).StorySeen(0,false) || RoundTrip(storySeen).StorySeen(0,true)) throw new InvalidOperationException("Campaign scene flags changed during Unity serialization.");
         var activities=new Battle(true); var activitiesSave=activities.ExportProgress(); activitiesSave.encounter=10;

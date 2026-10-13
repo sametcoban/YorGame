@@ -14,9 +14,9 @@ namespace Ashlight {
         void CreateActivitiesScreens() {
             activitiesRoot=ScreenRoot("Activities");
             Label(activitiesRoot.transform,"ACTIVITIES",new Vector2(.05f,.86f),new Vector2(.95f,.98f),34);
-            activitiesInfo=Label(activitiesRoot.transform,"",new Vector2(.05f,.42f),new Vector2(.95f,.83f),25);
-            bossStart=ScreenButton(activitiesRoot.transform,"DAILY BOSS",.05f,.25f,.48f,.39f,StartBossChallenge);
-            ScreenButton(activitiesRoot.transform,"ENEMY GUIDE",.52f,.25f,.95f,.39f,()=> { guidePage=0; guideRoot.SetActive(true); guideRoot.transform.SetAsLastSibling(); guideDetail.text="Fight enemies to reveal their abilities and counters."; RefreshGuide(); });
+            activitiesInfo=Label(activitiesRoot.transform,"",new Vector2(.05f,.59f),new Vector2(.95f,.83f),21);
+            bossStart=ScreenButton(activitiesRoot.transform,"DAILY BOSS",.05f,.25f,.34f,.39f,StartBossChallenge);
+            ScreenButton(activitiesRoot.transform,"ENEMY GUIDE",.365f,.25f,.635f,.39f,()=> { guidePage=0; guideRoot.SetActive(true); guideRoot.transform.SetAsLastSibling(); guideDetail.text="Fight enemies to reveal their abilities and counters."; RefreshGuide(); });
             ScreenButton(activitiesRoot.transform,"REPLAY CHAPTER SCENE",.05f,.135f,.48f,.225f,ReplayCurrentStory);
             ScreenButton(activitiesRoot.transform,"FIRST JOURNEY",.52f,.135f,.95f,.225f,OpenBetaOpening);
             ScreenButton(activitiesRoot.transform,"FEEDBACK",.365f,.025f,.635f,.115f,OpenFeedback);
@@ -45,6 +45,7 @@ namespace Ashlight {
         void OpenActivities() {
             if(!atChapters) return;
             activitiesInfo.text="DAILY BOSS · "+battle.DailyBossName+"\nPersonal best · "+battle.DailyBossBest(battle.DailyBossIndex)+" damage\nEight rounds · Uses your current formation\n"+(battle.DailyBossRewardAvailable?"First completed attempt with damage: +35 crystals and +30 materials.":"Today's reward claimed · Replay to improve your score.")+"\nResets at 00:00 UTC · Unlocked on reaching chapter 3\n\nENEMY GUIDE · "+battle.DiscoveredEnemies.Length+" / "+EnemyGuideEntry.Catalog.Count+" enemy variants discovered";
+            activitiesWeekly.text=WeeklyHeading(battle.WeeklyIndex)+"\n"+Battle.WeeklyRules(battle.WeeklyIndex)+"\nUnlocks at chapter 4 · One clear reward per UTC week";
             bossStart.interactable=battle.CanStartDailyBoss; activitiesRoot.SetActive(true); activitiesRoot.transform.SetAsLastSibling(); SaveProgress();
         }
         void OpenUpgradeGuidance(string id) {
@@ -79,7 +80,8 @@ namespace Ashlight {
             if(bossReported || campaignBattle==null) return;
             bool rewarded; if(!campaignBattle.FinishDailyBoss(battle,out rewarded)) return;
             bossReported=true; autoPlay=false; Time.timeScale=1; SaveProgress();
-            bossReport.text="DAILY BOSS COMPLETE\n"+battle.Enemy.Name+"\n\nDAMAGE · "+battle.DailyBossScore+"\nPersonal best · "+campaignBattle.DailyBossBest(battle.RunBossIndex)+"\nEnemy rounds completed · "+battle.DailyBossRounds+" / 8\n\n"+(rewarded?"+35 CRYSTALS · +30 FORGE MATERIALS":battle.DailyBossScore==0?"No damage recorded · No reward earned":"Daily reward already claimed · Score saved")+"\n"+saveNotice;
+            bool weekly=battle.IsWeeklyTrial; string rewardText=rewarded?(weekly?"+150 CRYSTALS · +150 MATERIALS · +5 HERO SHARDS EACH":"+35 CRYSTALS · +30 MATERIALS"):weekly?(!battle.WeeklyGoalMet?"Goal not met · Survive 8 rounds or defeat the boss":"Weekly reward already claimed"):battle.DailyBossScore==0?"No damage · No reward":"Daily reward already claimed";
+            bossReport.text=(weekly?(battle.WeeklyGoalMet?"WEEKLY CLEAR":"WEEKLY ATTEMPT COMPLETE"):"DAILY BOSS COMPLETE")+"\n"+battle.Enemy.Name+"\n\nDAMAGE · "+battle.DailyBossScore+"\nPersonal best · "+(weekly?campaignBattle.WeeklyBest(battle.TrialIndex):campaignBattle.DailyBossBest(battle.RunBossIndex))+"\nEnemy rounds completed · "+battle.DailyBossRounds+" / 8\n\n"+rewardText+"\n"+saveNotice;
             foreach(var hero in battle.Party) bossReport.text+="\n"+hero.Identity.Name+" · "+hero.EncounterDamage+" damage · "+hero.EncounterHealing+" healing";
             bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling();
         }

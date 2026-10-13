@@ -16,7 +16,7 @@ namespace Ashlight {
         GameObject ScreenRoot(string name) {
             var root=new GameObject(name,typeof(RectTransform),typeof(Image)); root.transform.SetParent(safe,false);
             var rect=root.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            root.GetComponent<Image>().color=new Color(.025f,.035f,.055f,.99f); return root;
+            root.GetComponent<Image>().color=MenuPalette.Surface; return root;
         }
         Button ScreenButton(Transform root,string text,float left,float bottom,float right,float top,UnityEngine.Events.UnityAction action) {
             var button=MakeButton(root,text,left,right,action); PlaceGearControl(button,left,bottom,right,top); return button;
@@ -49,7 +49,7 @@ namespace Ashlight {
         }
         void CloseHubPanels() {
             managementHero=null;
-            foreach(var root in new[]{homeRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{homeRoot,setGuideRoot,bondsRoot,weeklyRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;

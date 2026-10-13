@@ -2,6 +2,20 @@ using System;
 using System.Collections.Generic;
 namespace Ashlight {
     public enum GearSlot { Weapon, Armor, Accessory }
+    public static class GearSets {
+        public static string Name(Element element) { return new[]{"Bastion","Ember","Rime","Venom","Tempest","Radiance"}[(int)element]; }
+        public static string Bonus(Element element,int pieces) {
+            if(pieces<2) return "2 matching pieces unlock a bonus";
+            switch(element) {
+                case Element.Physical:return "+5% max HP"+(pieces==3?" · +2 armor":"");
+                case Element.Fire:return "+"+(pieces==3?15:5)+"% Fire damage";
+                case Element.Cold:return "+5% max HP"+(pieces==3?" · +10% Cold damage":"");
+                case Element.Poison:return "+5% Poison damage"+(pieces==3?" · Rogue critical chance +5 percentage points":"");
+                case Element.Lightning:return "+5% Lightning damage"+(pieces==3?" · +10 energy per action":"");
+                default:return "+5% max HP"+(pieces==3?" · +10% skill healing":"");
+            }
+        }
+    }
     public sealed class GearDefinition {
         public readonly string Id, Name;
         public readonly GearSlot Slot;
@@ -27,7 +41,7 @@ namespace Ashlight {
             if(enhanced==null) enhanced=new GearDefinition[MaxEnhancement+1];
             return enhanced[level]??(enhanced[level]=new GearDefinition(Slot,Quality,Element,level));
         }
-        public string Description { get { return Quality+" "+Name+" · "+(Slot==GearSlot.Weapon?"Attack +"+Attack+", skill/ultimate damage +"+SkillDamage:Slot==GearSlot.Armor?"HP +"+Health+", protection "+Protection:Element+" damage +"+Math.Round(ElementBoost*100)+"%"); } }
+        public string Description { get { return Quality+" "+Name+" · "+(Slot==GearSlot.Weapon?"Attack +"+Attack+", skill/ultimate damage +"+SkillDamage:Slot==GearSlot.Armor?"HP +"+Health+", protection "+Protection:Element+" damage +"+Math.Round(ElementBoost*100)+"%")+" · "+GearSets.Name(Element)+" set"; } }
         static readonly IReadOnlyList<GearDefinition> catalog=Build();
         public static IReadOnlyList<GearDefinition> Catalog { get { return catalog; } }
         static IReadOnlyList<GearDefinition> Build() {

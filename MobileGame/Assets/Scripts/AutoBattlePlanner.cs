@@ -50,8 +50,8 @@ namespace Ashlight {
                 if(foe.ExposedRounds>0) score=(float)System.Math.Ceiling(score*1.2f);
                 if(battle.EnemyProtected(battle.SelectedEnemyIndex) && hero.Identity.Class!=HeroClass.Rogue) score=(float)System.Math.Ceiling(score*.8);
                 if (skill.PartyHealing) {
-                    foreach (var ally in battle.Party) if (ally.Health>0) score+=System.Math.Min(skill.Healing,ally.Definition.MaxHealth-ally.Health);
-                } else score+=System.Math.Min(skill.Healing,hero.Definition.MaxHealth-hero.Health);
+                    foreach (var ally in battle.Party) if (ally.Health>0) score+=System.Math.Min((int)System.Math.Ceiling(skill.Healing*hero.HealingMultiplier*battle.SkillHealingRule),ally.Definition.MaxHealth-ally.Health);
+                } else score+=System.Math.Min((int)System.Math.Ceiling(skill.Healing*hero.HealingMultiplier*battle.SkillHealingRule),hero.Definition.MaxHealth-hero.Health);
                 if((skill.Utility&SkillUtility.PartyShield)!=0) {
                     foreach(var ally in battle.Party) if(ally.Health>0) score+=System.Math.Max(0,skill.Guard-ally.Guard)*.5f;
                 } else score+=System.Math.Max(0,skill.Guard-hero.Guard)*.5f;

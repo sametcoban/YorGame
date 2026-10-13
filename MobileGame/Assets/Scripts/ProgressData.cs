@@ -5,7 +5,7 @@ namespace Ashlight {
         public string id;
         public int firstSkill, secondSkill;
         public int level = 1;
-        public int experience, upgradeRank, shards;
+        public int experience, upgradeRank, shards, bondBattles;
         public string[] gear;
         public int[] talents={-1,-1,-1};
     }
@@ -17,7 +17,9 @@ namespace Ashlight {
     public sealed class GearEnhancementData { public string id; public int level; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 18;
+        public int version = 19;
+        public long weeklyClock, weeklyClaim;
+        public int[] weeklyRecords=new int[3];
         public int seenStories;
         public string[] discoveredEnemies=new string[0];
         public long bossClockDay, bossClaimDay;

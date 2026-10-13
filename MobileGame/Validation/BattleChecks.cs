@@ -257,10 +257,102 @@ class BattleChecks {
   var fresh=new Battle(true); var bad=fresh.ExportProgress(); bad.seenStories=1<<12; Check(!fresh.RestoreProgress(bad) && !fresh.StorySeen(0,false));
   Check(fresh.OpeningChecklist.Contains("[NEXT] Claim your first stage victory") && !fresh.MarkStorySeen(1,false));
   var report=BetaSupport.Feedback(fresh.ExportProgress(),"Bug","Attack button overlaps", "Test runtime",new DateTime(2026,10,16,0,0,0,DateTimeKind.Utc));
-  Check(report.Contains(BetaSupport.BuildTag) && report.Contains("Attack button overlaps") && report.Contains("Knight_Common") && report.Contains("Stage index: 0") && report.Contains("Save version: 18"));
+  Check(report.Contains(BetaSupport.BuildTag) && report.Contains("Attack button overlaps") && report.Contains("Knight_Common") && report.Contains("Stage index: 0") && report.Contains("Save version: 19"));
   Check(fresh.Crystals==300 && fresh.Encounter==0);
  }
+ static void SeasonalChecks() {
+  foreach(Element element in Enum.GetValues(typeof(Element))) {
+   var hero=new PartyHero(HeroClass.Knight); int baseHealth=hero.Definition.MaxHealth;
+   hero.SetGear(GearSlot.Weapon,GearDefinition.Find("Weapon_Common_"+element));
+   Check(hero.SetPieces(element)==1 && hero.SetSummary.Contains("No active"));
+   hero.SetGear(GearSlot.Armor,GearDefinition.Find("Armor_Legendary_"+element));
+   Check(hero.SetPieces(element)==2 && hero.SetSummary.Contains(GearSets.Name(element)) && hero.EnergyGain==25);
+   if(element==Element.Physical || element==Element.Cold || element==Element.Light) Check(hero.Definition.MaxHealth==((baseHealth+100)*105+99)/100);
+   hero.SetGear(GearSlot.Accessory,GearDefinition.Find("Accessory_Uncommon_"+element));
+   Check(hero.SetPieces(element)==3 && hero.SetSummary.Contains("3/3"));
+   if(element==Element.Physical) Check(hero.Protection==12);
+   if(element==Element.Fire) Check(Math.Abs(hero.DamageBoost(element)-1.27)<.00001);
+   if(element==Element.Cold) Check(Math.Abs(hero.DamageBoost(element)-1.22)<.00001);
+   if(element==Element.Lightning) Check(hero.EnergyGain==35);
+   if(element==Element.Light) Check(Math.Abs(hero.HealingMultiplier-1.1)<.00001);
+   hero.SetGear(GearSlot.Accessory,null); Check(hero.SetPieces(element)==2 && hero.EnergyGain==25 && hero.Protection==10);
+   hero.SetGear(GearSlot.Armor,null); Check(hero.SetPieces(element)==1 && hero.Definition.MaxHealth==baseHealth);
+  }
+  var rogue=new PartyHero(HeroClass.Rogue); foreach(GearSlot slot in Enum.GetValues(typeof(GearSlot))) rogue.SetGear(slot,GearDefinition.Find(slot+"_Common_Poison")); Check(Math.Abs(rogue.CriticalChance-.30)<.00001);
+  foreach(var hero in HeroDefinition.Catalog) {
+   var companion=HeroBonds.Companion(hero); Check(companion!=null && companion.Id!=hero.Id && companion.Faction==hero.Faction);
+   for(int chapter=0;chapter<3;chapter++) Check(HeroBonds.Story(hero,chapter).Contains(hero.Name));
+  }
+  var bond=new Battle(true); bond.Enemies[0].Health=1; Check(bond.Attack() && bond.Party[0].BondBattles==0 && bond.ContinueAfterVictory() && bond.Party[0].BondBattles==1 && !bond.ContinueAfterVictory());
+  var bonds=FactionBattle(new[]{"Knight_Common","Paladin_Common"},15); var bondSave=bonds.ExportProgress();
+  foreach(var loadout in bondSave.loadouts) { if(loadout.id=="Knight_Common") loadout.bondBattles=10; if(loadout.id=="Paladin_Common") loadout.bondBattles=3; }
+  Check(bonds.RestoreProgress(bondSave) && bonds.BondUnlocked("Knight_Common",2) && bonds.BondUnlocked("Paladin_Common",1));
+  int power=bonds.TeamPower, wallet=bonds.Crystals; HeroBonds.Story(bonds.Party[0].Identity,2); Check(bonds.TeamPower==power && bonds.Crystals==wallet);
+  var badBond=bonds.ExportProgress(); badBond.loadouts[0].bondBattles=-1; Check(!bonds.RestoreProgress(badBond) && bonds.Party[0].BondBattles==10);
+  var legacy=bonds.ExportProgress(); legacy.version=18; Check(bonds.RestoreProgress(legacy) && bonds.Party[0].BondBattles==0);
+  for(int rotation=0;rotation<3;rotation++) {
+   var now=new DateTime(2026,10,19,0,0,0,DateTimeKind.Utc).AddDays(rotation*7);
+   var owner=new Battle(true,enableClassPassives:true,enableFactions:true,utcNow:()=>now); var saved=owner.ExportProgress(); saved.encounter=15;
+   saved.loadouts[0].level=20; Check(owner.RestoreProgress(saved)); int index=owner.WeeklyIndex;
+   var run=owner.StartWeeklyTrial(); Check(run!=null && run.IsWeeklyTrial && run.Party.Count==owner.Party.Count && run.WaveCount==1 && !run.CanChangeParty && run.RecommendTeam()==null);
+   Check(index==run.TrialIndex && (index!=2 || run.Enemies[0].Shield==80) && (index!=1 || run.SkillHealingRule==.5));
+   if(index==0) { run.Party[0].Status=Debuff.Poison; run.Party[0].StatusRounds=2; }
+   int steps=0;
+   while(run.Current!=Phase.Won && run.Current!=Phase.Lost && steps++<100) {
+    if(run.Current==Phase.Player) Check(run.Attack());
+    else if(run.Current==Phase.EnemyWindup) {
+     run.BeginStrike(); if(run.IncomingSkill.Action==EnemyAction.Attack) run.Defend(true,.1f);
+     int shield=run.Enemies[0].Shield; bool attack=run.IncomingSkill.Action==EnemyAction.Attack; run.FinishStrike();
+     if(index==0 && run.DailyBossRounds==1) Check(run.LastStatusDamage[0]==12);
+     if(index==2 && attack && run.Current!=Phase.Won) Check(run.Enemies[0].Shield==Math.Min(80,shield+20));
+    }
+   }
+   Check(run.DailyBossRounds<=8 && run.WeeklyGoalMet && run.DailyBossScore>0);
+   int crystals=owner.Crystals,materials=owner.ForgeMaterials,beforeShards=owner.Party[0].Shards;
+   bool rewarded; Check(owner.FinishDailyBoss(run,out rewarded) && rewarded && owner.Crystals==crystals+150 && owner.ForgeMaterials==materials+150 && owner.Party[0].Shards==beforeShards+5 && owner.Party[0].BondBattles==1);
+   Check(!owner.FinishDailyBoss(run,out rewarded) && !rewarded && !owner.WeeklyRewardAvailable && owner.Encounter==15 && owner.Party[0].Health==owner.Party[0].Definition.MaxHealth);
+   var replay=owner.StartWeeklyTrial(); replay.Enemies[0].Shield=0; replay.Enemies[0].Health=1; Check(replay.Attack() && replay.WeeklyGoalMet);
+   int replayWallet=owner.Crystals; Check(owner.FinishDailyBoss(replay,out rewarded) && !rewarded && owner.Crystals==replayWallet);
+   if(run.Current==Phase.Lost && run.DailyBossRounds==8) { run.Party[0].Health=0; Check(!run.WeeklyGoalMet); }
+   var reload=new Battle(true,utcNow:()=>now); Check(reload.RestoreProgress(owner.ExportProgress()) && !reload.WeeklyRewardAvailable && reload.WeeklyBest(index)==run.DailyBossScore);
+   now=now.AddDays(-7); Check(!reload.WeeklyRewardAvailable && reload.WeeklyIndex==index); now=now.AddDays(14); Check(reload.WeeklyRewardAvailable && reload.WeeklyIndex==(index+1)%3);
+   var corrupt=owner.ExportProgress(); corrupt.weeklyClock++; Check(!reload.RestoreProgress(corrupt));
+   corrupt=owner.ExportProgress(); corrupt.weeklyRecords=new[]{-1,0,0}; Check(!reload.RestoreProgress(corrupt));
+   var failed=owner.StartWeeklyTrial(); failed.Attack(); failed.Party[0].Health=0; if(failed.Current==Phase.EnemyWindup) { failed.BeginStrike(); failed.FinishStrike(); }
+   Check(!failed.WeeklyGoalMet && owner.FinishDailyBoss(failed,out rewarded) && !rewarded);
+   var old=owner.ExportProgress(); old.version=18; Check(reload.RestoreProgress(old) && reload.WeeklyBest(index)==0 && reload.WeeklyRewardAvailable);
+   if(index==1) {
+    var healOwner=new Battle(true,utcNow:()=>now); var healSave=healOwner.ExportProgress(); healSave.encounter=15;
+    // Return to the restoration week after the clock checks above.
+    now=now.AddDays(-7);
+    healSave.recruited=new[]{"Knight_Common","Cleric_Common"}; healSave.party=new[]{"Cleric_Common"}; healSave.loadouts=new[]{new HeroLoadoutData{id="Knight_Common",secondSkill=1},new HeroLoadoutData{id="Cleric_Common",secondSkill=1,level=10}};
+    Check(healOwner.RestoreProgress(healSave)); var limited=healOwner.StartWeeklyTrial(); Check(limited.TrialIndex==1);
+    var healer=limited.Party[0]; healer.Health=1; int expected=(int)Math.Ceiling(healer.Skill(0).Healing*healer.HealingMultiplier*.5);
+    Check(limited.UseAbility(0) && healer.Health==1+expected);
+   }
+   var trialClock=new DateTime(2026,10,19,0,0,0,DateTimeKind.Utc).AddDays(rotation*7);
+   var developed=FactionBattle(new[]{"Knight_Legendary","Paladin_Legendary","Sorceress_Legendary","Ranger_Legendary","Cleric_Legendary"},20).ExportProgress();
+   foreach(var loadout in developed.loadouts) loadout.level=10;
+   var teamOwner=new Battle(true,enableClassPassives:true,enableFactions:true,utcNow:()=>trialClock); Check(teamOwner.RestoreProgress(developed)); int clears=0;
+   for(int sample=0;sample<10;sample++) {
+    var attempt=teamOwner.StartWeeklyTrial(); var rng=new Random(90000+rotation*10+sample); int actions=0;
+    while(attempt.Current!=Phase.Won && attempt.Current!=Phase.Lost && actions++<300) {
+     if(attempt.Current==Phase.Player) { int skill=AutoBattlePlanner.ChooseSkill(attempt); if(!(skill<0?attempt.Attack():attempt.UseAbility(skill))) throw new Exception("Weekly auto action rejected"); }
+     else if(attempt.Current==Phase.EnemyWindup) {
+      attempt.BeginStrike(); if(attempt.IncomingSkill.Action==EnemyAction.Attack) for(int i=0;i<attempt.Party.Count;i++) if(attempt.Party[i].Health>0 && (attempt.IncomingSkill.PartyWide || i==attempt.ActiveIndex)) {
+       var defense=AutoBattlePlanner.RollDefense(attempt.Party[i].Identity.Class,rng.NextDouble()); if(defense!=DefenseOutcome.Miss) attempt.DefendHero(i,defense==DefenseOutcome.Parry,defense==DefenseOutcome.Parry?.12f:.26f);
+      }
+      attempt.FinishStrike();
+     } else throw new Exception("Unexpected weekly phase");
+    }
+    Check((attempt.Current==Phase.Won || attempt.Current==Phase.Lost) && attempt.DailyBossRounds<=8 && attempt.DailyBossScore>0);
+    if(attempt.WeeklyGoalMet) clears++;
+   }
+   Check(clears>=9);
+  }
+ }
  static void Main() {
+  SeasonalChecks();
   BetaPreparationChecks();
   ActivitiesChecks();
   WishlistChecks();
@@ -550,7 +642,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==18);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==19);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -866,7 +958,7 @@ class BattleChecks {
   var gearSave=gearBattle.ExportProgress(); gearSave.recruited=new[]{"Knight_Common","Paladin_Common"}; gearSave.loadouts=new[]{gearSave.loadouts[0],new HeroLoadoutData{id="Paladin_Common",secondSkill=1}}; gearSave.inventory=new[]{new GearStackData{id=weaponId,count=1},new GearStackData{id=armorId,count=1},new GearStackData{id=sigilId,count=1}};
   Check(gearBattle.RestoreProgress(gearSave));
   Check(gearBattle.EquipGear("Knight_Common",GearSlot.Armor,armorId) && gearBattle.EquipGear("Knight_Common",GearSlot.Accessory,sigilId));
-  Check(gearBattle.Party[0].Health==120 && gearBattle.Party[0].Protection==2 && Math.Abs(gearBattle.Party[0].DamageBoost(Element.Fire)-1.06f)<.001f);
+  Check(gearBattle.Party[0].Health==126 && gearBattle.Party[0].Protection==2 && Math.Abs(gearBattle.Party[0].DamageBoost(Element.Fire)-1.06f)<.001f);
   Check(gearBattle.Party[0].DamageBoost(Element.Cold)==1);
   int gearEnemyBefore=gearBattle.EnemyHealth; Check(gearBattle.Attack());
   Check(gearEnemyBefore-gearBattle.EnemyHealth==(int)Math.Ceiling(gearBattle.Enemy.Damage(31,Element.Fire)*1.06f));
@@ -1297,7 +1389,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==18 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==19 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1403,7 +1495,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==18);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==19);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1773,7 +1865,7 @@ class BattleChecks {
   var tiedGearSave=bestReload.ExportProgress();
   var tiedInventory=new System.Collections.Generic.List<GearStackData>(tiedGearSave.inventory); tiedInventory.Add(new GearStackData{id="Weapon_Epic_Poison",count=1}); tiedGearSave.inventory=tiedInventory.ToArray();
   foreach(var loadout in tiedGearSave.loadouts) if(loadout.id=="Knight_Common") loadout.gear[0]="Weapon_Epic_Poison";
-  Check(bestReload.RestoreProgress(tiedGearSave) && !bestReload.EquipBestGear("Knight_Common") && bestReload.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Epic_Poison");
+  Check(bestReload.RestoreProgress(tiedGearSave) && bestReload.EquipBestGear("Knight_Common") && bestReload.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Epic_Fire");
   var elementGear=PassiveBattle(10,new[]{"Sorceress_Common"}); var elementGearSave=elementGear.ExportProgress();
   foreach(var loadout in elementGearSave.loadouts) if(loadout.id=="Sorceress_Common") { loadout.firstSkill=2; loadout.secondSkill=3; }
   elementGearSave.inventory=new[]{new GearStackData{id="Accessory_Common_Cold",count=1},new GearStackData{id="Accessory_Legendary_Lightning",count=1}};
@@ -1887,7 +1979,7 @@ class BattleChecks {
   invalidMilestones.claimedMilestones=-1; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   invalidMilestones.claimedMilestones=4096; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   var previousMilestones=chapterRewards.ExportProgress(); previousMilestones.version=13; previousMilestones.claimedMilestones=4096;
-  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==18 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
+  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==19 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
   Check(chapterRewardReload.Attack() && !chapterRewardReload.ClaimMilestone(0));
   var completeRewards=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},59);
   var completeRewardSave=completeRewards.ExportProgress(); completeRewardSave.encounter=60; completeRewardSave.crystals=999999;

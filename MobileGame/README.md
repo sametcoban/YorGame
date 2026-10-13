@@ -129,7 +129,7 @@ The engine-independent combat model passes 1,513 checks covering party turns, th
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/Battle.Activities.cs Assets/Scripts/Battle.Recommendations.cs Assets/Scripts/BetaSupport.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Assets/Scripts/ChapterStageDefinition.cs Assets/Scripts/SkillPresentation.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/Battle.Activities.cs Assets/Scripts/Battle.Recommendations.cs Assets/Scripts/Battle.Seasonal.cs Assets/Scripts/BetaSupport.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Assets/Scripts/ChapterStageDefinition.cs Assets/Scripts/SkillPresentation.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -796,3 +796,26 @@ Summon results now show the existing named hero portraits, stronger Epic/Legenda
 **Home → Activities** now contains Tutorial, First Journey and Feedback, keeping these controls clear of the Home Activities button. First Journey shows the opening milestones, including the free story ally and talent choice; summoning is optional. The final introductory tutorial can complete after clearing chapter 1 without summoning, and Tutorial replay steps through all five cards. Feedback offers categories, a saved local notes draft, a generated report and a Copy button. Reports include build tag, runtime/device model/OS, resolution, session-average FPS, save status, stage/Tower, formation, skills, talents, gear upgrades and summon guarantee counters. They include no device identifiers and are never sent automatically. If clipboard support is unavailable, select the report field to copy manually. Session-average FPS includes menus and is not a measured battle benchmark.
 
 The [closed beta checklist](Validation/ClosedBetaChecklist.md) records the opening route, feedback procedure and release gates. Phone testing remains pending as requested; these changes do not establish device or store readiness. Update by copying the entire **Assets/Scripts** and **Assets/Editor** folders, including **Battle.Recommendations.cs**, **BetaSupport.cs** and **Prototype.Beta.cs**. Existing art/portraits are reused.
+
+## Equipment sets, hero bonds and weekly challenges
+
+Gear now belongs to one of six sets based on its existing element. Matching two or three distinct slots activates a bonus; mixed rarities and forged copies count. IDs, inventories and existing enhancements remain unchanged. Three-piece descriptions include the two-piece effect, and only one set can be active on a three-slot hero.
+
+| Set | Two pieces | Three pieces, total effects |
+| --- | --- | --- |
+| Bastion / Physical | +5% maximum HP | +5% HP and +2 armor |
+| Ember / Fire | +5% Fire damage | +15% Fire damage |
+| Rime / Cold | +5% maximum HP | +5% HP and +10% Cold damage |
+| Venom / Poison | +5% Poison damage | +5% Poison damage and +5 percentage points to Rogue critical chance |
+| Tempest / Lightning | +5% Lightning damage | +5% Lightning damage and +10 energy per action |
+| Radiance / Light | +5% maximum HP | +5% HP and +10% skill healing |
+
+Element damage bonuses add to accessory boosts. HP applies after other existing HP bonuses. Radiance's healing bonus multiplies talent healing and affects skills only. Equipment → Set Builds shows every set; hero details and equipment comparisons show active/current versus proposed bonuses. Equip Best compares complete hero power, including sets, and power now credits elemental boosts only for attacks, equipped skills and ultimates that use that element. It remains a per-slot heuristic rather than an exhaustive gear-combination search.
+
+Hero details → **Bonds** offers Origin, Trust and Companion stories for every named hero. Origin is available when recruited; Trust requires three scored participations. Companion requires ten participations for that hero plus their named faction companion recruited with three participations. Claimed campaign/Tower victories and completed positive-score daily/weekly attempts count once per completed result, including participants who fell. Stories give no currency/stat reward and can be reread freely. Existing heroes start with zero recorded participations; their levels, shards and progress remain intact.
+
+Activities → **Weekly** unlocks on reaching chapter 4. A three-week rotation contains Venom Communion (attacks inflict Poison with 12-damage ticks), Fading Restoration (skill healing halved, ultimates/passives unchanged) and Iron Eclipse (80 initial boss shield, 20 renewed after attacks up to 80). The lobby shows the boss, weakness and resistance. A clear requires defeating the boss or ending eight enemy rounds with a surviving hero and positive score. Its first clear per starting UTC week grants 150 crystals, 150 materials and five shards per participating hero. Replays improve the saved record without another weekly reward. Weeks change Monday at 00:00 UTC; a saved watermark prevents backward-clock reward resets. Daily and weekly claims remain independent.
+
+Daily quests now ask to complete three battles; completed positive-score challenges count. This keeps the daily chain available after the campaign and Tower end. Ordinary campaign defeats do not count. Summon costs, odds, guarantees, idle rates and level caps are retained. See Validation/BalanceReport.md for the before/after 28-day simulations and their generous prototype progression.
+
+Menus share charcoal surfaces, warm text, antique-gold accents and a single rarity palette. Portrait borders, hero headers and summon rarity cues use the same colors; set affinity colors reuse combat element colors. Existing free art is reused. Version-19 saves add bonds and weekly claim/record fields. Update the entire **Assets/Scripts** and **Assets/Editor** folders, including **Battle.Seasonal.cs** and **Prototype.Seasons.cs**. The playtest build tag is now `ashlight-beta-prep-2`. Unity import/layout/native JSON and phone performance are still unverified in the cloud.

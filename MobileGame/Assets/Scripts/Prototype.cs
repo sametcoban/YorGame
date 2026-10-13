@@ -272,7 +272,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateTutorial();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateTutorial();
             if(battle.Current==Phase.Won) { atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
         }
@@ -366,13 +366,13 @@ namespace Ashlight {
             var rect = obj.GetComponent<RectTransform>(); rect.anchorMin = min; rect.anchorMax = max; rect.offsetMin = rect.offsetMax = Vector2.zero;
             var label = obj.GetComponent<Text>(); label.text = text; label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             label.resizeTextForBestFit = true; label.resizeTextMinSize = Mathf.Min(14,size); label.resizeTextMaxSize = size;
-            label.fontSize = size; label.alignment = TextAnchor.MiddleCenter; label.color = new Color(.9f,.86f,.77f); label.raycastTarget = false;
+            label.fontSize = size; label.alignment = TextAnchor.MiddleCenter; label.color = MenuPalette.Text; label.raycastTarget = false;
             return label;
         }
         internal static Button MakeButton(Transform parent, string text, float min, float max, UnityEngine.Events.UnityAction action, bool onPress = false) {
             var obj = new GameObject(text, typeof(RectTransform), typeof(Image), typeof(Button)); obj.transform.SetParent(parent, false);
             var rect = obj.GetComponent<RectTransform>(); rect.anchorMin = new Vector2(min, .05f); rect.anchorMax = new Vector2(max, .22f); rect.offsetMin = rect.offsetMax = Vector2.zero;
-            obj.GetComponent<Image>().color = new Color(.075f, .085f, .105f, .97f);
+            obj.GetComponent<Image>().color = MenuPalette.Control;
             var caption = Label(obj.transform, text, Vector2.zero, Vector2.one, 26);
             var captionRect = caption.GetComponent<RectTransform>();
             captionRect.offsetMin = new Vector2(10, 5); captionRect.offsetMax = new Vector2(-10, -5);
@@ -758,7 +758,7 @@ namespace Ashlight {
             progressionRoot=new GameObject("Hero Progression",typeof(RectTransform),typeof(Image));
             progressionRoot.transform.SetParent(safe,false);
             var rect=progressionRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            progressionRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            progressionRoot.GetComponent<Image>().color=MenuPalette.Surface;
             progressionTitle=Label(progressionRoot.transform,"",new Vector2(.04f,.81f),new Vector2(.96f,.98f),25);
             for(int i=0;i<progressionHeroes.Length;i++) {
                 int index=i; float left=.025f+i*.194f;
@@ -801,7 +801,7 @@ namespace Ashlight {
             formationRoot=new GameObject("Party Formation",typeof(RectTransform),typeof(Image));
             formationRoot.transform.SetParent(safe,false);
             var rect=formationRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            formationRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            formationRoot.GetComponent<Image>().color=MenuPalette.Surface;
             formationHint=Label(formationRoot.transform,"",new Vector2(.05f,.90f),new Vector2(.95f,.98f),24);
             formationFaction=Label(formationRoot.transform,"",new Vector2(.05f,.8f),new Vector2(.95f,.89f),20);
             Label(formationRoot.transform,"FRONT · draws more normal attacks",new Vector2(.1f,.72f),new Vector2(.9f,.79f),20);
@@ -865,7 +865,7 @@ namespace Ashlight {
         void CreateResultsPanel() {
             resultsRoot=new GameObject("Battle Results",typeof(RectTransform),typeof(Image)); resultsRoot.transform.SetParent(safe,false);
             var rect=resultsRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            resultsRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            resultsRoot.GetComponent<Image>().color=MenuPalette.Surface;
             Panel(resultsRoot.transform,new Vector2(.04f,.79f),new Vector2(.96f,.795f),new Color(.4f,.31f,.17f));
             resultsTitle=Label(resultsRoot.transform,"VICTORY",new Vector2(.06f,.82f),new Vector2(.94f,.97f),36);
             resultsTitle.color=new Color(1,.82f,.4f);
@@ -921,9 +921,10 @@ namespace Ashlight {
         void CreateEquipmentPanel() {
             equipmentRoot=new GameObject("Equipment",typeof(RectTransform),typeof(Image)); equipmentRoot.transform.SetParent(safe,false);
             var rootRect=equipmentRoot.GetComponent<RectTransform>(); rootRect.anchorMin=Vector2.zero; rootRect.anchorMax=Vector2.one; rootRect.offsetMin=rootRect.offsetMax=Vector2.zero;
-            equipmentRoot.GetComponent<Image>().color=new Color(.06f,.08f,.13f,.98f);
+            equipmentRoot.GetComponent<Image>().color=MenuPalette.Surface;
             equipmentTitle=Label(equipmentRoot.transform,"",new Vector2(.03f,.84f),new Vector2(.72f,.99f),22);
-            forgeButton=ScreenButton(equipmentRoot.transform,"FORGE",.75f,.85f,.96f,.975f,OpenForge);
+            forgeButton=ScreenButton(equipmentRoot.transform,"FORGE",.75f,.915f,.96f,.975f,OpenForge);
+            ScreenButton(equipmentRoot.transform,"SET BUILDS",.75f,.845f,.96f,.905f,OpenSetGuide);
             for(int i=0;i<gearHeroes.Length;i++) {
                 int index=i; float left=.025f+i*.194f;
                 gearHeroes[i]=MakeButton(equipmentRoot.transform,"",left,left+.18f,()=> { if(CanManageHeroes && index<battle.Party.Count) { managementHero=battle.Party[index].Identity.Id; gearSelected=null; gearNotice=""; RefreshEquipment(); } });
@@ -973,6 +974,7 @@ namespace Ashlight {
             var selectedStats=selected==null?null:battle.EnhancedGear(selected.Id);
             var preview=selected==null?null:battle.PreviewGear(member.Identity.Id,browsingSlot,selected.Id);
             gearComparison.text=preview==null?"No gear in this slot yet.":selectedStats.Name+" · "+selected.Quality+"\nHP "+member.Definition.MaxHealth+" → "+preview.Definition.MaxHealth+" · ATK "+member.Definition.AttackDamage+" → "+preview.Definition.AttackDamage+" · Armor "+member.Protection+" → "+preview.Protection+" · Power "+member.Power+" → "+preview.Power;
+            if(preview!=null) gearComparison.text+="\nSET · "+member.SetSummary+" → "+preview.SetSummary;
             if(preview!=null && browsingSlot==GearSlot.Accessory) gearComparison.text+="\n"+selected.Element+" damage "+Mathf.RoundToInt((member.DamageBoost(selected.Element)-1)*100)+"% → "+Mathf.RoundToInt((preview.DamageBoost(selected.Element)-1)*100)+"%";
             gearEquip.interactable=CanManageHeroes && selected!=null && selected!=equipped && battle.AvailableGear(selected.Id)>0;
             gearBest.interactable=CanManageHeroes;
@@ -1034,7 +1036,7 @@ namespace Ashlight {
         void OnApplicationFocus(bool focused) { if (!focused) SaveProgress(); }
         void CreateTeamPresets() {
             teamPresetRoot=new GameObject("Team Presets",typeof(RectTransform),typeof(Image)); teamPresetRoot.transform.SetParent(safe,false);
-            var rect=teamPresetRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; teamPresetRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            var rect=teamPresetRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; teamPresetRoot.GetComponent<Image>().color=MenuPalette.Surface;
             teamPresetTitle=Label(teamPresetRoot.transform,"",new Vector2(.05f,.83f),new Vector2(.95f,.98f),23); teamPresetLabels=new Text[3]; teamPresetLoads=new Button[3]; teamPresetClears=new Button[3];
             for(int i=0;i<3;i++) { int index=i; float y=.61f-i*.22f; teamPresetLabels[i]=Label(teamPresetRoot.transform,"",new Vector2(.05f,y+.09f),new Vector2(.95f,y+.20f),20);
                 var save=MakeButton(teamPresetRoot.transform,"SAVE CURRENT",.05f,.28f,()=> { if(battle.SaveTeamPreset(index)) { presetNotice="Preset "+(index+1)+" saved."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(save,.05f,y,.28f,y+.08f); save.GetComponentInChildren<Text>().fontSize=18;
@@ -1053,7 +1055,7 @@ namespace Ashlight {
         }
         void CreateDaily() {
             dailyRoot=new GameObject("Daily Quests",typeof(RectTransform),typeof(Image)); dailyRoot.transform.SetParent(safe,false);
-            var rect=dailyRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; dailyRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            var rect=dailyRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; dailyRoot.GetComponent<Image>().color=MenuPalette.Surface;
             Label(dailyRoot.transform,"DAILY QUESTS\nResets at 00:00 UTC · Claim rewards before the next day.",new Vector2(.05f,.82f),new Vector2(.95f,.98f),25);
             dailyButtons=new Button[4];
             for(int i=0;i<4;i++) { int quest=i; float y=.64f-i*.16f; dailyButtons[i]=MakeButton(dailyRoot.transform,"",.05f,.95f,()=> { if(battle.ClaimDaily(quest)) { SaveProgress(); RefreshDailyMenu(); } }); PlaceGearControl(dailyButtons[i],.05f,y,.95f,y+.14f); dailyButtons[i].GetComponentInChildren<Text>().fontSize=22; }
@@ -1061,12 +1063,12 @@ namespace Ashlight {
 
         }
         void RefreshDailyMenu() {
-            string[] names={"WIN 3 BATTLES","CLAIM IDLE REWARDS","SUMMON A HERO","COMPLETE ALL THREE"}; string[] rewards={"40 crystals + 10 Rowan shards","20 crystals + 5 Rowan shards","30 crystals + 10 Rowan shards","100 crystals + 10 shards for every recruited hero"};
+            string[] names={"COMPLETE 3 BATTLES · Daily Boss attempts count","CLAIM IDLE REWARDS","SUMMON A HERO","COMPLETE ALL THREE"}; string[] rewards={"40 crystals + 10 Rowan shards","20 crystals + 5 Rowan shards","30 crystals + 10 Rowan shards","100 crystals + 10 shards for every recruited hero"};
             for(int i=0;i<4;i++) { bool claimed=battle.DailyClaimed(i), ready=battle.CanClaimDaily(i); dailyButtons[i].interactable=ready; dailyButtons[i].GetComponentInChildren<Text>().text=names[i]+(i<3?" · "+battle.DailyProgress(i)+"/"+(i==0?3:1):"")+"\n"+rewards[i]+"\n"+(claimed?"CLAIMED":ready?"CLAIM":"IN PROGRESS"); }
         }
         void CreateCollection() {
             collectionRoot=new GameObject("Hero Collection",typeof(RectTransform),typeof(Image)); collectionRoot.transform.SetParent(safe,false);
-            var rect=collectionRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; collectionRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            var rect=collectionRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; collectionRoot.GetComponent<Image>().color=MenuPalette.Surface;
             collectionTitle=Label(collectionRoot.transform,"",new Vector2(.04f,.82f),new Vector2(.96f,.98f),20);
             collectionFilters=new Button[4];
             for(int i=0;i<4;i++) { int filter=i; float x=.04f+i*.235f; collectionFilters[i]=MakeButton(collectionRoot.transform,"",x,x+.215f,()=> { if(filter==0) classFilter=(classFilter+2)%7-1; else if(filter==1) factionFilter=(factionFilter+2)%4-1; else if(filter==2) rarityFilter=(rarityFilter+2)%6-1; else collectionSort=(CollectionSort)(((int)collectionSort+1)%3); collectionPage=0; collectionHero=null; RefreshCollection(); }); PlaceGearControl(collectionFilters[i],x,.735f,x+.215f,.80f); collectionFilters[i].GetComponentInChildren<Text>().fontSize=17; }
@@ -1110,9 +1112,10 @@ namespace Ashlight {
         void CreateHeroDetails() {
             heroDetailsRoot=new GameObject("Hero Details",typeof(RectTransform),typeof(Image)); heroDetailsRoot.transform.SetParent(safe,false);
             var rect=heroDetailsRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            heroDetailsRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.99f);
+            heroDetailsRoot.GetComponent<Image>().color=MenuPalette.Surface;
             detailsTitle=Label(heroDetailsRoot.transform,"",new Vector2(.04f,.84f),new Vector2(.74f,.98f),28);
-            ScreenButton(heroDetailsRoot.transform,"NEXT UPGRADES",.77f,.86f,.96f,.975f,()=>OpenUpgradeGuidance(detailsHero));
+            ScreenButton(heroDetailsRoot.transform,"NEXT UPGRADES",.77f,.915f,.96f,.975f,()=>OpenUpgradeGuidance(detailsHero));
+            ScreenButton(heroDetailsRoot.transform,"BONDS",.77f,.845f,.96f,.905f,OpenBonds);
             var previewFrame=new GameObject("Preview Frame",typeof(RectTransform)); previewFrame.transform.SetParent(heroDetailsRoot.transform,false);
             var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.81f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
             var previewRoot=new GameObject("Model Preview",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter)); previewRoot.transform.SetParent(previewFrame.transform,false);
@@ -1145,7 +1148,7 @@ namespace Ashlight {
             detailsTitle.color=RarityTint(hero.Quality);
             detailsStats.text="LEVEL "+hero.LevelLabel+" · POWER "+hero.Power+"\nHP "+hero.Definition.MaxHealth+" · ATK "+hero.Definition.AttackDamage+" · ARMOR "+hero.Protection+" · ENERGY / ACTION "+hero.EnergyGain+"\n"+(hero.Level==PartyHero.MaxLevel?"MAX OWN LEVEL":"OWN XP "+hero.Experience+" / "+hero.NextLevelXP+" · Earn XP from battles and idle rewards.")+"\nSHARDS "+hero.Shards+(hero.UpgradeRank==5?" · MAX ASCENSION":" / "+hero.UpgradeCost+" · Next: "+hero.NextAscension);
             string equipment=""; for(int i=0;i<3;i++) { var item=hero.EquipmentStats((GearSlot)i); equipment+=(i==0?"":" · ")+((GearSlot)i)+": "+(item==null?"Empty":item.Quality+" "+item.Name); }
-            detailsStats.text+="\n"+equipment;
+            detailsStats.text+="\n"+equipment+"\nSET · "+hero.SetSummary;
             SetMeter(detailsExperience,hero.Level==PartyHero.MaxLevel?1:hero.Experience/(float)hero.NextLevelXP);
             detailsPassive.text="CLASS PASSIVE\n"+ClassDefinition.PassiveDescription(hero.Identity.Class);
             detailsSkills.text="EQUIPPED SKILLS\n"+hero.Skill(0).Name+" · "+(hero.Skill(0).Affinity ?? hero.Identity.Affinity)+" · "+hero.Skill(0).Description+"\n"+hero.Skill(1).Name+" · "+(hero.Skill(1).Affinity ?? hero.Identity.Affinity)+" · "+hero.Skill(1).Description;
@@ -1165,15 +1168,7 @@ namespace Ashlight {
             if(action==0) OpenSelection(true,ManagedHero.Identity.Class);
             else if(action==1) OpenEquipment(); else OpenProgression();
         }
-        static Color RarityTint(HeroQuality quality) {
-            switch(quality) {
-                case HeroQuality.Legendary: return new Color(1,.8f,.25f);
-                case HeroQuality.Epic: return new Color(.8f,.5f,1);
-                case HeroQuality.Rare: return new Color(.4f,.75f,1);
-                case HeroQuality.Uncommon: return new Color(.5f,.85f,.6f);
-                default: return new Color(.86f,.87f,.89f);
-            }
-        }
+        static Color RarityTint(HeroQuality quality) { return MenuPalette.Rarity(quality); }
         void AssignCollectionHero() {
             if(!battle.CanChangeParty || collectionHero==null) return;
             if(battle.EquipHeroAt(collectionHero,collectionTarget)) { RefreshAppearance(); SaveProgress(); RefreshCollection(); return; }
@@ -1220,7 +1215,7 @@ namespace Ashlight {
             previewRoot=new GameObject("Stage Preview",typeof(RectTransform),typeof(Image));
             previewRoot.transform.SetParent(safe,false);
             var rect=previewRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            previewRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            previewRoot.GetComponent<Image>().color=MenuPalette.Surface;
             Label(previewRoot.transform,"UPCOMING ENEMIES",new Vector2(.05f,.88f),new Vector2(.95f,.98f),28);
             previewText=Label(previewRoot.transform,"",new Vector2(.04f,.28f),new Vector2(.96f,.86f),21);
             Label(previewRoot.transform,"Defender: protects rear allies · Archer: targets your back row\nCaster: elemental spells · Healer: restores allies · Support: shields allies",new Vector2(.04f,.14f),new Vector2(.96f,.26f),18);
@@ -1238,7 +1233,7 @@ namespace Ashlight {
         void CreateChapterMenu() {
             chapterRoot=new GameObject("Chapter Menu",typeof(RectTransform),typeof(Image)); chapterRoot.transform.SetParent(safe,false);
             var rect=chapterRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
-            chapterRoot.GetComponent<Image>().color=new Color(.06f,.08f,.13f,.98f);
+            chapterRoot.GetComponent<Image>().color=MenuPalette.Surface;
             chapterTitle=Label(chapterRoot.transform,"",new Vector2(.03f,.8f),new Vector2(.97f,.98f),30);
             Label(chapterRoot.transform,"Choose the highlighted chapter to continue. Cleared chapters stay complete.\nYour party grows to five heroes as the campaign progresses.",new Vector2(.05f,.65f),new Vector2(.95f,.78f),22);
             chapterChoices=new Button[ChapterDefinition.Catalog.Count];
@@ -1283,7 +1278,7 @@ namespace Ashlight {
         }
         void CreateSummonResults() {
             summonRoot=new GameObject("Summon Results",typeof(RectTransform),typeof(Image)); summonRoot.transform.SetParent(safe,false);
-            var rect=summonRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; summonRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
+            var rect=summonRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; summonRoot.GetComponent<Image>().color=MenuPalette.Surface;
             summonTitle=Label(summonRoot.transform,"",new Vector2(.04f,.83f),new Vector2(.96f,.98f),23); summonCards=new Text[10]; summonCardPanels=new GameObject[10];
             for(int i=0;i<10;i++) { float x=i%2==0?.05f:.52f, y=.70f-(i/2)*.115f; Panel(summonRoot.transform,new Vector2(x,y),new Vector2(x+.43f,y+.10f),new Color(.08f,.10f,.15f)); summonCardPanels[i]=summonRoot.transform.GetChild(summonRoot.transform.childCount-1).gameObject; var border=summonCardPanels[i].AddComponent<Outline>(); border.effectDistance=new Vector2(2,-2); border.effectColor=new Color(.4f,.31f,.17f); summonCards[i]=Label(summonRoot.transform,"",new Vector2(x+.01f,y),new Vector2(x+.42f,y+.10f),18); }
             SetupSummonPortraits();
@@ -1470,7 +1465,7 @@ namespace Ashlight {
             hero = allies[battle.ActiveIndex];
             int visibleTarget = presentingAction ? actionTarget : battle.SelectedEnemyIndex;
             var visibleEnemy = battle.Enemies[visibleTarget].Definition;
-            status.text = (battle.InTower ? "TOWER " + battle.TowerFloor : "ASHLIGHT") + " · WAVE " + (battle.WaveIndex+1) + "/" + battle.WaveCount +
+            status.text = (battle.InTower ? "TOWER " + battle.TowerFloor : battle.IsWeeklyTrial?"WEEKLY TRIAL":battle.IsDailyBoss?"DAILY BOSS":"ASHLIGHT") + " · WAVE " + (battle.WaveIndex+1) + "/" + battle.WaveCount +
                 " · " + (visibleEnemy.IsBoss ? "BOSS: " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) +
                 "\nWeak: " + visibleEnemy.Weakness + " · Resists: " + visibleEnemy.Resistance + " · Acting: " + party[battle.ActiveIndex].Identity.Name +
                 (battle.IsDailyBoss?" · ROUND "+Mathf.Min(8,battle.DailyBossRounds+1)+"/8 · SCORE "+battle.DailyBossScore:"");
@@ -1484,7 +1479,7 @@ namespace Ashlight {
                 int energy=presentingAction && i==actionHero?actionEnergy:party[i].Energy;
                 SetMeter(partyHealthBars[i],party[i].Health/(float)party[i].Definition.MaxHealth);
                 partyHealthBars[i].color=party[i].Health <= party[i].Definition.MaxHealth*.25f ? new Color(.85f,.3f,.25f) : new Color(.35f,.7f,.43f);
-                energyLabels[i].color=i==battle.ActiveIndex ? new Color(1,.82f,.4f) : new Color(.9f,.86f,.77f);
+                energyLabels[i].color=i==battle.ActiveIndex ? new Color(1,.82f,.4f) : MenuPalette.Text;
                 SetMeter(energyBars[i],energy/(float)PartyHero.MaxEnergy);
                 energyBars[i].color=energy==PartyHero.MaxEnergy?new Color(1,.75f,.2f):new Color(.25f,.65f,.9f);
                 energyLabels[i].text=party[i].Identity.Name+" · "+(battle.IsFrontRow(i)?"FRONT":"BACK")+"\n"+(party[i].Health<=0?"FALLEN":"HP "+party[i].Health+" · "+(energy==100?"ULT READY":"EN "+energy));
@@ -1553,7 +1548,7 @@ namespace Ashlight {
             soundButton.GetComponentInChildren<Text>().text=sounds.Muted?"SOUND OFF":"SOUND ON";
             if (!presentingAction && lastSoundPhase != battle.Current) {
                 if (battle.Current == Phase.Won) sounds.Play("Victory",.7f);
-                else if (battle.Current == Phase.Lost) sounds.Play("Defeat",.8f);
+                else if (battle.Current == Phase.Lost) sounds.Play(battle.IsDailyBoss && (battle.IsWeeklyTrial?battle.WeeklyGoalMet:battle.DailyBossScore>0)?"Victory":"Defeat",.8f);
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { if(Time.unscaledTime>=nextHomeRefresh) { RefreshHome(); nextHomeRefresh=Time.unscaledTime+.5f; } repeatSingle.interactable=!revealingSummons && battle.CanSummon; repeatTen.interactable=!revealingSummons && battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); timing.transform.parent.gameObject.SetActive(false); cue.text=""; RefreshEnemyTelegraphs(); return; }
