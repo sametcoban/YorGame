@@ -17,7 +17,10 @@ namespace Ashlight {
     public sealed class GearEnhancementData { public string id; public int level; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 16;
+        public int version = 17;
+        public string[] discoveredEnemies=new string[0];
+        public long bossClockDay, bossClaimDay;
+        public int[] bossRecords=new int[3];
         public string[] wishlist=new string[0];
         public TeamPresetData[] presets={new TeamPresetData(),new TeamPresetData(),new TeamPresetData()};
         public bool inTower;

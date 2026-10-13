@@ -106,7 +106,7 @@ namespace Ashlight {
         public readonly int FactionBonus;
         public HeroReplacement(PartyHero hero,int teamPower,PartyHero previous,int previousTeamPower) { Hero=hero; TeamPower=teamPower; FactionBonus=hero.FactionBonus; HealthDelta=hero.Definition.MaxHealth-previous.Definition.MaxHealth; AttackDelta=hero.Definition.AttackDamage-previous.Definition.AttackDamage; PowerDelta=teamPower-previousTeamPower; }
     }
-    public sealed class Battle {
+    public sealed partial class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
         readonly bool campaign;
         readonly bool waveBattles;
@@ -160,7 +160,7 @@ namespace Ashlight {
         public const int TowerCycleStages=30;
         string[] towerCampaignParty=new string[0];
         public bool TowerComplete { get { return TowerFloor>TowerFloors; } }
-        public int EnemyEncounter { get { return InTower?(Math.Min(TowerFloor,TowerFloors)-1)%Math.Min(TowerCycleStages,ChapterDefinition.TotalStages):Math.Min(encounter,ChapterDefinition.TotalStages-1); } }
+        public int EnemyEncounter { get { return IsDailyBoss?bossEncounter:InTower?(Math.Min(TowerFloor,TowerFloors)-1)%Math.Min(TowerCycleStages,ChapterDefinition.TotalStages):Math.Min(encounter,ChapterDefinition.TotalStages-1); } }
         public double TowerHealthScale { get { return InTower?1+(TowerFloor-1)*.08:1; } }
         public int TowerShards { get { return TowerFloor%5==0?10:5; } }
         public bool CanEnterTower { get { return campaign && !InTower && !TowerComplete && recruits.Count>=5 && (CanChangeParty || CampaignComplete); } }
@@ -174,7 +174,7 @@ namespace Ashlight {
             var restoredParty=new List<PartyHero>(); foreach(var id in towerCampaignParty) restoredParty.Add(HeroProgress(id));
             InTower=false; party.Clear(); party.AddRange(restoredParty); towerCampaignParty=new string[0]; Reset(); return true;
         }
-        public int WaveCount { get { return campaign && (waveBattles || InTower) ? 3 : 1; } }
+        public int WaveCount { get { return IsDailyBoss?1:campaign && (waveBattles || InTower) ? 3 : 1; } }
         long dailyDay;
         readonly int[] dailyProgress=new int[3];
         readonly bool[] dailyClaimed=new bool[4];
@@ -243,7 +243,7 @@ namespace Ashlight {
         public int Crystals { get; private set; }
         public int RareMisses { get; private set; }
         public int LegendaryMisses { get; private set; }
-        public bool CampaignComplete { get { return campaign && !InTower && encounter >= ChapterDefinition.TotalStages; } }
+        public bool CampaignComplete { get { return campaign && !IsDailyBoss && !InTower && encounter >= ChapterDefinition.TotalStages; } }
         public int ChapterIndex { get { return Math.Min(EnemyEncounter / ChapterDefinition.StagesPerChapter, ChapterDefinition.Catalog.Count - 1); } }
         public int StageIndex { get { return EnemyEncounter % ChapterDefinition.StagesPerChapter; } }
         public int Encounter { get { return encounter; } }
@@ -347,7 +347,7 @@ namespace Ashlight {
         }
         public bool CanChangeParty {
             get {
-                if (Current != Phase.Player || WaveIndex>0) return false;
+                if (IsDailyBoss || Current != Phase.Player || WaveIndex>0) return false;
                 foreach (var enemy in enemies) if (enemy.Health != enemy.Definition.MaxHealth) return false;
                 foreach (var member in party)
                     if (member.Acted || member.Health != member.Definition.MaxHealth || member.SkillCharges(0) != 2 || member.SkillCharges(1) != 2) return false;
@@ -448,15 +448,16 @@ namespace Ashlight {
         void Victory() {
             if(WaveIndex<WaveCount-1) { Current=Phase.WaveCleared; return; }
             Current=Phase.Won;
+            if(IsDailyBoss) return;
             if(Results==null) BuildResults(campaign?GearDefinition.Drop(enemies[0].Definition.IsBoss,lootRandom.NextDouble(),lootRandom.Next(18)):null);
         }
         public bool ContinueAfterVictory() {
-            if(Current!=Phase.Won || Results==null) return false;
+            if(IsDailyBoss || Current!=Phase.Won || Results==null) return false;
             return ClaimVictory(Results.Loot);
         }
         // Explicit rolls support deterministic simulations; the UI claims the prepared result.
         public bool ContinueAfterVictory(double lootRoll,int variant) {
-            if (Current != Phase.Won || double.IsNaN(lootRoll) || lootRoll<0 || lootRoll>=1 || variant<0 || variant>=18) return false;
+            if (IsDailyBoss || Current != Phase.Won || double.IsNaN(lootRoll) || lootRoll<0 || lootRoll>=1 || variant<0 || variant>=18) return false;
             return ClaimVictory(campaign?GearDefinition.Drop(enemies[0].Definition.IsBoss,lootRoll,variant):null);
         }
         bool ClaimVictory(GearDefinition loot) {
@@ -632,7 +633,7 @@ namespace Ashlight {
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { wishlist=Wishlist, presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { discoveredEnemies=DiscoveredEnemies, bossClockDay=bossClockDay, bossClaimDay=bossClaimDay, bossRecords=(int[])bossRecords.Clone(), wishlist=Wishlist, presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.enhancements=new GearEnhancementData[enhancements.Count]; int improvement=0; foreach(var entry in enhancements) data.enhancements[improvement++]=new GearEnhancementData{id=entry.Key,level=entry.Value};
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
@@ -652,7 +653,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14 && data.version != 15 && data.version != 16) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14 && data.version != 15 && data.version != 16 && data.version != 17) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -669,6 +670,12 @@ namespace Ashlight {
                 for(int q=0;q<3;q++) if(data.dailyProgress[q]<0 || data.dailyProgress[q]>(q==0?3:1) || (data.dailyClaimed[q] && data.dailyProgress[q]<(q==0?3:1))) return false;
                 if(data.dailyClaimed[3] && (!data.dailyClaimed[0] || !data.dailyClaimed[1] || !data.dailyClaimed[2])) return false;
             }
+            var restoredDiscoveries=new HashSet<string>();
+            if(data.version>=17) {
+                if(data.discoveredEnemies==null || data.discoveredEnemies.Length>EnemyGuideEntry.Catalog.Count || data.bossRecords==null || data.bossRecords.Length!=3 || data.bossClockDay<0 || data.bossClockDay>DateTime.MaxValue.Ticks || data.bossClockDay%TimeSpan.TicksPerDay!=0 || data.bossClaimDay<0 || data.bossClaimDay>data.bossClockDay || data.bossClaimDay%TimeSpan.TicksPerDay!=0) return false;
+                foreach(var key in data.discoveredEnemies) if(EnemyGuideEntry.Find(key)==null || !restoredDiscoveries.Add(key)) return false;
+                foreach(int score in data.bossRecords) if(score<0 || score>1000000) return false;
+            } else foreach(var entry in EnemyGuideEntry.Catalog) if(entry.Encounter<data.encounter) restoredDiscoveries.Add(entry.Key);
             var restoredWishlist=new List<string>();
             if(data.version>=16) {
                 if(data.wishlist==null || data.wishlist.Length>6) return false;
@@ -774,6 +781,9 @@ namespace Ashlight {
             dailyDay=data.version>=10?data.dailyDay:0; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4);
             if(data.version>=10) { Array.Copy(data.dailyProgress,dailyProgress,3); Array.Copy(data.dailyClaimed,dailyClaimed,4); } RefreshDaily();
             sharedHeroes.Clear(); foreach(var id in restoredShared) sharedHeroes.Add(id);
+            discoveredEnemies.Clear(); foreach(var key in restoredDiscoveries) discoveredEnemies.Add(key);
+            bossClockDay=data.version>=17?data.bossClockDay:0; bossClaimDay=data.version>=17?data.bossClaimDay:0;
+            Array.Clear(bossRecords,0,3); if(data.version>=17) Array.Copy(data.bossRecords,bossRecords,3);
             wishlist.Clear(); wishlist.AddRange(restoredWishlist);
             enhancements.Clear(); foreach(var entry in restoredEnhancements) enhancements.Add(entry.Key,entry.Value); ForgeMaterials=data.version>=15?data.forgeMaterials:0;
             inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
@@ -802,6 +812,7 @@ namespace Ashlight {
             return true;
         }
         public void Reset() {
+            if(IsDailyBoss && DailyBossRounds>0) return;
             LastOffensivePassive=null; ClearPassiveReports();
             RefreshSharedLevels(); RefreshFactionStats();
             Results=null; LastEnemyHealing=0; LastMechanicTarget=-1; LastShieldAbsorbed=0;
@@ -814,6 +825,10 @@ namespace Ashlight {
         }
         void LoadWaveEnemies() {
             enemies.Clear();
+            if(IsDailyBoss) {
+                var source=ChapterDefinition.Catalog[bossEncounter/5].Enemies[4];
+                enemies.Add(new BattleEnemy(new EnemyDefinition(source.Name,bossHealth,source.Weakness,source.Resistance,true,source.Role))); return;
+            }
             if(!campaign) enemies.Add(new BattleEnemy(new EnemyDefinition("Training Warden",100)));
             else foreach(var definition in ChapterDefinition.WaveAt(EnemyEncounter,WaveIndex,WaveCount))
                 enemies.Add(new BattleEnemy(new EnemyDefinition(definition.Name,
@@ -890,6 +905,7 @@ namespace Ashlight {
         void DealDamage(int amount, Element? skillElement = null, int target = -1, bool areaDamage=false) {
             var foe = enemies[target < 0 ? SelectedEnemyIndex : target];
             var definition = foe.Definition;
+            DiscoverEnemies();
             LastElement = skillElement ?? Active.Identity.Affinity;
             LastElementMultiplier = amount > 0 ? definition.Multiplier(LastElement) : 1f;
             int damage = definition.Damage(amount, LastElement);
@@ -1062,6 +1078,7 @@ namespace Ashlight {
             Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length);
             Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
             var attacker=enemies[AttackingEnemyIndex];
+            if(IsDailyBoss) DailyBossRounds++;
             if(IncomingSkill.Action==EnemyAction.Interrupted) LastMechanicTarget=AttackingEnemyIndex;
             else if(attacker.InterruptRecovery>0) attacker.InterruptRecovery--;
             if(IncomingSkill.Action==EnemyAction.Charge) { attacker.Charged=true; attacker.ChargeDamage=0; LastMechanicTarget=AttackingEnemyIndex; }
@@ -1117,6 +1134,7 @@ namespace Ashlight {
                 }
             }
             ApplyClericHealing();
+            if(IsDailyBoss && DailyBossRounds>=DailyBossRoundLimit) { Current=Phase.Lost; return; }
             foreach(var member in party) if(member.TauntRounds>0) member.TauntRounds--;
             foreach(var foe in enemies) if(foe.ExposedRounds>0) foe.ExposedRounds--;
             Current = Phase.Lost;

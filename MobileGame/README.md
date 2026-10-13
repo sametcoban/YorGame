@@ -129,7 +129,7 @@ The engine-independent combat model passes 1,513 checks covering party turns, th
 
 ```bash
 source /workspace/.yorgame-tools/activate
-mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Assets/Scripts/ChapterStageDefinition.cs Validation/BattleChecks.cs
+mcs -out:/tmp/ashlight-checks.exe Assets/Scripts/Battle.cs Assets/Scripts/Battle.Activities.cs Assets/Scripts/CharacterClass.cs Assets/Scripts/SkillDefinition.cs Assets/Scripts/HeroDefinition.cs Assets/Scripts/Elements.cs Assets/Scripts/ChapterDefinition.cs Assets/Scripts/EnemyVisualDefinition.cs Assets/Scripts/ProgressData.cs Assets/Scripts/Summoning.cs Assets/Scripts/CombatMotion.cs Assets/Scripts/AutoBattlePlanner.cs Assets/Scripts/EnemySkills.cs Assets/Scripts/UltimateDefinition.cs Assets/Scripts/GearDefinition.cs Assets/Scripts/BattleResults.cs Assets/Scripts/ChapterStageDefinition.cs Assets/Scripts/SkillPresentation.cs Validation/BattleChecks.cs
 mono /tmp/ashlight-checks.exe
 ```
 
@@ -770,3 +770,17 @@ Rarity is rolled first using the existing base odds and Rare+/Legendary guarante
 Wishlist cards display the actual conditional percentage within that rarity, recalculated as selections change. These percentages are not overall per-pull chances: rarity odds and current guarantees determine how often that rarity occurs. Single and ten-pulls use the same weighted picker; duplicates retain their existing shard/refund rewards. Pulls still resolve and save before the reveal.
 
 Version-16 saves retain Wishlist IDs and reject unknown, Common/Uncommon, duplicate, or over-cap selections before changing progress. Versions 1–15 migrate to an empty Wishlist while preserving their existing heroes, materials, gear upgrades, crystals and guarantee counters. To update an existing Unity project, copy the entire **Assets/Scripts** and **Assets/Editor** folders, including the new **Prototype.Wishlist.cs** partial file.
+
+## Battle clarity, upgrade guidance and Activities
+
+Battle skill/action names now have a dedicated top banner. Compact colored status badges below each hero's energy bar show harmful effects and remaining rounds, wards and taunts. Full energy pulses gold. Damage/healing text is larger, has a dark shadow, and uses bounded vertical lanes with horizontal offsets during crowded fights. HUD additions sit below menu/result overlays.
+
+Open a hero and select **Next Upgrades** to see exact remaining XP and shards, ready or upcoming talent choices, and the next equipment/Forge opportunity. Guidance links to Equipment, Talents and Upgrades, and explains where to earn the required resources. Shared levels remain separate from own-level talent requirements. Viewing guidance does not spend resources or alter loadouts.
+
+Open **Home → Activities → Enemy Guide**. Enemy variants reveal when you act against them, including different roles and elemental profiles for the same named enemy. Cards show weaknesses/resistances; selecting a discovered card shows its typical opening abilities and counter advice. Physical damage remains neutral. Daily boss completions also reveal the fought boss. Older saves reveal variants from previously cleared stages during migration.
+
+**Home → Activities → Daily Boss** unlocks when you reach chapter 3. The daily rotation contains Roadkeeper, Cinder Sovereign and Veiled Monarch. It uses your current team, gear, skills, talents and faction bonus in a separate combat copy. Boss health scales with team power. Score is cumulative actual damage, including counters, capped at one million. The attempt ends after eight completed enemy rounds, defeating the boss, or losing the party. Auto Play uses the existing tactical planner and random defenses.
+
+The first completed attempt with positive damage grants **35 crystals and 30 Forge materials** for its UTC day. Replays can improve the saved personal best for that boss without another daily reward. Rotation and reward days use a saved clock watermark so moving the clock backward cannot reopen an earlier reward. Attempts use their starting UTC day if midnight passes during combat. Daily boss fights do not advance campaign/Tower progress or award story loot/recruits. Closing the app during an attempt preserves the campaign and completed records/rewards but does not resume the unfinished attempt.
+
+Version-17 saves add discovered variants, per-boss records and daily claim/clock fields. All new fields are validated before progress changes. Existing Wishlist, gear upgrades, materials, heroes and campaign progress are preserved. Copy the entire **Assets/Scripts** and **Assets/Editor** folders when updating, including **Battle.Activities.cs** and **Prototype.Activities.cs**. Unity visuals, screen layout and native JSON diagnostics still require local checks.

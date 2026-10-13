@@ -155,7 +155,74 @@ class BattleChecks {
   Check(full.Wishlist.Length==6 && !full.ToggleWishlist("Knight_Legendary") && full.Crystals==300 && full.RareMisses==0);
   Check(new Battle(true).RestoreProgress(full.ExportProgress()));
  }
+ static void ActivitiesChecks() {
+  var fresh=new Battle(true,enableWaves:true);
+  Check(fresh.DiscoveredEnemies.Length==0 && !fresh.CanStartDailyBoss && fresh.StartDailyBoss()==null);
+  string key=new EnemyGuideEntry(0,fresh.Enemy).Key;
+  Check(EnemyGuideEntry.Find(key)!=null && fresh.Attack() && fresh.EnemyDiscovered(key));
+  var discovered=new Battle(true,enableWaves:true); Check(discovered.RestoreProgress(fresh.ExportProgress()) && discovered.EnemyDiscovered(key));
+  var keys=new System.Collections.Generic.HashSet<string>(); foreach(var entry in EnemyGuideEntry.Catalog) Check(keys.Add(entry.Key) && !string.IsNullOrEmpty(entry.Advice));
+  for(int day=0;day<3;day++) {
+   var now=new DateTime(2026,10,15+day,0,0,0,DateTimeKind.Utc);
+   var owner=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,utcNow:()=>now);
+   var save=owner.ExportProgress(); save.encounter=10;
+   save.recruited=save.party=new[]{"Knight_Common","Paladin_Common","Sorceress_Common"};
+   save.loadouts=new[]{new HeroLoadoutData{id="Knight_Common",secondSkill=1},new HeroLoadoutData{id="Paladin_Common",secondSkill=1},new HeroLoadoutData{id="Sorceress_Common",secondSkill=1}};
+   Check(owner.RestoreProgress(save) && owner.CanStartDailyBoss);
+   int encounter=owner.Encounter, crystals=owner.Crystals, materials=owner.ForgeMaterials, power=owner.TeamPower, index=owner.DailyBossIndex;
+   var run=owner.StartDailyBoss(); Check(run!=null && run.IsDailyBoss && run.Party.Count==3 && run.WaveCount==1 && run.DailyBossRounds==0 && run.Enemy.Name==owner.DailyBossName);
+   Check(!run.CanChangeParty && !run.CanSummon && !run.ContinueAfterVictory());
+   bool reward; Check(!owner.FinishDailyBoss(run,out reward));
+   int actions=0;
+   while(run.Current!=Phase.Won && run.Current!=Phase.Lost && actions++<200) {
+    if(run.Current==Phase.Player) Check(run.Attack());
+    else if(run.Current==Phase.EnemyWindup) {
+     int rounds=run.DailyBossRounds; Check(run.BeginStrike());
+     if(run.IncomingSkill.Action==EnemyAction.Attack) for(int i=0;i<run.Party.Count;i++) if(run.Party[i].Health>0 && (run.IncomingSkill.PartyWide || i==run.ActiveIndex)) Check(run.DefendHero(i,true,.1f));
+     run.FinishStrike(); Check(run.DailyBossRounds==rounds+1);
+    } else throw new Exception("Unexpected daily phase "+run.Current);
+   }
+   Check(run.Current==Phase.Lost && run.DailyBossRounds==8 && run.DailyBossScore>0 && run.Results==null);
+   Check(owner.Encounter==encounter && owner.TeamPower==power && owner.Crystals==crystals);
+   foreach(var hero in owner.Party) Check(hero.Health==hero.Definition.MaxHealth && hero.EncounterDamage==0 && hero.Energy==0);
+   Check(owner.FinishDailyBoss(run,out reward) && reward && owner.Crystals==crystals+35 && owner.ForgeMaterials==materials+30 && owner.DailyBossBest(index)==run.DailyBossScore);
+   Check(!owner.FinishDailyBoss(run,out reward) && !reward && !owner.DailyBossRewardAvailable);
+   var replay=owner.StartDailyBoss(); Check(replay!=null);
+   replay.Enemies[0].Health=1; Check(replay.Attack() && replay.Current==Phase.Won && replay.Results==null);
+   int rewardedWallet=owner.Crystals;
+   Check(owner.FinishDailyBoss(replay,out reward) && !reward && owner.Crystals==rewardedWallet && owner.Encounter==10 && owner.DailyBossBest(index)==run.DailyBossScore);
+   var reload=new Battle(true,utcNow:()=>now); Check(reload.RestoreProgress(owner.ExportProgress()) && reload.DailyBossBest(index)==run.DailyBossScore && !reload.DailyBossRewardAvailable && reload.Encounter==10);
+   int record=reload.DailyBossBest(index); now=now.AddDays(-1); Check(!reload.DailyBossRewardAvailable && reload.DailyBossIndex==index);
+   now=now.AddDays(2); Check(reload.DailyBossRewardAvailable && reload.DailyBossIndex==(index+1)%3 && reload.DailyBossBest(index)==record);
+   var invalid=owner.ExportProgress(); invalid.bossRecords=new[]{-1,0,0}; Check(!reload.RestoreProgress(invalid) && reload.DailyBossBest(index)==record);
+   invalid=owner.ExportProgress(); invalid.bossClaimDay=invalid.bossClockDay+TimeSpan.TicksPerDay; Check(!reload.RestoreProgress(invalid));
+   invalid=owner.ExportProgress(); invalid.bossClockDay++; Check(!reload.RestoreProgress(invalid));
+   invalid=owner.ExportProgress(); invalid.discoveredEnemies=new[]{"unknown"}; Check(!reload.RestoreProgress(invalid));
+   invalid=owner.ExportProgress(); if(invalid.discoveredEnemies.Length>0) { invalid.discoveredEnemies=new[]{invalid.discoveredEnemies[0],invalid.discoveredEnemies[0]}; Check(!reload.RestoreProgress(invalid)); }
+   var legacy=owner.ExportProgress(); legacy.version=16; legacy.discoveredEnemies=null; legacy.bossRecords=null;
+   Check(reload.RestoreProgress(legacy) && reload.DailyBossBest(index)==0 && reload.DiscoveredEnemies.Length>0 && reload.Encounter==10 && reload.Crystals==owner.Crystals);
+   string advice=owner.UpgradeGuidance("Knight_Common"); Check(advice.Contains("100 XP") && advice.Contains("20 more shards") && advice.Contains("own Lv 5") && advice.Contains("Empty Weapon"));
+   Check(owner.UpgradeGuidance("unknown")=="Select a recruited hero.");
+   var ready=owner.ExportProgress(); ready.loadouts[0].level=5; ready.loadouts[0].shards=20;
+   Check(owner.RestoreProgress(ready)); int upgradeWallet=owner.Crystals, upgradePower=owner.TeamPower;
+   advice=owner.UpgradeGuidance("Knight_Common"); Check(advice.Contains("ASCENSION READY") && advice.Contains("TALENT READY") && owner.Crystals==upgradeWallet && owner.TeamPower==upgradePower && owner.HeroProgress("Knight_Common").Shards==20);
+   for(int sample=0;sample<20;sample++) {
+    var trial=owner.StartDailyBoss(); var rng=new Random(1000+day*20+sample); int turns=0;
+    while(trial.Current!=Phase.Won && trial.Current!=Phase.Lost && turns++<300) {
+     if(trial.Current==Phase.Player) { int skill=AutoBattlePlanner.ChooseSkill(trial); if(!(skill<0?trial.Attack():trial.UseAbility(skill))) throw new Exception("Daily auto action rejected"); }
+     else if(trial.Current==Phase.EnemyWindup) {
+      trial.BeginStrike(); if(trial.IncomingSkill.Action==EnemyAction.Attack) for(int i=0;i<trial.Party.Count;i++) if(trial.Party[i].Health>0 && (trial.IncomingSkill.PartyWide || i==trial.ActiveIndex)) {
+       var defense=AutoBattlePlanner.RollDefense(trial.Party[i].Identity.Class,rng.NextDouble()); if(defense!=DefenseOutcome.Miss) trial.DefendHero(i,defense==DefenseOutcome.Parry,defense==DefenseOutcome.Parry?.12f:.26f);
+      }
+      trial.FinishStrike();
+     } else throw new Exception("Unexpected daily auto phase");
+    }
+    Check((trial.Current==Phase.Won || trial.Current==Phase.Lost) && trial.DailyBossRounds<=8 && trial.DailyBossScore>0 && owner.Encounter==10 && owner.Crystals==upgradeWallet && owner.TeamPower==upgradePower);
+   }
+  }
+ }
  static void Main() {
+  ActivitiesChecks();
   WishlistChecks();
   var b = new Battle();
   Check(b.Current == Phase.Player && b.HeroHealth == 100);
@@ -443,7 +510,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==16);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==17);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1190,7 +1257,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==16 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==17 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1296,7 +1363,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==16);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==17);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1780,7 +1847,7 @@ class BattleChecks {
   invalidMilestones.claimedMilestones=-1; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   invalidMilestones.claimedMilestones=4096; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   var previousMilestones=chapterRewards.ExportProgress(); previousMilestones.version=13; previousMilestones.claimedMilestones=4096;
-  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==16 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
+  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==17 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
   Check(chapterRewardReload.Attack() && !chapterRewardReload.ClaimMilestone(0));
   var completeRewards=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},59);
   var completeRewardSave=completeRewards.ExportProgress(); completeRewardSave.encounter=60; completeRewardSave.crystals=999999;

@@ -272,7 +272,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateTutorial();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateTutorial();
             if(battle.Current==Phase.Won) { atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
         }
@@ -885,6 +885,7 @@ namespace Ashlight {
             resultsRoot.SetActive(false);
         }
         void ShowResults() {
+            if(battle.IsDailyBoss) { ShowBossReport(); return; }
             Time.timeScale=1;
             var result=battle.Results; if(result==null) return;
             autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
@@ -1023,7 +1024,7 @@ namespace Ashlight {
         }
         void SaveProgress() {
             if (!progressInitialized) return;
-            saveFailed = !ProgressStore.Save(battle.ExportProgress());
+            saveFailed = !ProgressStore.Save((campaignBattle??battle).ExportProgress());
             saveNotice = !saveFailed ? "Progress saved." : "Save failed. See Console; keep this session open.";
         }
         void OnApplicationPause(bool paused) { if (paused) SaveProgress(); }
@@ -1108,7 +1109,8 @@ namespace Ashlight {
             heroDetailsRoot=new GameObject("Hero Details",typeof(RectTransform),typeof(Image)); heroDetailsRoot.transform.SetParent(safe,false);
             var rect=heroDetailsRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
             heroDetailsRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.99f);
-            detailsTitle=Label(heroDetailsRoot.transform,"",new Vector2(.04f,.84f),new Vector2(.96f,.98f),28);
+            detailsTitle=Label(heroDetailsRoot.transform,"",new Vector2(.04f,.84f),new Vector2(.74f,.98f),28);
+            ScreenButton(heroDetailsRoot.transform,"NEXT UPGRADES",.77f,.86f,.96f,.975f,()=>OpenUpgradeGuidance(detailsHero));
             var previewFrame=new GameObject("Preview Frame",typeof(RectTransform)); previewFrame.transform.SetParent(heroDetailsRoot.transform,false);
             var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.81f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
             var previewRoot=new GameObject("Model Preview",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter)); previewRoot.transform.SetParent(previewFrame.transform,false);
@@ -1372,10 +1374,10 @@ namespace Ashlight {
             DarkFantasyStage.Frame(battleCamera);
             CreateEnemy();
             message=(battle.InTower?"Tower floor "+battle.TowerFloor:"Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1))+": choose your heroes, then attack.";
-            OpenStagePreview();
-            ShowTutorial(1);
+            if(!battle.IsDailyBoss) { OpenStagePreview(); ShowTutorial(1); }
         }
         void EnterChapters() {
+            if(battle.IsDailyBoss) { CloseBossChallenge(); return; }
             var storyArrival=battle.Current==Phase.Won && !battle.InTower?StoryRecruit.At(battle.Encounter):null;
             bool arrivalDuplicate=storyArrival!=null && battle.HeroProgress(storyArrival.HeroId)!=null;
             int finishedChapter=battle.Current==Phase.Won && !battle.InTower && battle.StageIndex==4?battle.ChapterIndex:-1;
@@ -1454,7 +1456,7 @@ namespace Ashlight {
             status.text = (battle.InTower ? "TOWER " + battle.TowerFloor : "ASHLIGHT") + " · WAVE " + (battle.WaveIndex+1) + "/" + battle.WaveCount +
                 " · " + (visibleEnemy.IsBoss ? "BOSS: " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) +
                 "\nWeak: " + visibleEnemy.Weakness + " · Resists: " + visibleEnemy.Resistance + " · Acting: " + party[battle.ActiveIndex].Identity.Name +
-                "\n" + (battle.Current == Phase.Won ? "Victory! Continue to claim your rewards." : battle.Current == Phase.Lost ? "Party defeated. Restart to try again." : message);
+                (battle.IsDailyBoss?" · ROUND "+Mathf.Min(8,battle.DailyBossRounds+1)+"/8 · SCORE "+battle.DailyBossScore:"");
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
                 bool visible=!atChapters && i<party.Count;
@@ -1468,13 +1470,14 @@ namespace Ashlight {
                 energyLabels[i].color=i==battle.ActiveIndex ? new Color(1,.82f,.4f) : new Color(.9f,.86f,.77f);
                 SetMeter(energyBars[i],energy/(float)PartyHero.MaxEnergy);
                 energyBars[i].color=energy==PartyHero.MaxEnergy?new Color(1,.75f,.2f):new Color(.25f,.65f,.9f);
-                energyLabels[i].text=party[i].Identity.Name+" · "+(battle.IsFrontRow(i)?"FRONT":"BACK")+"\n"+(party[i].Health<=0?"FALLEN":"HP "+party[i].Health+" · "+(energy==100?"ULT READY":"EN "+energy))+ (party[i].Status==Debuff.None?"":" · "+party[i].Status)+(party[i].TauntRounds>0?" · TAUNT":"");
+                energyLabels[i].text=party[i].Identity.Name+" · "+(battle.IsFrontRow(i)?"FRONT":"BACK")+"\n"+(party[i].Health<=0?"FALLEN":"HP "+party[i].Health+" · "+(energy==100?"ULT READY":"EN "+energy));
             }
+            RefreshBattleReadability();
             factionStatus.gameObject.SetActive(!atChapters); factionStatus.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary;
             bool preparing = !atChapters && battle.CanChangeParty;
             if(!atChapters && !presentingAction && enemyTurn==null && battle.Current==Phase.WaveCleared && !transitioningWave) StartCoroutine(NextWave());
             bool finished = !atChapters && !presentingAction && (battle.Current == Phase.Won || battle.Current == Phase.Lost);
-            reset.gameObject.SetActive(finished && battle.Current!=Phase.Won);
+            reset.gameObject.SetActive(finished && !battle.IsDailyBoss && battle.Current!=Phase.Won);
             collectionBattleButton.gameObject.SetActive(preparing); if(!preparing && !atChapters) { collectionRoot.SetActive(false); heroDetailsRoot.SetActive(false); }
             previewButton.gameObject.SetActive(preparing);
             if(!preparing) previewRoot.SetActive(false);

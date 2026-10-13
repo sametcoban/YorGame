@@ -8,7 +8,7 @@ namespace Ashlight {
             public GameObject Root;
             public Renderer Mesh;
             public LineRenderer Line;
-            public TextMesh Text;
+            public TextMesh Text, Shadow;
             public Mode Kind;
             public Element Element;
             public float Age, Duration, Size;
@@ -74,6 +74,9 @@ namespace Ashlight {
                 effect.Text = text.AddComponent<TextMesh>(); effect.Text.font = font;
                 effect.Text.fontSize = 48; effect.Text.characterSize = .04f; effect.Text.anchor = TextAnchor.MiddleCenter;
                 text.GetComponent<Renderer>().sharedMaterial = font.material;
+                var shadow=new GameObject("Text Outline"); shadow.transform.SetParent(text.transform,false); shadow.transform.localPosition=new Vector3(.018f,-.018f,.01f);
+                effect.Shadow=shadow.AddComponent<TextMesh>(); effect.Shadow.font=font; effect.Shadow.fontSize=48; effect.Shadow.anchor=TextAnchor.MiddleCenter;
+                shadow.GetComponent<Renderer>().sharedMaterial=font.material; effect.Shadow.color=Color.black;
                 pool.Add(effect);
             }
             effect.Root.SetActive(true); effect.Root.transform.position = position; effect.Root.transform.localScale = Vector3.one;
@@ -110,8 +113,8 @@ namespace Ashlight {
             foreach (var item in pool)
                 if (item.Root.activeSelf && item.Kind == Mode.Text && item.Age < .7f &&
                     (new Vector2(item.Start.x-position.x,item.Start.z-position.z)).sqrMagnitude < .6f) lane++;
-            var effect = Get(Mode.Text, position + Vector3.up * (1.2f + lane*.38f), element, 1.15f, 1);
-            if (effect != null) { effect.Text.text = text; effect.Text.characterSize = .045f; effect.Velocity = Vector3.up * .65f; }
+            var effect = Get(Mode.Text, position + Vector3.up * (1.2f + (lane%4)*.30f) + Vector3.right*((lane/4%2==0?1:-1)*.18f), element, 1.15f, 1);
+            if (effect != null) { effect.Text.text = text; effect.Text.characterSize = .05f; effect.Shadow.text=text; effect.Shadow.characterSize=.05f; effect.Shadow.color=Color.black; effect.Velocity = Vector3.up * .65f; }
         }
         public void Ring(Vector3 position, Element element, float size = .06f) { Get(Mode.Ring, position, element, .45f, size); }
         public void Attack(Vector3 from, Vector3 to, Element element, int damage, float multiplier) {
@@ -283,7 +286,7 @@ namespace Ashlight {
                 }
                 if (effect.Kind == Mode.Text) {
                     effect.Root.transform.rotation = view.transform.rotation;
-                    var color = effect.Text.color; color.a = progress < .55f ? 1 : (1-progress)/.45f; effect.Text.color = color;
+                    var color = effect.Text.color; color.a = progress < .55f ? 1 : (1-progress)/.45f; effect.Text.color = color; effect.Shadow.color=new Color(0,0,0,color.a);
                 }
                 if (effect.Kind == Mode.Ring || effect.Kind == Mode.GroundRing) {
                     float radius = .15f + progress * .85f;

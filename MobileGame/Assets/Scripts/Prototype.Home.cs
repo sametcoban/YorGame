@@ -24,6 +24,7 @@ namespace Ashlight {
         void CreateHomeScreens() {
             homeRoot=ScreenRoot("Home Screen");
             homeTitle=Label(homeRoot.transform,"ASHLIGHT",new Vector2(.05f,.86f),new Vector2(.75f,.98f),42); homeTitle.color=new Color(1,.82f,.4f);
+            ScreenButton(homeRoot.transform,"ACTIVITIES",.77f,.865f,.95f,.98f,OpenActivities);
             homeWallet=Label(homeRoot.transform,"",new Vector2(.05f,.77f),new Vector2(.95f,.845f),22);
             homeNotice=Label(homeRoot.transform,"",new Vector2(.05f,.715f),new Vector2(.95f,.765f),18);
             Panel(homeRoot.transform,new Vector2(.05f,.85f),new Vector2(.95f,.853f),new Color(.6f,.43f,.18f));
@@ -48,7 +49,7 @@ namespace Ashlight {
         }
         void CloseHubPanels() {
             managementHero=null;
-            foreach(var root in new[]{homeRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{homeRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;

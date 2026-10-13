@@ -13,6 +13,14 @@ public static class SaveSerializationChecks {
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
         var battle=new Battle(true); var fresh=RoundTrip(battle);
+        var activities=new Battle(true); var activitiesSave=activities.ExportProgress(); activitiesSave.encounter=10;
+        activitiesSave.discoveredEnemies=new[]{EnemyGuideEntry.Catalog[0].Key};
+        activitiesSave.bossClockDay=new DateTime(2026,10,15,0,0,0,DateTimeKind.Utc).Ticks; activitiesSave.bossClaimDay=activitiesSave.bossClockDay;
+        activitiesSave.bossRecords=new[]{120,240,360};
+        if(!activities.RestoreProgress(activitiesSave)) throw new InvalidOperationException("Could not prepare activities fixture.");
+        var activitiesReload=RoundTrip(activities);
+        if(!activitiesReload.EnemyDiscovered(activitiesSave.discoveredEnemies[0]) || activitiesReload.DailyBossBest(0)!=120 || activitiesReload.DailyBossBest(1)!=240 || activitiesReload.DailyBossBest(2)!=360 || activitiesReload.ExportProgress().bossClaimDay!=activitiesSave.bossClaimDay || activitiesReload.Encounter!=10)
+            throw new InvalidOperationException("Guide or daily boss progress changed during Unity serialization.");
         var wishlistTest=new Battle(true);
         if(!wishlistTest.ToggleWishlist("Knight_Rare") || !wishlistTest.ToggleWishlist("Paladin_Epic") || !wishlistTest.ToggleWishlist("Knight_Legendary")) throw new InvalidOperationException("Could not prepare Wishlist fixture.");
         var wishlistReload=RoundTrip(wishlistTest);
