@@ -13,6 +13,11 @@ public static class SaveSerializationChecks {
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
         var battle=new Battle(true); var fresh=RoundTrip(battle);
+        var wishlistTest=new Battle(true);
+        if(!wishlistTest.ToggleWishlist("Knight_Rare") || !wishlistTest.ToggleWishlist("Paladin_Epic") || !wishlistTest.ToggleWishlist("Knight_Legendary")) throw new InvalidOperationException("Could not prepare Wishlist fixture.");
+        var wishlistReload=RoundTrip(wishlistTest);
+        if(wishlistReload.Wishlist.Length!=3 || !wishlistReload.IsWishlisted("Knight_Rare") || !wishlistReload.IsWishlisted("Paladin_Epic") || !wishlistReload.IsWishlisted("Knight_Legendary") || wishlistReload.Crystals!=wishlistTest.Crystals)
+            throw new InvalidOperationException("Wishlist changed during Unity serialization.");
         if(fresh.ExportProgress().idleClaimTicks!=battle.ExportProgress().idleClaimTicks || fresh.FurthestStage!=battle.FurthestStage || fresh.ExportProgress().idleCrystalRemainder!=battle.ExportProgress().idleCrystalRemainder)
             throw new InvalidOperationException("Idle reward timestamp changed during Unity serialization.");
         var fractionClock=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);

@@ -760,3 +760,13 @@ Materials come from claimed story victories (10 + two per chapter index, plus 10
 Three heroes from the same faction grant the entire active team +10% maximum HP and attack/skill/ultimate damage; four grant +15%, and five grant +20%. Healing and guard amounts retain their existing values. The largest faction group determines one bonus; bonuses do not stack and defeated heroes keep counting until the formation changes. Reserve heroes receive no formation bonus.
 
 Formation shows faction counts, active bonus, all three thresholds and the next threshold. Chapters with too few slots explain that more slots must unlock first. Collection replacement previews show the exact team bonus before/after and include it in team power and stat comparisons without spending or changing heroes. Existing saves recompute the new four-hero tier when loaded; no save reset is needed. Enemy elemental weaknesses and resistances continue to provide battle matchup choices.
+
+## Summon Wishlist
+
+Open **Home → Summoning → Wishlist**. Choose up to two named Rare-or-better heroes per faction (six total). You can select heroes you do not own and remove a choice by tapping it again; editing costs no crystals and stays locked during combat. Common and Uncommon pulls remain uniform.
+
+Rarity is rolled first using the existing base odds and Rare+/Legendary guarantees. Within that rarity, a selected hero has weight 3 and every other hero has weight 1. With one selection among six heroes of that rarity, its conditional chance is 37.5% and each other hero's is 12.5%. With two selections in the same rarity, each selected hero has 30% and each other hero has 10%. Choosing a Rare hero affects Rare pulls only, including a guaranteed Rare pull; it does not turn Epic or Legendary pulls into that hero. If all six heroes of one rarity are selected, their probabilities are equal again.
+
+Wishlist cards display the actual conditional percentage within that rarity, recalculated as selections change. These percentages are not overall per-pull chances: rarity odds and current guarantees determine how often that rarity occurs. Single and ten-pulls use the same weighted picker; duplicates retain their existing shard/refund rewards. Pulls still resolve and save before the reveal.
+
+Version-16 saves retain Wishlist IDs and reject unknown, Common/Uncommon, duplicate, or over-cap selections before changing progress. Versions 1–15 migrate to an empty Wishlist while preserving their existing heroes, materials, gear upgrades, crystals and guarantee counters. To update an existing Unity project, copy the entire **Assets/Scripts** and **Assets/Editor** folders, including the new **Prototype.Wishlist.cs** partial file.

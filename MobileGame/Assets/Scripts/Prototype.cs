@@ -1291,8 +1291,8 @@ namespace Ashlight {
         void SummonHeroes(int count) {
             if(revealingSummons || (tutorialRoot!=null && tutorialRoot.activeSelf) || !atChapters || (count!=1 && count!=10) || (count==10?!battle.CanSummonTen:!battle.CanSummon)) return;
             SummonResult[] results;
-            if(count==10) { var rolls=new double[10]; var classes=new int[10]; for(int i=0;i<10;i++) { rolls[i]=summonRandom.NextDouble(); classes[i]=summonRandom.Next(6); } results=battle.SummonTen(rolls,classes); }
-            else { var result=battle.Summon(summonRandom.NextDouble(),summonRandom.Next(6)); if(result==null) return; results=new[]{result}; }
+            if(count==10) { var rolls=new double[10]; var heroRolls=new double[10]; for(int i=0;i<10;i++) { rolls[i]=summonRandom.NextDouble(); heroRolls[i]=summonRandom.NextDouble(); } results=battle.SummonTen(rolls,heroRolls); }
+            else { var result=battle.Summon(summonRandom.NextDouble(),summonRandom.NextDouble()); if(result==null) return; results=new[]{result}; }
             if(results==null) return;
             // Resolve and save the complete pull once; revealing and skipping never reroll or grant again.
             SaveProgress(); presentedSummons=results;

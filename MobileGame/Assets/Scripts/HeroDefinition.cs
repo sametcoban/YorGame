@@ -104,5 +104,9 @@ namespace Ashlight {
             foreach (var hero in Catalog) if (hero.Class == kind && hero.Quality == HeroQuality.Common) return hero;
             throw new ArgumentOutOfRangeException("kind");
         }
+        public static HeroDefinition Find(string id) {
+            foreach(var hero in Catalog) if(hero.Id==id) return hero;
+            return null;
+        }
     }
 }

@@ -89,14 +89,15 @@ class BalanceChecks {
   int goal=b.Encounter<15?3:b.Encounter<30?5:10;
   foreach(GearSlot slot in new[]{GearSlot.Weapon,GearSlot.Armor,GearSlot.Accessory}) foreach(var member in b.Party) { var gear=member.Gear(slot); if(gear!=null) while(b.EnhancementLevel(gear.Id)<goal && b.CanEnhanceGear(gear.Id)) b.EnhanceGear(gear.Id); }
  }
- static void FullProgression(bool earnedSummons) {
+ static void FullProgression(bool earnedSummons,bool wishlist=false) {
   int complete=0, retries=0, waiting=0, summons=0; int[] failures=new int[60];
   for(int seed=0;seed<Runs;seed++) {
    var rng=new Random(40000+seed); var now=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
    var b=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng,utcNow:()=>now);
+   if(wishlist) foreach(var id in new[]{"Knight_Rare","Sorceress_Legendary","Paladin_Epic","Cleric_Legendary","Ranger_Epic","Knight_Legendary"}) if(!b.ToggleWishlist(id)) throw new Exception("Wishlist fixture rejected");
    while(!b.CampaignComplete) {
     // At most three earned pulls between wins; no real money or injected resources.
-    for(int pull=0;earnedSummons && pull<3 && b.CanSummon;pull++) { if(b.Summon(rng.NextDouble(),rng.Next(6))==null) throw new Exception("Earned summon rejected"); summons++; }
+    for(int pull=0;earnedSummons && pull<3 && b.CanSummon;pull++) { if(b.Summon(rng.NextDouble(),rng.NextDouble())==null) throw new Exception("Earned summon rejected"); summons++; }
     PrepareTeam(b); bool won=false;
     for(int attempt=0;attempt<4;attempt++) {
      if(Fight(b,rng)) { won=true; break; }
@@ -110,12 +111,12 @@ class BalanceChecks {
     if(b.Encounter%5==0) {
      if(!b.ClaimMilestone(b.Encounter/5-1)) throw new Exception("Earned chapter milestone rejected");
      var restored=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng,utcNow:()=>now);
-     if(!restored.RestoreProgress(b.ExportProgress())) throw new Exception("Progression save rejected"); b=restored;
+     if(!restored.RestoreProgress(b.ExportProgress()) || (wishlist && restored.Wishlist.Length!=6)) throw new Exception("Progression save rejected"); b=restored;
     }
    }
    if(b.CampaignComplete) complete++;
   }
-  Console.WriteLine("FULL PROGRESSION (summons {5}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons);
+  Console.WriteLine("FULL PROGRESSION (summons {5}, wishlist {6}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons,wishlist);
   for(int stage=0;stage<failures.Length;stage++) if(failures[stage]>0) Console.WriteLine("Progression stopped at {0}-{1}: {2} runs",stage/5+1,stage%5+1,failures[stage]);
   if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete twelve chapters");
  }
@@ -140,5 +141,5 @@ class BalanceChecks {
   if(milestones!=2850) throw new Exception("Milestone reward budget changed unexpectedly");
   Console.WriteLine("ECONOMY: {0} story crystals + {1} milestones + {2} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,milestones,Summoning.StarterCrystals);
  }
- static void Main() { Economy(); FullProgression(false); FullProgression(true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 400 full progression campaigns"); }
+ static void Main() { Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 600 full progression campaigns"); }
 }

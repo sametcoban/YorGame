@@ -40,3 +40,10 @@ Safari is an initial iPhone browser test. It does not validate a native iOS app;
 - In Formation, check mixed teams and teams with 3, 4 and 5 matching heroes. Expect no bonus, +10%, +15% and +20% respectively. Verify the counts and next-threshold text, including early chapters with locked slots. Check that the four-line formation summary stays readable on the phone-sized window.
 - In Collection, preview swaps from 3 to 4, 4 to 5 and back again. Verify team bonus and power match the applied swap; previewing must leave the roster, health and wallet unchanged. Check the three-line comparison fits its panel.
 - Save/reopen with four matching heroes and confirm +15% persists. Replacing a matching hero should update all active heroes and remove the bonus from the outgoing reserve hero. Formation changes remain locked during combat.
+
+## Summon Wishlist
+
+- Open Home → Summoning → Wishlist. Switch all three factions; check six cards per faction, portraits, rarity/class/element labels and displayed conditional percentages. Select two heroes in one faction; further choices should disable until you remove one. Other faction tabs should keep their own two-slot limits. Test the empty list and all six slots.
+- Check one selected hero in a rarity displays 37.5%, while other heroes of that rarity show 12.5%. Two selected heroes of the same rarity display 30% each and the others 10%. A choice in a different rarity should leave those percentages unchanged. The screen must clearly distinguish within-rarity percentages from base summon odds.
+- Save/reopen and confirm all selections persist without spending crystals. Single and ten-pulls should respect rarity guarantees and keep duplicate shard/refund behavior. Skip/reopen results must not reroll or award again. Verify edits are unavailable during combat.
+- Check the Wishlist rules, faction tabs, cards and Back button for overlap at phone-sized landscape resolutions. Run **Ashlight → Diagnostics → Check Save Serialization** for the new isolated Wishlist JSON fixture in Unity; it has not run in the cloud.

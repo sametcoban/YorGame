@@ -495,19 +495,35 @@ namespace Ashlight {
         }
         public bool CanSummon { get { return campaign && (CanChangeParty || CampaignComplete) && Crystals>=Summoning.Cost; } }
         public bool CanSummonTen { get { return CanSummon && Crystals>=Summoning.Cost*10; } }
-        public SummonResult[] SummonTen(double[] rolls,int[] classIndexes) {
+        readonly List<string> wishlist=new List<string>();
+        public string[] Wishlist { get { return wishlist.ToArray(); } }
+        public bool IsWishlisted(string id) { return wishlist.Contains(id); }
+        public int WishlistCount(HeroFaction faction) { int count=0; foreach(var id in wishlist) if(HeroDefinition.Find(id).Faction==faction) count++; return count; }
+        public bool ToggleWishlist(string id) {
+            if(!campaign || (!CanChangeParty && !CampaignComplete)) return false;
+            var hero=HeroDefinition.Find(id); if(hero==null || hero.Quality<HeroQuality.Rare) return false;
+            if(wishlist.Contains(id)) { wishlist.Remove(id); return true; }
+            if(WishlistCount(hero.Faction)>=Summoning.WishlistPerFaction) return false;
+            wishlist.Add(id); return true;
+        }
+        public SummonResult[] SummonTen(double[] rolls,int[] classIndexes,double[] heroRolls=null) {
             if(!CanSummonTen || rolls==null || classIndexes==null || rolls.Length!=10 || classIndexes.Length!=10) return null;
-            for(int i=0;i<10;i++) if(double.IsNaN(rolls[i]) || double.IsInfinity(rolls[i]) || rolls[i]<0 || rolls[i]>=1 || classIndexes[i]<0 || classIndexes[i]>=6) return null;
+            if(heroRolls!=null && heroRolls.Length!=10) return null;
+            for(int i=0;i<10;i++) if(double.IsNaN(rolls[i]) || double.IsInfinity(rolls[i]) || rolls[i]<0 || rolls[i]>=1 || classIndexes[i]<0 || classIndexes[i]>=6 || (heroRolls!=null && (double.IsNaN(heroRolls[i]) || heroRolls[i]<0 || heroRolls[i]>=1))) return null;
             var results=new SummonResult[10];
-            for(int i=0;i<10;i++) results[i]=Summon(rolls[i],classIndexes[i]);
+            for(int i=0;i<10;i++) results[i]=Summon(rolls[i],heroRolls==null?(classIndexes[i]+.5)/6.0:heroRolls[i]);
             return results;
         }
+        public SummonResult[] SummonTen(double[] rolls,double[] heroRolls) {
+            return heroRolls==null?null:SummonTen(rolls,new int[10],heroRolls);
+        }
         public SummonResult Summon(double rarityRoll, int classIndex) {
-            if(!CanSummon || classIndex<0 || classIndex>=6 || double.IsNaN(rarityRoll) || double.IsInfinity(rarityRoll) || rarityRoll<0 || rarityRoll>=1) return null;
+            return classIndex<0 || classIndex>=6?null:Summon(rarityRoll,(classIndex+.5)/6.0);
+        }
+        public SummonResult Summon(double rarityRoll, double heroRoll) {
+            if(!CanSummon || double.IsNaN(heroRoll) || heroRoll<0 || heroRoll>=1 || double.IsNaN(rarityRoll) || double.IsInfinity(rarityRoll) || rarityRoll<0 || rarityRoll>=1) return null;
             var quality=Summoning.Quality(rarityRoll,RareMisses,LegendaryMisses);
-            HeroDefinition candidate=null;
-            foreach(var hero in HeroDefinition.Catalog) if(hero.Quality==quality && (int)hero.Class==classIndex) candidate=hero;
-            if(candidate==null) return null;
+            var candidate=Summoning.Pick(quality,heroRoll,wishlist);
             bool duplicate=false;
             foreach(var known in recruits) if(known.Id==candidate.Id) duplicate=true;
             int refund=duplicate?Summoning.DuplicateRefund(quality):0;
@@ -616,7 +632,7 @@ namespace Ashlight {
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { wishlist=Wishlist, presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.enhancements=new GearEnhancementData[enhancements.Count]; int improvement=0; foreach(var entry in enhancements) data.enhancements[improvement++]=new GearEnhancementData{id=entry.Key,level=entry.Value};
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
@@ -636,7 +652,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14 && data.version != 15) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14 && data.version != 15 && data.version != 16) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -652,6 +668,16 @@ namespace Ashlight {
                 if(data.dailyDay<0 || data.dailyDay>DateTime.MaxValue.Ticks || data.dailyDay%TimeSpan.TicksPerDay!=0 || data.dailyProgress==null || data.dailyProgress.Length!=3 || data.dailyClaimed==null || data.dailyClaimed.Length!=4) return false;
                 for(int q=0;q<3;q++) if(data.dailyProgress[q]<0 || data.dailyProgress[q]>(q==0?3:1) || (data.dailyClaimed[q] && data.dailyProgress[q]<(q==0?3:1))) return false;
                 if(data.dailyClaimed[3] && (!data.dailyClaimed[0] || !data.dailyClaimed[1] || !data.dailyClaimed[2])) return false;
+            }
+            var restoredWishlist=new List<string>();
+            if(data.version>=16) {
+                if(data.wishlist==null || data.wishlist.Length>6) return false;
+                var factionSlots=new int[3];
+                foreach(var id in data.wishlist) {
+                    var hero=HeroDefinition.Find(id);
+                    if(hero==null || hero.Quality<HeroQuality.Rare || restoredWishlist.Contains(id) || ++factionSlots[(int)hero.Faction]>Summoning.WishlistPerFaction) return false;
+                    restoredWishlist.Add(id);
+                }
             }
             var restoredInventory=new Dictionary<string,int>();
             if(data.version>=4) {
@@ -748,6 +774,7 @@ namespace Ashlight {
             dailyDay=data.version>=10?data.dailyDay:0; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4);
             if(data.version>=10) { Array.Copy(data.dailyProgress,dailyProgress,3); Array.Copy(data.dailyClaimed,dailyClaimed,4); } RefreshDaily();
             sharedHeroes.Clear(); foreach(var id in restoredShared) sharedHeroes.Add(id);
+            wishlist.Clear(); wishlist.AddRange(restoredWishlist);
             enhancements.Clear(); foreach(var entry in restoredEnhancements) enhancements.Add(entry.Key,entry.Value); ForgeMaterials=data.version>=15?data.forgeMaterials:0;
             inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();

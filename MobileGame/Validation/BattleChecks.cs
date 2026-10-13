@@ -111,7 +111,52 @@ class BattleChecks {
   var fullMaterials=idleForge.ExportProgress(); fullMaterials.forgeMaterials=999999; Check(idleForge.RestoreProgress(fullMaterials)); clock=clock.AddMinutes(10);
   Check(idleForge.IdleForgeMaterials==1 && idleForge.ClaimIdleRewards() && idleForge.ForgeMaterials==1000000);
  }
+ static void WishlistChecks() {
+  var b=new Battle(true); Check(b.Wishlist.Length==0 && !b.ToggleWishlist("Knight_Common") && !b.ToggleWishlist("missing"));
+  Check(b.ToggleWishlist("Knight_Rare") && b.IsWishlisted("Knight_Rare"));
+  Check(b.ToggleWishlist("Paladin_Rare") && b.WishlistCount(HeroFaction.Veilborn)==2);
+  Check(!b.ToggleWishlist("Rogue_Epic") && b.Wishlist.Length==2);
+  Check(b.ToggleWishlist("Paladin_Rare") && !b.IsWishlisted("Paladin_Rare"));
+  var wishes=b.Wishlist; wishes[0]="bad"; Check(b.IsWishlisted("Knight_Rare"));
+  var selected=HeroDefinition.Find("Knight_Rare"); var other=HeroDefinition.Find("Paladin_Rare");
+  Check(Summoning.HeroChance(selected,b.Wishlist)==.375 && Summoning.HeroChance(other,b.Wishlist)==.125);
+  foreach(HeroQuality quality in Enum.GetValues(typeof(HeroQuality))) {
+   var counts=new int[6];
+   for(int i=0;i<8000;i++) counts[(int)Summoning.Pick(quality,(i+.5)/8000,b.Wishlist).Class]++;
+   foreach(var hero in HeroDefinition.Catalog) if(hero.Quality==quality) {
+    Check(Math.Abs(counts[(int)hero.Class]/8000.0-Summoning.HeroChance(hero,b.Wishlist))<.001);
+   }
+  }
+  // An empty tier is uniform; selecting every candidate in a tier is also uniform.
+  var allRare=new System.Collections.Generic.List<string>(); foreach(var hero in HeroDefinition.Catalog) if(hero.Quality==HeroQuality.Rare) allRare.Add(hero.Id);
+  foreach(var hero in HeroDefinition.Catalog) if(hero.Quality==HeroQuality.Rare) Check(Math.Abs(Summoning.HeroChance(hero,allRare)-1.0/6)<.000001);
+  int wallet=b.Crystals, pity=b.RareMisses; Check(b.Summon(.9,double.NaN)==null && b.Summon(.9,1.0)==null && b.Crystals==wallet && b.RareMisses==pity);
+  var first=b.Summon(.9,0.0); Check(first.Hero.Id=="Knight_Rare" && !first.Duplicate && b.Crystals==wallet-100);
+  var second=b.Summon(.9,.2); Check(second.Hero.Id=="Knight_Rare" && second.Duplicate && second.Shards==20 && second.Refund==50 && b.HeroProgress("Knight_Rare").Shards==20);
+  var saved=b.ExportProgress(); saved.crystals=2000; saved.rareMisses=4; saved.legendaryMisses=14;
+  var reload=new Battle(true); Check(reload.RestoreProgress(saved) && reload.IsWishlisted("Knight_Rare"));
+  var guaranteed=reload.Summon(0.0,0.0); Check(guaranteed.Hero.Quality==HeroQuality.Legendary && reload.RareMisses==0 && reload.LegendaryMisses==0);
+  saved=reload.ExportProgress(); saved.rareMisses=4; saved.legendaryMisses=0; Check(reload.RestoreProgress(saved));
+  Check(reload.Summon(0.0,0.0).Hero.Id=="Knight_Rare");
+  var tenSave=reload.ExportProgress(); tenSave.crystals=2000; Check(reload.RestoreProgress(tenSave));
+  var rolls=new double[10]; var indexes=new int[10]; var heroes=new double[10];
+  for(int i=0;i<10;i++) rolls[i]=.9;
+  wallet=reload.Crystals; pity=reload.RareMisses; int beforeShards=reload.HeroProgress("Knight_Rare").Shards; heroes[9]=1;
+  Check(reload.SummonTen(rolls,indexes,heroes)==null && reload.Crystals==wallet && reload.RareMisses==pity && reload.HeroProgress("Knight_Rare").Shards==beforeShards);
+  heroes[9]=0; var batch=reload.SummonTen(rolls,heroes); Check(batch!=null && batch.Length==10);
+  foreach(var pull in batch) Check(pull.Hero.Id=="Knight_Rare" || pull.Hero.Quality==HeroQuality.Legendary);
+  var bad=b.ExportProgress(); wallet=reload.Crystals;
+  foreach(var invalid in new[]{new[]{"missing"},new[]{"Knight_Common"},new[]{"Knight_Rare","Knight_Rare"},new[]{"Knight_Rare","Paladin_Rare","Rogue_Epic"},new string[]{null},null}) {
+   bad.wishlist=invalid; Check(!reload.RestoreProgress(bad) && reload.Crystals==wallet && reload.IsWishlisted("Knight_Rare"));
+  }
+  var legacy=b.ExportProgress(); legacy.version=15; legacy.wishlist=null; Check(reload.RestoreProgress(legacy) && reload.Wishlist.Length==0 && reload.Crystals==b.Crystals);
+  Check(b.Attack() && !b.ToggleWishlist("Knight_Rare") && b.IsWishlisted("Knight_Rare"));
+  var full=new Battle(true); foreach(var hero in HeroDefinition.Catalog) if(hero.Quality==HeroQuality.Rare) Check(full.ToggleWishlist(hero.Id));
+  Check(full.Wishlist.Length==6 && !full.ToggleWishlist("Knight_Legendary") && full.Crystals==300 && full.RareMisses==0);
+  Check(new Battle(true).RestoreProgress(full.ExportProgress()));
+ }
  static void Main() {
+  WishlistChecks();
   var b = new Battle();
   Check(b.Current == Phase.Player && b.HeroHealth == 100);
   Check(!b.Defend(false, 0));
@@ -398,7 +443,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==15);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==16);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1145,7 +1190,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==15 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==16 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1251,7 +1296,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==15);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==16);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1735,7 +1780,7 @@ class BattleChecks {
   invalidMilestones.claimedMilestones=-1; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   invalidMilestones.claimedMilestones=4096; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   var previousMilestones=chapterRewards.ExportProgress(); previousMilestones.version=13; previousMilestones.claimedMilestones=4096;
-  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==15 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
+  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==16 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
   Check(chapterRewardReload.Attack() && !chapterRewardReload.ClaimMilestone(0));
   var completeRewards=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},59);
   var completeRewardSave=completeRewards.ExportProgress(); completeRewardSave.encounter=60; completeRewardSave.crystals=999999;

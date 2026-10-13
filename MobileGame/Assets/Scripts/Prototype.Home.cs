@@ -44,11 +44,11 @@ namespace Ashlight {
             homeMilestones=ScreenButton(homeRoot.transform,"MILESTONES",.51f,.02f,.72f,.145f,OpenMilestones);
             homeSound=ScreenButton(homeRoot.transform,"SOUND ON",.74f,.02f,.95f,.145f,()=>sounds.ToggleMute());
             soundButton=homeSound;
-            CreateSummonLobby(); CreateIdleScreen(); CreateMilestoneScreens(); CreateAdvancementScreen(); homeRoot.SetActive(false);
+            CreateSummonLobby(); CreateWishlistScreens(); CreateIdleScreen(); CreateMilestoneScreens(); CreateAdvancementScreen(); homeRoot.SetActive(false);
         }
         void CloseHubPanels() {
             managementHero=null;
-            foreach(var root in new[]{homeRoot,summonLobbyRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{homeRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;
@@ -86,7 +86,7 @@ namespace Ashlight {
             summonLobbyRoot=ScreenRoot("Summoning Lobby");
             Label(summonLobbyRoot.transform,"SUMMONING",new Vector2(.05f,.83f),new Vector2(.95f,.98f),36).color=new Color(1,.82f,.4f);
             summonLobbyWallet=Label(summonLobbyRoot.transform,"",new Vector2(.05f,.69f),new Vector2(.95f,.82f),24);
-            Label(summonLobbyRoot.transform,Summoning.Odds,new Vector2(.05f,.63f),new Vector2(.95f,.68f),19);
+            Label(summonLobbyRoot.transform,"Base odds · "+Summoning.Odds,new Vector2(.05f,.63f),new Vector2(.95f,.68f),19);
             for(int i=0;i<6;i++) {
                 float left=.05f+i*.151f; var hero=HeroDefinition.Common((HeroClass)i);
                 var portrait=CreatePortrait(summonLobbyRoot.transform,new Vector2(left,.44f),new Vector2(left+.14f,.61f)); ShowPortrait(portrait,new PartyHero(hero));
@@ -95,11 +95,13 @@ namespace Ashlight {
             Label(summonLobbyRoot.transform,"30 named heroes · six classes · Common to Legendary\nDuplicate heroes grant shards and refund crystals.\nRare or better guaranteed within 5 pulls; Legendary within 15.",new Vector2(.05f,.255f),new Vector2(.95f,.385f),22);
             summonButton=ScreenButton(summonLobbyRoot.transform,"SUMMON x1 · 100",.05f,.13f,.48f,.24f,SummonHero);
             summonTenButton=ScreenButton(summonLobbyRoot.transform,"SUMMON x10 · 1,000",.52f,.13f,.95f,.24f,()=>SummonHeroes(10));
+            wishlistLobbyButton=ScreenButton(summonLobbyRoot.transform,"WISHLIST",.05f,.02f,.65f,.115f,OpenWishlist);
             ScreenButton(summonLobbyRoot.transform,"BACK",.70f,.02f,.95f,.115f,()=>summonLobbyRoot.SetActive(false)); summonLobbyRoot.SetActive(false);
         }
         void OpenSummoning() { if(!atChapters) return; summonLobbyRoot.transform.SetAsLastSibling(); summonLobbyRoot.SetActive(true); RefreshSummonLobby(); }
         void RefreshSummonLobby() {
-            summonLobbyWallet.text=SummonWallet()+"\n"+(battle.CanSummon?"Choose a summon below.":"Earn crystals from battles, milestones, daily quests and idle rewards.");
+            summonLobbyWallet.text=SummonWallet()+"\nWishlist · "+battle.Wishlist.Length+" selected · Rare+ choices have 3× weight within their rarity.";
+            wishlistLobbyButton.GetComponentInChildren<Text>().text="WISHLIST · "+battle.Wishlist.Length+" / 6";
             summonButton.interactable=battle.CanSummon; summonTenButton.interactable=battle.CanSummonTen;
             summonButton.GetComponentInChildren<Text>().text="SUMMON x1 · 100";
         }
