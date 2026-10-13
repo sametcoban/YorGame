@@ -42,13 +42,17 @@ namespace Ashlight {
         public string NextAscension { get { int rank=UpgradeRank+1; int stars=Math.Max(0,(int)Identity.Quality+rank-4); return ((HeroQuality)Math.Min(4,(int)Identity.Quality+rank))+(stars>0?" ★"+stars:""); } }
         public float Growth { get { return (1f+(CombatLevel-1)*.05f)*HeroDefinition.Multiplier(Quality)/HeroDefinition.Multiplier(Identity.Quality)*(1f+AscensionStars*.10f); } }
         readonly GearDefinition[] gear=new GearDefinition[3];
+        readonly int[] gearEnhancements=new int[3];
         public GearDefinition Gear(GearSlot slot) { return gear[(int)slot]; }
-        internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; RefreshStats(); }
-        public int Protection { get { var armor=Gear(GearSlot.Armor); return armor==null?0:armor.Protection; } }
-        public float DamageBoost(Element element) { var accessory=Gear(GearSlot.Accessory); return accessory!=null && accessory.Element==element?1+accessory.ElementBoost:1; }
-        public UltimateDefinition Ultimate { get { var weapon=Gear(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithTalentDamage((Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger) && HasTalent(2,1)?20:0).WithDamageBonus(weapon==null?0:weapon.SkillDamage).WithTalentDamage(FactionBonus); } }
+        public int GearEnhancement(GearSlot slot) { return gearEnhancements[(int)slot]; }
+        public GearDefinition EquipmentStats(GearSlot slot) { var item=Gear(slot); return item==null?null:item.Enhanced(GearEnhancement(slot)); }
+        internal void SetGearEnhancement(GearSlot slot,int level) { gearEnhancements[(int)slot]=level; RefreshStats(); }
+        internal void SetGear(GearSlot slot,GearDefinition item) { gear[(int)slot]=item; gearEnhancements[(int)slot]=0; RefreshStats(); }
+        public int Protection { get { var armor=EquipmentStats(GearSlot.Armor); return armor==null?0:armor.Protection; } }
+        public float DamageBoost(Element element) { var accessory=EquipmentStats(GearSlot.Accessory); return accessory!=null && accessory.Element==element?1+accessory.ElementBoost:1; }
+        public UltimateDefinition Ultimate { get { var weapon=EquipmentStats(GearSlot.Weapon); return Identity.Ultimate.Scaled(Growth).WithTalentDamage((Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger) && HasTalent(2,1)?20:0).WithDamageBonus(weapon==null?0:weapon.SkillDamage).WithTalentDamage(FactionBonus); } }
         internal void RefreshStats() {
-            var weapon=Gear(GearSlot.Weapon); var armor=Gear(GearSlot.Armor);
+            var weapon=EquipmentStats(GearSlot.Weapon); var armor=EquipmentStats(GearSlot.Armor);
             bool tank=Identity.Class==HeroClass.Knight || Identity.Class==HeroClass.Paladin;
             bool health=HasTalent(1,tank?0:1);
             bool skill=HasTalent(tank?1:0,1) && (tank || Identity.Class==HeroClass.Sorceress || Identity.Class==HeroClass.Ranger);
@@ -71,6 +75,7 @@ namespace Ashlight {
         public int Energy { get; internal set; }
         public Debuff Status { get; internal set; }
         public int StatusRounds { get; internal set; }
+        public int TauntRounds { get; internal set; }
         public int AbilityCharges { get { return charges[0]; } }
         public SkillDefinition Skill(int slot) { return Definition.Skills[equipped[slot]]; }
         public int SkillIndex(int slot) { return equipped[slot]; }
@@ -80,7 +85,7 @@ namespace Ashlight {
         public bool Acted { get; internal set; }
         public PartyHero(HeroClass kind) : this(HeroDefinition.Common(kind)) { }
         public PartyHero(HeroDefinition identity) { Identity = identity; RefreshStats(); Restore(); }
-        internal void Restore() { EncounterDamage=EncounterHealing=0; Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Energy = 0; Status = Debuff.None; StatusRounds = 0; Acted = false; }
+        internal void Restore() { EncounterDamage=EncounterHealing=0; Health = Definition.MaxHealth; charges[0] = charges[1] = 2; Guard = 0; Energy = 0; Status = Debuff.None; StatusRounds = 0; TauntRounds=0; Acted = false; }
     }
     public sealed class BattleEnemy {
         public EnemyDefinition Definition { get; private set; }
@@ -88,6 +93,9 @@ namespace Ashlight {
         public bool Charged { get; internal set; }
         public int ChargeDamage { get; internal set; }
         public int Shield { get; internal set; }
+        public bool InterruptQueued { get; internal set; }
+        public int InterruptRecovery { get; internal set; }
+        public int ExposedRounds { get; internal set; }
         public int Health { get; internal set; }
         public BattleEnemy(EnemyDefinition definition) { Definition = definition; Health = definition.MaxHealth; }
     }
@@ -212,6 +220,7 @@ namespace Ashlight {
             long elapsed=now-idleClaimTicks;
             int minutes=(int)Math.Min(IdleCapMinutes,Math.Max(0,elapsed/TimeSpan.TicksPerMinute));
             if(minutes==0) return false;
+            ForgeMaterials=Math.Min(1000000,ForgeMaterials+minutes);
             int crystalCredits=minutes*IdleCrystalRate+idleCrystalRemainder;
             Crystals=Math.Min(1000000,Crystals+crystalCredits/IdleCrystalInterval);
             idleCrystalRemainder=crystalCredits%IdleCrystalInterval;
@@ -358,7 +367,7 @@ namespace Ashlight {
         static PartyHero PreviewCopy(PartyHero original,int factionBonus) {
             var clone=new PartyHero(original.Identity); clone.Level=original.Level; clone.Experience=original.Experience; clone.Shards=original.Shards; clone.UpgradeRank=original.UpgradeRank; clone.SharedLevel=original.SharedLevel; clone.FactionBonus=factionBonus;
             for(int tier=0;tier<3;tier++) clone.SetTalent(tier,original.TalentChoice(tier));
-            for(int slot=0;slot<3;slot++) clone.SetGear((GearSlot)slot,original.Gear((GearSlot)slot));
+            for(int slot=0;slot<3;slot++) { clone.SetGear((GearSlot)slot,original.Gear((GearSlot)slot)); clone.SetGearEnhancement((GearSlot)slot,original.GearEnhancement((GearSlot)slot)); }
             for(int slot=0;slot<2;slot++) clone.Equip(slot,original.SkillIndex(slot)); clone.RefreshStats(); clone.Restore(); return clone;
         }
         public HeroReplacement PreviewReplacement(string id,int slot) {
@@ -394,6 +403,25 @@ namespace Ashlight {
         // Prototype story checkpoints: victory unlocks an ally for the next encounter.
         readonly Random lootRandom=new Random();
         readonly Dictionary<string,int> inventory=new Dictionary<string,int>();
+        readonly Dictionary<string,int> enhancements=new Dictionary<string,int>();
+        public int ForgeMaterials { get; private set; }
+        public int EnhancementLevel(string id) { int level; return id!=null && enhancements.TryGetValue(id,out level)?level:0; }
+        public GearDefinition EnhancedGear(string id) { var item=GearDefinition.Find(id); return item==null?null:item.Enhanced(EnhancementLevel(id)); }
+        public int IdleForgeMaterials { get { return Math.Min(1000000-ForgeMaterials,IdleMinutes); } }
+        public bool CanEnhanceGear(string id) {
+            var item=EnhancedGear(id); return campaign && (CanChangeParty || CampaignComplete) && item!=null && GearCount(id)>0 && item.Enhancement<GearDefinition.MaxEnhancement && ForgeMaterials>=item.EnhanceCost;
+        }
+        public bool EnhanceGear(string id) {
+            if(!CanEnhanceGear(id)) return false;
+            var item=EnhancedGear(id); ForgeMaterials-=item.EnhanceCost; enhancements[id]=item.Enhancement+1;
+            foreach(var recruit in recruits) { var hero=HeroProgress(recruit.Id); if(hero.Gear(item.Slot)!=null && hero.Gear(item.Slot).Id==id) { hero.SetGearEnhancement(item.Slot,item.Enhancement+1); hero.Restore(); } }
+            return true;
+        }
+        public PartyHero PreviewEnhancement(string heroId,GearSlot slot,string itemId=null) {
+            var hero=heroId==null?null:HeroProgress(heroId); if(hero==null || (int)slot<0 || (int)slot>2) return null;
+            var gear=itemId==null?hero.Gear(slot):GearDefinition.Find(itemId); if(gear==null || gear.Slot!=slot || GearCount(gear.Id)==0 || EnhancementLevel(gear.Id)>=GearDefinition.MaxEnhancement) return null;
+            var clone=PreviewGear(heroId,slot,gear.Id); clone.SetGearEnhancement(slot,EnhancementLevel(gear.Id)+1); return clone;
+        }
         public GearDefinition LastLoot { get; private set; }
         public int GearCount(string id) { int count; return inventory.TryGetValue(id,out count)?count:0; }
         public BattleResults Results { get; private set; }
@@ -401,8 +429,11 @@ namespace Ashlight {
         void BuildResults(GearDefinition loot) {
             int xp=InTower?60+TowerFloor*2:campaign?40+ChapterIndex*10+(enemies[0].Definition.IsBoss?20:0):0;
             string recruit=null;
-            if(campaign && !InTower) foreach(var candidate in HeroDefinition.Catalog) { bool known=false; foreach(var hero in recruits) if(hero.Id==candidate.Id) known=true; if(!known) { recruit=candidate.Name; break; } }
-            Results=new BattleResults(xp,InTower?80+TowerFloor*5:campaign?CampaignVictoryCrystals:0,loot,recruit,Party);
+            var story=campaign && !InTower?StoryRecruit.At(encounter):null;
+            if(story!=null) recruit=story.Hero.Name;
+            int materials=!campaign?0:InTower?10+TowerFloor/5:10+ChapterIndex*2+(StageIndex==4?10:0);
+            bool duplicate=story!=null && HeroProgress(story.HeroId)!=null;
+            Results=new BattleResults(xp,InTower?80+TowerFloor*5:campaign?CampaignVictoryCrystals:0,loot,recruit,Party,materials,story==null?null:story.Introduction,duplicate,duplicate?20:0);
         }
         void Victory() {
             if(WaveIndex<WaveCount-1) { Current=Phase.WaveCleared; return; }
@@ -419,6 +450,7 @@ namespace Ashlight {
             return ClaimVictory(campaign?GearDefinition.Drop(enemies[0].Definition.IsBoss,lootRoll,variant):null);
         }
         bool ClaimVictory(GearDefinition loot) {
+            if(campaign) ForgeMaterials=Math.Min(1000000,ForgeMaterials+Results.Materials);
             if(InTower) {
                 RecordDaily(0); LastLoot=loot; inventory[loot.Id]=Math.Min(1000000,GearCount(loot.Id)+1);
                 foreach(var member in party) { member.GainExperience(Results.Experience); member.Shards=Math.Min(1000000,member.Shards+TowerShards); }
@@ -429,10 +461,11 @@ namespace Ashlight {
                 LastLoot=loot;
                 inventory[LastLoot.Id]=Math.Min(1000000,GearCount(LastLoot.Id)+1);
                 foreach(var member in party) member.GainExperience(Results.Experience);
-                foreach(var candidate in HeroDefinition.Catalog) {
-                    bool known=false;
-                    foreach(var recruit in recruits) if(recruit.Id==candidate.Id) known=true;
-                    if(!known) { AddRecruit(candidate,true); break; }
+                var story=StoryRecruit.At(encounter);
+                if(story!=null) {
+                    var known=HeroProgress(story.HeroId);
+                    if(known==null) AddRecruit(story.Hero,false);
+                    else known.Shards=Math.Min(1000000,known.Shards+20);
                 }
                 Crystals=Math.Min(1000000,Crystals+Results.Crystals);
                 encounter++; furthestStage=Math.Max(furthestStage,encounter);
@@ -532,17 +565,17 @@ namespace Ashlight {
             if(member==null || (int)slot<0 || (int)slot>2) return null;
             var item=itemId==null?null:GearDefinition.Find(itemId);
             if(itemId!=null && (item==null || item.Slot!=slot || GearCount(itemId)==0)) return null;
-            var clone=PreviewCopy(member,member.FactionBonus); clone.SetGear(slot,item); return clone;
+            var clone=PreviewCopy(member,member.FactionBonus); clone.SetGear(slot,item); clone.SetGearEnhancement(slot,item==null?0:EnhancementLevel(item.Id)); return clone;
         }
         double EquipmentScore(PartyHero member,GearSlot slot,GearDefinition item) {
             if(slot!=GearSlot.Accessory) {
-                var clone=PreviewCopy(member,member.FactionBonus); clone.SetGear(slot,item); return clone.Power;
+                var clone=PreviewCopy(member,member.FactionBonus); clone.SetGear(slot,item); clone.SetGearEnhancement(slot,item==null?0:EnhancementLevel(item.Id)); return clone.Power;
             }
             if(item==null) return 0;
             double damage=member.Identity.Affinity==item.Element?member.Definition.AttackDamage:0;
             for(int skill=0;skill<2;skill++) if((member.Skill(skill).Affinity??member.Identity.Affinity)==item.Element) damage+=member.Skill(skill).Damage;
             if(member.Ultimate.Affinity==item.Element) damage+=member.Ultimate.Damage*member.EnergyGain/100.0*(member.Ultimate.AreaDamage?1.5:1);
-            return damage*item.ElementBoost;
+            return damage*item.Enhanced(EnhancementLevel(item.Id)).ElementBoost;
         }
         public bool EquipBestGear(string heroId) {
             if(heroId==null || !campaign || (!CanChangeParty && !CampaignComplete)) return false;
@@ -569,12 +602,13 @@ namespace Ashlight {
                 int used=0; foreach(var hero in recruits) { var owner=HeroProgress(hero.Id); if(owner!=null && owner.Gear(slot)==item) used++; }
                 if(used>=GearCount(item.Id)) return false;
             }
-            member.SetGear(slot,item); member.Restore(); return true;
+            member.SetGear(slot,item); member.SetGearEnhancement(slot,item==null?0:EnhancementLevel(item.Id)); member.Restore(); return true;
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
+            data.enhancements=new GearEnhancementData[enhancements.Count]; int improvement=0; foreach(var entry in enhancements) data.enhancements[improvement++]=new GearEnhancementData{id=entry.Key,level=entry.Value};
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
             for (int i = 0; i < party.Count; i++) data.party[i] = party[i].Identity.Id;
             for (int i = 0; i < recruits.Count; i++) {
@@ -592,7 +626,7 @@ namespace Ashlight {
         }
         // Validate the whole snapshot before mutating live progress. Loading starts a fresh encounter.
         public bool RestoreProgress(ProgressData data) {
-            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
+            if (!campaign || data == null || (data.version != 1 && data.version != 2 && data.version != 3 && data.version != 4 && data.version != 5 && data.version != 6 && data.version != 7 && data.version != 8 && data.version != 9 && data.version != 10 && data.version != 11 && data.version != 12 && data.version != 13 && data.version != 14 && data.version != 15) || data.encounter < 0 || data.encounter > ChapterDefinition.TotalStages || (data.pendingVictory && data.encounter == ChapterDefinition.TotalStages && !(data.version>=11 && data.inTower)) ||
                 data.recruited == null || data.recruited.Length < 1 || data.recruited.Length > HeroDefinition.Catalog.Count ||
                 data.party == null || data.party.Length < 1 || data.party.Length > MaxPartySize ||
                 data.loadouts == null || data.loadouts.Length != data.recruited.Length ||
@@ -615,6 +649,14 @@ namespace Ashlight {
                 foreach(var item in data.inventory) {
                     if(item==null || GearDefinition.Find(item.id)==null || item.count<1 || item.count>1000000 || restoredInventory.ContainsKey(item.id)) return false;
                     restoredInventory.Add(item.id,item.count);
+                }
+            }
+            var restoredEnhancements=new Dictionary<string,int>();
+            if(data.version>=15) {
+                if(data.forgeMaterials<0 || data.forgeMaterials>1000000 || data.enhancements==null || data.enhancements.Length>GearDefinition.Catalog.Count) return false;
+                foreach(var entry in data.enhancements) {
+                    if(entry==null || entry.id==null || !restoredInventory.ContainsKey(entry.id) || entry.level<1 || entry.level>GearDefinition.MaxEnhancement || restoredEnhancements.ContainsKey(entry.id)) return false;
+                    restoredEnhancements.Add(entry.id,entry.level);
                 }
             }
             var equippedCounts=new Dictionary<string,int>();
@@ -647,6 +689,7 @@ namespace Ashlight {
                         if(item==null || (int)item.Slot!=slot || !restoredInventory.TryGetValue(item.Id,out owned)) return false;
                         equippedCounts.TryGetValue(item.Id,out used); if(used>=owned) return false;
                         equippedCounts[item.Id]=used+1; member.SetGear((GearSlot)slot,item);
+                        int rank; restoredEnhancements.TryGetValue(item.Id,out rank); member.SetGearEnhancement((GearSlot)slot,rank);
                     }
                 }
                 member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
@@ -695,6 +738,7 @@ namespace Ashlight {
             dailyDay=data.version>=10?data.dailyDay:0; Array.Clear(dailyProgress,0,3); Array.Clear(dailyClaimed,0,4);
             if(data.version>=10) { Array.Copy(data.dailyProgress,dailyProgress,3); Array.Copy(data.dailyClaimed,dailyClaimed,4); } RefreshDaily();
             sharedHeroes.Clear(); foreach(var id in restoredShared) sharedHeroes.Add(id);
+            enhancements.Clear(); foreach(var entry in restoredEnhancements) enhancements.Add(entry.Key,entry.Value); ForgeMaterials=data.version>=15?data.forgeMaterials:0;
             inventory.Clear(); foreach(var item in restoredInventory) inventory.Add(item.Key,item.Value); LastLoot=null;
             recruits.Clear(); unlocked.Clear(); party.Clear(); savedHeroes.Clear();
             for (int i = 0; i < data.recruited.Length; i++) {
@@ -729,7 +773,7 @@ namespace Ashlight {
             Array.Clear(LastUltimateHealing,0,LastUltimateHealing.Length); Array.Clear(LastUltimateGuard,0,LastUltimateGuard.Length);
             WaveIndex=0; LoadWaveEnemies();
             SelectedEnemyIndex = AttackingEnemyIndex = 0;
-            ActiveIndex = 0; targetCursor = 0; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete || (InTower && TowerComplete) ? Phase.Complete : Phase.Player; Defended = false;
+            ClearSkillReports(); ActiveIndex = 0; targetCursor = 0; LastDamage = 0; LastElementMultiplier = 1f; Current = CampaignComplete || (InTower && TowerComplete) ? Phase.Complete : Phase.Player; Defended = false;
         }
         void LoadWaveEnemies() {
             enemies.Clear();
@@ -753,15 +797,24 @@ namespace Ashlight {
             Array.Clear(LastUltimateDamage,0,LastUltimateDamage.Length);
             Current=Phase.Player; return true;
         }
+        public readonly int[] LastSkillGuard=new int[MaxPartySize];
+        public readonly bool[] LastSkillCleanse=new bool[MaxPartySize];
+        public string LastUtilityText { get; private set; }
+        public int LastUtilityTarget { get; private set; }
+        void ClearSkillReports() { Array.Clear(LastSkillGuard,0,MaxPartySize); Array.Clear(LastSkillCleanse,0,MaxPartySize); LastUtilityText=null; LastUtilityTarget=-1; }
+        public bool CanInterrupt(int target) {
+            return target>=0 && target<enemies.Count && enemies[target].Health>0 && !enemies[target].InterruptQueued && (!enemies[target].Definition.IsBoss || enemies[target].InterruptRecovery==0);
+        }
         public bool Attack() {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0) return false;
-            LastOffensivePassive=null;
+            LastOffensivePassive=null; ClearSkillReports();
             DealDamage(Hero.AttackDamage);
             CompleteAction(); return true;
         }
         public bool UseAbility(int slot = 0) {
             if (Current != Phase.Player || Active.Acted || Active.Health == 0 || slot < 0 || slot > 1 || Active.SkillCharges(slot) == 0) return false;
-            LastOffensivePassive=null;
+            LastOffensivePassive=null; ClearSkillReports();
+            int target=SelectedEnemyIndex; var utility=new List<string>();
             var skill = Active.Skill(slot);
             int skillHealing=(int)Math.Ceiling(skill.Healing*Active.HealingMultiplier);
             int healingBefore=0; foreach(var member in party) healingBefore+=member.Health;
@@ -772,8 +825,24 @@ namespace Ashlight {
             } else Active.Health = Math.Min(Hero.MaxHealth, Active.Health + skillHealing);
             int healingAfter=0; foreach(var member in party) healingAfter+=member.Health;
             Active.EncounterHealing=Math.Min(1000000,Active.EncounterHealing+healingAfter-healingBefore);
-            Active.Guard = Math.Max(Active.Guard, skill.Guard);
+            for(int i=0;i<party.Count;i++) {
+                var member=party[i]; if(member.Health<=0) continue;
+                if(i==ActiveIndex || (skill.Utility&SkillUtility.PartyShield)!=0) { int before=member.Guard; member.Guard=Math.Max(member.Guard,skill.Guard); LastSkillGuard[i]=member.Guard-before; }
+                if((skill.Utility&SkillUtility.Cleanse)!=0 && (skill.PartyHealing || i==ActiveIndex) && member.Status!=Debuff.None) { member.Status=Debuff.None; member.StatusRounds=0; LastSkillCleanse[i]=true; }
+            }
+            if((skill.Utility&SkillUtility.Taunt)!=0) { Active.TauntRounds=1; utility.Add("TAUNT"); }
+            if((skill.Utility&SkillUtility.Dispel)!=0 && enemies[target].Shield>0) { enemies[target].Shield=0; utility.Add("WARD BROKEN"); }
             DealDamage(skill.Damage, skill.Affinity);
+            var foe=enemies[target];
+            if(foe.Health>0 && (skill.Utility&SkillUtility.Expose)!=0) { foe.ExposedRounds=1; utility.Add("EXPOSED +20%"); }
+            if(foe.Health>0 && (skill.Utility&SkillUtility.Interrupt)!=0) {
+                if(CanInterrupt(target)) {
+                    if(foe.Charged) { foe.Charged=false; foe.ChargeDamage=60; foe.InterruptRecovery=foe.Definition.IsBoss?1:0; }
+                    else foe.InterruptQueued=true;
+                    utility.Add("INTERRUPTED");
+                } else if(foe.Definition.IsBoss && foe.InterruptRecovery>0) utility.Add("INTERRUPT RESISTED");
+            }
+            LastUtilityText=string.Join(" · ",utility.ToArray()); LastUtilityTarget=target;
             CompleteAction(); return true;
         }
         public bool EnemyProtected(int index) {
@@ -793,6 +862,7 @@ namespace Ashlight {
                 if(Active.Identity.Class==HeroClass.Rogue && passiveRandom.NextDouble()<Active.CriticalChance) { damage=(int)Math.Ceiling(damage*Active.CriticalMultiplier); LastOffensivePassive="CRITICAL STRIKE"; }
             }
             damage=(int)Math.Ceiling(damage*Active.DamageBoost(LastElement));
+            if(foe.ExposedRounds>0 && Current==Phase.Player) damage=(int)Math.Ceiling(damage*1.2);
             if (Active.Status == Debuff.Chill || Active.Status == Debuff.Weaken) damage = (int)Math.Ceiling(damage*.75f);
             if(damage>0 && !areaDamage && EnemyProtected(target<0?SelectedEnemyIndex:target)) {
                 if(Active.Identity.Class!=HeroClass.Rogue) damage=(int)Math.Ceiling(damage*.8);
@@ -905,6 +975,10 @@ namespace Ashlight {
                 IncomingSkill=new EnemySkill("Root Communion · restores a living partner",0,Element.Poison,action:EnemyAction.HealPartner);
             if(attacker.Definition.Name=="Veiled Monarch" && attacker.CompletedStrikes%3==1)
                 IncomingSkill=new EnemySkill("Eclipse Veil · shields one boss; target the other",0,Element.Light,action:EnemyAction.Shield);
+            if(attacker.InterruptQueued) {
+                attacker.InterruptQueued=false; attacker.InterruptRecovery=attacker.Definition.IsBoss?1:0;
+                IncomingSkill=new EnemySkill("Interrupted · action cancelled",0,Element.Light,action:EnemyAction.Interrupted);
+            }
             if(WaveIndex<WaveCount-1 && IncomingSkill.Action==EnemyAction.Attack)
                 IncomingSkill=new EnemySkill(IncomingSkill.Name,Math.Max(1,(int)Math.Ceiling(IncomingSkill.Damage*.6)),IncomingSkill.Element,IncomingSkill.PartyWide,IncomingSkill.Status,backRow:IncomingSkill.BackRow);
             if(campaign && waveBattles && !InTower && IncomingSkill.Action==EnemyAction.Attack)
@@ -919,6 +993,8 @@ namespace Ashlight {
                     for(int i=0;i<Math.Min(FrontSlots,party.Count);i++) if(party[i].Health>0) targets.Add(i);
                 for(int i=FrontSlots;i<party.Count;i++) if(party[i].Health>0) targets.Add(i);
             }
+            if(!IncomingSkill.PartyWide && !IncomingSkill.BackRow && IncomingSkill.Action==EnemyAction.Attack)
+                for(int i=0;i<party.Count;i++) if(party[i].Health>0 && party[i].TauntRounds>0) { targets.Clear(); targets.Add(i); break; }
             if(targets.Count>0) { ActiveIndex=targets[targetCursor%targets.Count]; targetCursor=(targetCursor+1)%1000000; }
             Current = Phase.EnemyWindup;
         }
@@ -949,6 +1025,8 @@ namespace Ashlight {
             Array.Clear(LastIncomingDamage,0,LastIncomingDamage.Length);
             Array.Clear(LastStatusDamage,0,LastStatusDamage.Length);
             var attacker=enemies[AttackingEnemyIndex];
+            if(IncomingSkill.Action==EnemyAction.Interrupted) LastMechanicTarget=AttackingEnemyIndex;
+            else if(attacker.InterruptRecovery>0) attacker.InterruptRecovery--;
             if(IncomingSkill.Action==EnemyAction.Charge) { attacker.Charged=true; attacker.ChargeDamage=0; LastMechanicTarget=AttackingEnemyIndex; }
             if(IncomingSkill.Action==EnemyAction.HealPartner) {
                 int target=AttackingEnemyIndex;
@@ -1002,6 +1080,8 @@ namespace Ashlight {
                 }
             }
             ApplyClericHealing();
+            foreach(var member in party) if(member.TauntRounds>0) member.TauntRounds--;
+            foreach(var foe in enemies) if(foe.ExposedRounds>0) foe.ExposedRounds--;
             Current = Phase.Lost;
             for (int i = 0; i < party.Count; i++) {
                 party[i].Acted = false;

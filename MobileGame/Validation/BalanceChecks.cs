@@ -66,7 +66,7 @@ class BalanceChecks {
     if(!b.RestoreProgress(save)) throw new Exception("Roster restore rejected");
     if(Fight(b,rng)) wins++;
    }
-   if(stage>=30 && level>=10 && quality==HeroQuality.Legendary && wins<Runs*.9) throw new Exception("Late stages block a developed team");
+   if(stage>=30 && level>=10 && quality==HeroQuality.Legendary && wins<Runs*.9) throw new Exception("Late stages block a developed team: "+(stage/5+1)+"-"+(stage%5+1)+" "+wins+"/"+Runs);
    if(stage==0 && wins<Runs*.95) throw new Exception("Opening stage too punishing");
    if(stage==29 && (level>=10 || quality==HeroQuality.Legendary) && wins<Runs*.9) throw new Exception("Upgraded teams hit a progression wall");
    if(stage==29 && level==1 && quality==HeroQuality.Common && wins>=Runs*.5) throw new Exception("Final boss does not reward progression");
@@ -86,6 +86,8 @@ class BalanceChecks {
   }
   b.AutoArrangeFormation();
   foreach(var member in b.Party) b.EquipBestGear(member.Identity.Id);
+  int goal=b.Encounter<15?3:b.Encounter<30?5:10;
+  foreach(GearSlot slot in new[]{GearSlot.Weapon,GearSlot.Armor,GearSlot.Accessory}) foreach(var member in b.Party) { var gear=member.Gear(slot); if(gear!=null) while(b.EnhancementLevel(gear.Id)<goal && b.CanEnhanceGear(gear.Id)) b.EnhanceGear(gear.Id); }
  }
  static void FullProgression(bool earnedSummons) {
   int complete=0, retries=0, waiting=0, summons=0; int[] failures=new int[60];

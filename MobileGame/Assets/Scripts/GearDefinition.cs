@@ -7,16 +7,25 @@ namespace Ashlight {
         public readonly GearSlot Slot;
         public readonly HeroQuality Quality;
         public readonly Element Element;
-        public readonly int Health, Attack, SkillDamage, Protection;
+        public readonly int Health, Attack, SkillDamage, Protection, Enhancement;
+        public const int MaxEnhancement=10;
+        GearDefinition[] enhanced;
         public readonly float ElementBoost;
-        GearDefinition(GearSlot slot,HeroQuality quality,Element element) {
-            Slot=slot; Quality=quality; Element=element;
+        GearDefinition(GearSlot slot,HeroQuality quality,Element element,int enhancement=0) {
+            Slot=slot; Quality=quality; Element=element; Enhancement=enhancement;
             Id=slot+"_"+quality+"_"+element;
-            Name=element+" "+new[]{"Runeblade","Cuirass","Sigil"}[(int)slot];
-            int tier=(int)quality+1;
-            Attack=slot==GearSlot.Weapon?6*tier:0; SkillDamage=slot==GearSlot.Weapon?3*tier:0;
-            Health=slot==GearSlot.Armor?20*tier:0; Protection=slot==GearSlot.Armor?2*tier:0;
-            ElementBoost=slot==GearSlot.Accessory?.06f*tier:0;
+            Name=element+" "+new[]{"Runeblade","Cuirass","Sigil"}[(int)slot]+(enhancement>0?" +"+enhancement:"");
+            int tier=(int)quality+1; double scale=1+enhancement*.12;
+            Attack=slot==GearSlot.Weapon?(int)Math.Round(6*tier*scale):0; SkillDamage=slot==GearSlot.Weapon?(int)Math.Round(3*tier*scale):0;
+            Health=slot==GearSlot.Armor?(int)Math.Round(20*tier*scale):0; Protection=slot==GearSlot.Armor?(int)Math.Round(2*tier*scale):0;
+            ElementBoost=slot==GearSlot.Accessory?.06f*tier+enhancement*.01f:0;
+        }
+        public int EnhanceCost { get { return Enhancement>=MaxEnhancement?0:(10+Enhancement*5)*((int)Quality+1); } }
+        public GearDefinition Enhanced(int level) {
+            if(level<0 || level>MaxEnhancement) throw new ArgumentOutOfRangeException("level");
+            if(level==Enhancement) return this;
+            if(enhanced==null) enhanced=new GearDefinition[MaxEnhancement+1];
+            return enhanced[level]??(enhanced[level]=new GearDefinition(Slot,Quality,Element,level));
         }
         public string Description { get { return Quality+" "+Name+" · "+(Slot==GearSlot.Weapon?"Attack +"+Attack+", skill/ultimate damage +"+SkillDamage:Slot==GearSlot.Armor?"HP +"+Health+", protection "+Protection:Element+" damage +"+Math.Round(ElementBoost*100)+"%"); } }
         static readonly IReadOnlyList<GearDefinition> catalog=Build();

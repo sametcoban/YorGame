@@ -29,6 +29,19 @@ public static class SaveSerializationChecks {
         var milestoneReload=RoundTrip(milestoneTest);
         if(!milestoneReload.MilestoneClaimed(0) || milestoneReload.ClaimMilestone(0) || milestoneReload.Crystals!=milestoneTest.Crystals || milestoneReload.HeroProgress("Knight_Common").Shards!=5)
             throw new InvalidOperationException("Chapter rewards changed or became claimable twice during serialization.");
+        var forgeTest=new Battle(true); var forgeSave=forgeTest.ExportProgress(); forgeSave.forgeMaterials=1000;
+        forgeSave.inventory=new[]{new GearStackData{id="Weapon_Common_Physical",count=1}};
+        forgeSave.loadouts[0].gear=new[]{"Weapon_Common_Physical",null,null};
+        if(!forgeTest.RestoreProgress(forgeSave) || !forgeTest.EnhanceGear("Weapon_Common_Physical")) throw new InvalidOperationException("Could not prepare forged gear fixture.");
+        var forgeReload=RoundTrip(forgeTest);
+        if(forgeReload.ForgeMaterials!=990 || forgeReload.EnhancementLevel("Weapon_Common_Physical")!=1 || forgeReload.Party[0].Definition.AttackDamage!=forgeTest.Party[0].Definition.AttackDamage)
+            throw new InvalidOperationException("Forged equipment or materials changed during serialization.");
+        var storyTest=new Battle(true); var storySave=storyTest.ExportProgress(); storySave.encounter=4;
+        storySave.recruited=new[]{"Knight_Common","Paladin_Common"}; storySave.loadouts=new[]{storySave.loadouts[0],new HeroLoadoutData{id="Paladin_Common",secondSkill=1}};
+        if(!storyTest.RestoreProgress(storySave)) throw new InvalidOperationException("Could not prepare story arrival fixture.");
+        storyTest.Enemies[0].Health=1; storyTest.Attack(); var storyReload=RoundTrip(storyTest);
+        if(!storyReload.Results.RecruitDuplicate || storyReload.Results.RecruitShards!=20 || !storyReload.ContinueAfterVictory() || storyReload.HeroProgress("Paladin_Common").Shards!=20 || storyReload.ContinueAfterVictory())
+            throw new InvalidOperationException("Pending story duplicate reward changed or repeated during serialization.");
         var sharedTest=new Battle(true); var sharedSave=sharedTest.ExportProgress();
         sharedSave.recruited=new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Rogue_Common","Cleric_Common"};
         sharedSave.loadouts=new HeroLoadoutData[6];

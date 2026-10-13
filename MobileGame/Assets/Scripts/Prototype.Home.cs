@@ -48,7 +48,7 @@ namespace Ashlight {
         }
         void CloseHubPanels() {
             managementHero=null;
-            foreach(var root in new[]{homeRoot,summonLobbyRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{homeRoot,summonLobbyRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;
@@ -63,13 +63,13 @@ namespace Ashlight {
         void RefreshHome() {
             if(homeRoot==null) return;
             int ascensions=0; foreach(var hero in battle.Recruits) { var member=battle.HeroProgress(hero.Id); if(member.UpgradeRank<PartyHero.MaxUpgradeRank && member.Shards>=member.UpgradeCost) ascensions++; }
-            homeWallet.text=battle.Crystals+" CRYSTALS · "+battle.Recruits.Count+"/30 HEROES · TEAM POWER "+battle.TeamPower+"\n"+(battle.CampaignComplete?"CAMPAIGN COMPLETE":"CHAPTER "+(battle.ChapterIndex+1)+" · STAGE "+(battle.StageIndex+1))+" · "+saveNotice;
+            homeWallet.text=battle.Crystals+" CRYSTALS · "+battle.ForgeMaterials+" MATERIALS · "+battle.Recruits.Count+"/30 HEROES\nTEAM POWER "+battle.TeamPower+" · "+(battle.CampaignComplete?"CAMPAIGN COMPLETE":"CHAPTER "+(battle.ChapterIndex+1)+" · STAGE "+(battle.StageIndex+1))+" · "+saveNotice;
             homeNotice.text=homeToast!=""?homeToast:battle.ReadyMilestones>0?battle.ReadyMilestones+" chapter milestone rewards ready to claim.":ascensions>0?ascensions+" heroes ready to ascend · Open Heroes to compare upgrades.":"Prepare your heroes, claim idle XP, and continue your journey.";
             homeNotice.color=saveFailed?new Color(1,.4f,.3f):new Color(.85f,.8f,.68f);
             homeCampaign.GetComponentInChildren<Text>().text="CAMPAIGN\n"+(battle.CampaignComplete?"All chapters cleared":"Continue Chapter "+(battle.ChapterIndex+1)+" · "+(battle.StageIndex+1)+"/5")+"\n"+(battle.CampaignComplete?"View your journey":ChapterDefinition.Catalog[battle.ChapterIndex].Name);
             homeHeroes.GetComponentInChildren<Text>().text="HEROES\n"+battle.Recruits.Count+" recruited · "+battle.Party.Count+" in formation\n"+(ascensions>0?ascensions+" ready to ascend":"Skills · equipment · progression");
             homeSummoning.GetComponentInChildren<Text>().text="SUMMONING\n1 HERO · 100     10 HEROES · 1,000\nLegendary guaranteed within "+(Summoning.LegendaryGuarantee-battle.LegendaryMisses)+" pulls";
-            homeIdle.GetComponentInChildren<Text>().text="IDLE REWARDS\n+"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each\n"+battle.IdleMinutes+"/720 minutes banked";
+            homeIdle.GetComponentInChildren<Text>().text="IDLE REWARDS\n+"+battle.IdleCrystals+" crystals · +"+battle.IdleExperience+" XP each\n+"+battle.IdleForgeMaterials+" materials · "+battle.IdleMinutes+"/720 minutes banked";
             int quests=0; for(int q=0;q<4;q++) if(battle.CanClaimDaily(q)) quests++;
             homeDaily.GetComponentInChildren<Text>().text="DAILY QUESTS"+(quests>0?"\n"+quests+" READY":"");
             homeMilestones.GetComponentInChildren<Text>().text="MILESTONES"+(battle.ReadyMilestones>0?"\n"+battle.ReadyMilestones+" READY":"");
@@ -125,7 +125,7 @@ namespace Ashlight {
         }
         void RefreshIdleScreen() {
             int minutes=battle.IdleMinutes;
-            idleSummary.text=(minutes/60)+"h "+(minutes%60)+"m / 12h BANKED\n\n+"+battle.IdleCrystals+" CRYSTALS\n+"+battle.IdleExperience+" XP PER HERO";
+            idleSummary.text=(minutes/60)+"h "+(minutes%60)+"m / 12h BANKED\n\n+"+battle.IdleCrystals+" CRYSTALS\n+"+battle.IdleExperience+" XP PER HERO\n+"+battle.IdleForgeMaterials+" FORGE MATERIALS";
             SetMeter(idleMeter,minutes/(float)Battle.IdleCapMinutes); idleClaim.interactable=minutes>0 && CanManageHeroes;
             idleClaim.GetComponentInChildren<Text>().text=minutes>0?"CLAIM REWARDS":"REWARDS ARE ACCUMULATING";
         }
@@ -207,7 +207,7 @@ namespace Ashlight {
             advanceLevel.text=nextLevel==null?"LEVEL · MAX OWN LEVEL "+PartyHero.MaxLevel:"LEVEL "+hero.Level+" → "+nextLevel.Level+" · XP "+hero.Experience+" / "+hero.NextLevelXP+"\n"+StatChange(hero,nextLevel)+"\nEarn XP from victories, idle rewards and chapter milestones.";
             SetMeter(advanceXP,hero.Level==PartyHero.MaxLevel?1:hero.Experience/(float)hero.NextLevelXP);
             advanceAscension.text=ascended==null?"ASCENSION · MAXIMUM REACHED":"ASCENSION · "+hero.RarityLabel+" → "+ascended.RarityLabel+"\n"+StatChange(hero,ascended)+"\nCOST "+hero.UpgradeCost+" hero shards · OWNED "+hero.Shards+"\n"+(hero.Shards>=hero.UpgradeCost?"Ready to ascend.":"Need "+(hero.UpgradeCost-hero.Shards)+" more · Earn shards from duplicates, quests, milestones and Tower.");
-            string equipment="EQUIPMENT · Compare items before equipping\n"; for(int i=0;i<3;i++) { var item=hero.Gear((GearSlot)i); equipment+=(i==0?"":" · ")+((GearSlot)i)+": "+(item==null?"Empty":item.Name); }
+            string equipment="EQUIPMENT · Compare items before equipping\n"; for(int i=0;i<3;i++) { var item=hero.EquipmentStats((GearSlot)i); equipment+=(i==0?"":" · ")+((GearSlot)i)+": "+(item==null?"Empty":item.Name); }
             advanceEquipment.text=equipment+"\nTalents unlock at own levels 5, 10 and 15. Shared levels do not unlock talents.";
             advanceConfirm.interactable=CanManageHeroes && ascended!=null && hero.Shards>=hero.UpgradeCost;
             advanceConfirm.GetComponentInChildren<Text>().text=ascended==null?"ASCENSION MAX":"ASCEND · "+hero.UpgradeCost+" SHARDS";

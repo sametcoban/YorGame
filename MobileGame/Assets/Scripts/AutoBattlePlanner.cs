@@ -37,6 +37,7 @@ namespace Ashlight {
             best=(float)System.Math.Ceiling(best*battle.PassiveDamageMultiplier(hero,battle.Enemy,hero.Identity.Affinity));
             best=(float)System.Math.Ceiling(best*hero.DamageBoost(hero.Identity.Affinity));
             if(weakened) best=(float)System.Math.Ceiling(best*.75f);
+            if(battle.Enemies[battle.SelectedEnemyIndex].ExposedRounds>0) best=(float)System.Math.Ceiling(best*1.2f);
             if(battle.EnemyProtected(battle.SelectedEnemyIndex) && hero.Identity.Class!=HeroClass.Rogue) best=(float)System.Math.Ceiling(best*.8);
             for (int slot=0;slot<2;slot++) {
                 if (hero.SkillCharges(slot)==0) continue;
@@ -45,11 +46,29 @@ namespace Ashlight {
                 score=(float)System.Math.Ceiling(score*battle.PassiveDamageMultiplier(hero,battle.Enemy,skill.Affinity ?? hero.Identity.Affinity));
                 score=(float)System.Math.Ceiling(score*hero.DamageBoost(skill.Affinity ?? hero.Identity.Affinity));
                 if(weakened) score=(float)System.Math.Ceiling(score*.75f);
+                var foe=battle.Enemies[battle.SelectedEnemyIndex];
+                if(foe.ExposedRounds>0) score=(float)System.Math.Ceiling(score*1.2f);
                 if(battle.EnemyProtected(battle.SelectedEnemyIndex) && hero.Identity.Class!=HeroClass.Rogue) score=(float)System.Math.Ceiling(score*.8);
                 if (skill.PartyHealing) {
                     foreach (var ally in battle.Party) if (ally.Health>0) score+=System.Math.Min(skill.Healing,ally.Definition.MaxHealth-ally.Health);
                 } else score+=System.Math.Min(skill.Healing,hero.Definition.MaxHealth-hero.Health);
-                score+=System.Math.Max(0,skill.Guard-hero.Guard)*.5f;
+                if((skill.Utility&SkillUtility.PartyShield)!=0) {
+                    foreach(var ally in battle.Party) if(ally.Health>0) score+=System.Math.Max(0,skill.Guard-ally.Guard)*.5f;
+                } else score+=System.Math.Max(0,skill.Guard-hero.Guard)*.5f;
+                if((skill.Utility&SkillUtility.Cleanse)!=0) foreach(var ally in battle.Party) {
+                    if(ally.Health<=0 || (!skill.PartyHealing && ally!=hero)) continue;
+                    if(ally.Status==Debuff.Burn || ally.Status==Debuff.Poison) score+=16;
+                    else if(ally.Status!=Debuff.None) score+=ally.Definition.AttackDamage*.3f+8;
+                }
+                if((skill.Utility&SkillUtility.Interrupt)!=0 && battle.CanInterrupt(battle.SelectedEnemyIndex)) score+=foe.Charged?80:foe.Definition.Role==EnemyRole.Healer || foe.Definition.Role==EnemyRole.Support || foe.Definition.Role==EnemyRole.Caster?25:12;
+                if((skill.Utility&SkillUtility.Dispel)!=0) score+=System.Math.Min(foe.Shield,skill.Damage);
+                if((skill.Utility&SkillUtility.Expose)!=0 && foe.ExposedRounds==0) foreach(var ally in battle.Party) if(ally!=hero && ally.Health>0 && !ally.Acted) score+=ally.Definition.AttackDamage*.2f;
+                if((skill.Utility&SkillUtility.Taunt)!=0 && battle.Party.Count>1 && hero.TauntRounds==0) {
+                    int threats=0; bool wounded=false;
+                    foreach(var enemy in battle.Enemies) if(enemy.Health>0) threats++;
+                    foreach(var ally in battle.Party) if(ally!=hero && ally.Health>0 && ally.Health<ally.Definition.MaxHealth*.35f) wounded=true;
+                    score+=hero.Health<hero.Definition.MaxHealth*.6f?-25:threats>1 && !wounded?-25:wounded?12:3;
+                }
                 if (score>best) { best=score; choice=slot; }
             }
             return choice;

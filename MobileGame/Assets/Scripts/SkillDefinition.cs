@@ -1,23 +1,30 @@
 using System;
 using System.Collections.Generic;
 namespace Ashlight {
+    [Flags] public enum SkillUtility { None=0, Taunt=1, Cleanse=2, PartyShield=4, Interrupt=8, Dispel=16, Expose=32 }
     public sealed class SkillDefinition {
         public readonly string Name;
         public readonly int Damage, Healing, Guard;
         public readonly bool PartyHealing;
+        public readonly SkillUtility Utility;
         // Null follows the hero affinity; an explicit value overrides it for this skill.
         public readonly Element? Affinity;
-        public SkillDefinition(string name, int damage, int healing = 0, int guard = 0, bool partyHealing = false, Element? affinity = null) {
-            Name = name; Damage = damage; Healing = healing; Guard = guard; PartyHealing = partyHealing; Affinity = affinity;
+        public SkillDefinition(string name, int damage, int healing = 0, int guard = 0, bool partyHealing = false, Element? affinity = null, SkillUtility utility=SkillUtility.None) {
+            Name = name; Damage = damage; Healing = healing; Guard = guard; PartyHealing = partyHealing; Affinity = affinity; Utility=utility;
         }
         public SkillDefinition Scaled(float multiplier) {
-            return new SkillDefinition(Name, (int)Math.Round(Damage * multiplier), (int)Math.Round(Healing * multiplier), (int)Math.Round(Guard * multiplier), PartyHealing, Affinity);
+            return new SkillDefinition(Name, (int)Math.Round(Damage * multiplier), (int)Math.Round(Healing * multiplier), (int)Math.Round(Guard * multiplier), PartyHealing, Affinity, Utility);
         }
         public string Description {
             get {
                 string text = Damage > 0 ? Damage + " damage. " : "";
                 if (Healing > 0) text += "Heal " + Healing + (PartyHealing ? " to living allies. " : " to self. ");
-                if (Guard > 0) text += "Block " + Guard + " from the next hit on this hero. ";
+                if (Guard > 0) text += "Block " + Guard + " from the next hit "+((Utility&SkillUtility.PartyShield)!=0?"on each living ally. ":"on this hero. ");
+                if((Utility&SkillUtility.Taunt)!=0) text+="Taunt normal attacks for one enemy round; rear strikes and area attacks ignore taunts. ";
+                if((Utility&SkillUtility.Cleanse)!=0) text+="Remove debuffs "+(PartyHealing?"from living allies. ":"from self. ");
+                if((Utility&SkillUtility.Interrupt)!=0) text+="Interrupt the target's next action or disrupt its charged attack. Bosses resist consecutive interrupts. ";
+                if((Utility&SkillUtility.Dispel)!=0) text+="Break the target's shield before damage. ";
+                if((Utility&SkillUtility.Expose)!=0) text+="Expose the target: allies deal +20% damage this round. ";
                 return text + "2 uses per battle.";
             }
         }
@@ -61,7 +68,13 @@ namespace Ashlight {
             }
             for (int i = 0; i < skills.Length; i++) {
                 var skill = skills[i];
-                skills[i] = new SkillDefinition(skill.Name, skill.Damage, skill.Healing, skill.Guard, skill.PartyHealing, affinities[i]);
+                var utility=skill.Name=="Guarded Slash"?SkillUtility.Taunt:
+                    skill.Name=="Sanctuary" || skill.Name=="Renewal" || skill.Name=="Field Remedy" || skill.Name=="Sacred Resolve" || skill.Name=="Smoke Veil"?SkillUtility.Cleanse:
+                    skill.Name=="Aegis" || skill.Name=="Divine Ward"?SkillUtility.PartyShield:
+                    skill.Name=="Shield Bash" || skill.Name=="Piercing Shot" || skill.Name=="Shadow Strike"?SkillUtility.Interrupt:
+                    skill.Name=="Flame Lance" || skill.Name=="Radiant Blade"?SkillUtility.Dispel:
+                    skill.Name=="Arcane Burst"?SkillUtility.Expose:SkillUtility.None;
+                skills[i] = new SkillDefinition(skill.Name, skill.Damage, skill.Healing, skill.Guard, skill.PartyHealing, affinities[i],utility);
             }
             return Array.AsReadOnly(skills);
         }

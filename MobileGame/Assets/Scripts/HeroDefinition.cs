@@ -4,6 +4,24 @@ namespace Ashlight {
     public enum HeroFaction { DawnOrder, Wilderkin, Veilborn }
     public enum HeroGender { Woman, Man }
     public enum HeroQuality { Common, Uncommon, Rare, Epic, Legendary }
+    public sealed class StoryRecruit {
+        public readonly int Encounter;
+        public readonly string HeroId, Introduction;
+        StoryRecruit(int encounter,string id,string introduction) { Encounter=encounter; HeroId=id; Introduction=introduction; }
+        public HeroDefinition Hero { get { foreach(var hero in HeroDefinition.Catalog) if(hero.Id==HeroId) return hero; throw new InvalidOperationException("Unknown story hero."); } }
+        public static readonly IReadOnlyList<StoryRecruit> Catalog=Array.AsReadOnly(new[]{
+            new StoryRecruit(4,"Paladin_Common","Lucan joins at the road's end, offering his oath and a shield against the coming frost."),
+            new StoryRecruit(6,"Sorceress_Common","Elara emerges from a broken ice seal. Her spells reveal the path through the Frozen Pass."),
+            new StoryRecruit(9,"Ranger_Common","Finn tracks the fleeing frost spirits and offers to guide the party to the citadel."),
+            new StoryRecruit(12,"Cleric_Common","Tessa tends the survivors of the furnace raids. She joins to keep the party alive."),
+            new StoryRecruit(14,"Rogue_Common","Wren steals the citadel's storm map and joins the heroes before the gates close."),
+            new StoryRecruit(29,"Knight_Rare","Brenna rises from the Eclipse battlefield, ready to hold the line against the Pyre Legion."),
+            new StoryRecruit(39,"Ranger_Rare","Tarin scouts a route out of the drowned crypt and brings his hunter's skill to the party."),
+            new StoryRecruit(49,"Paladin_Rare","Garrick refuses to abandon the wastes. His oath becomes the party's shelter against the pale winter."),
+            new StoryRecruit(59,"Sorceress_Rare","Selene returns from the broken abyss, bearing the magic needed for the battles still to come.")
+        });
+        public static StoryRecruit At(int encounter) { foreach(var recruit in Catalog) if(recruit.Encounter==encounter) return recruit; return null; }
+    }
     public sealed class HeroDefinition {
         public readonly string Id, Name;
         public readonly HeroClass Class;
@@ -72,7 +90,7 @@ namespace Ashlight {
         public static IReadOnlyList<HeroDefinition> Catalog { get { return catalog; } }
         static IReadOnlyList<HeroDefinition> CreateCatalog() {
             var heroes = new List<HeroDefinition>();
-            // Recruit common heroes first, then progress through the rarity tiers.
+            // Stable catalog order; story recruitment is scheduled separately.
             for (int tier = 0; tier < 5; tier++)
                 for (int kind = 0; kind < 6; kind++)
                     heroes.Add(new HeroDefinition(((HeroClass)kind) + "_" + ((HeroQuality)tier), Names[kind,tier], (HeroClass)kind, (HeroQuality)tier, Genders[kind,tier]));

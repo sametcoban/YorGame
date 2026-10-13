@@ -14,8 +14,10 @@ namespace Ashlight {
     [Serializable]
     public sealed class GearStackData { public string id; public int count; }
     [Serializable]
+    public sealed class GearEnhancementData { public string id; public int level; }
+    [Serializable]
     public sealed class ProgressData {
-        public int version = 14;
+        public int version = 15;
         public TeamPresetData[] presets={new TeamPresetData(),new TeamPresetData(),new TeamPresetData()};
         public bool inTower;
         public int towerFloor=1;
@@ -28,6 +30,8 @@ namespace Ashlight {
         public int furthestStage;
         public int idleCrystalRemainder;
         public int claimedMilestones;
+        public int forgeMaterials;
+        public GearEnhancementData[] enhancements=new GearEnhancementData[0];
         public PendingResultsData results;
         public GearStackData[] inventory = new GearStackData[0];
         public int crystals;

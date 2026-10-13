@@ -1,7 +1,7 @@
 using System;
 namespace Ashlight {
     public enum Debuff { None, Burn, Poison, Chill, Shock, Weaken }
-    public enum EnemyAction { Attack, Charge, HealPartner, Shield }
+    public enum EnemyAction { Attack, Charge, HealPartner, Shield, Interrupted }
     public sealed class EnemySkill {
         public readonly string Name;
         public readonly int Damage;
@@ -55,7 +55,7 @@ namespace Ashlight {
                     break;
                 case 11:
                     if(enemy.Role==EnemyRole.Archer) return new EnemySkill("Venom Volley",28,Element.Poison,status:move==2?Debuff.Poison:Debuff.None,backRow:true);
-                    if(enemy.Role==EnemyRole.Caster) return move==2?new EnemySkill("Nightfall",16,Element.Poison,true,Debuff.Weaken):new EnemySkill("Void Hex",26,Element.Poison);
+                    if(enemy.Role==EnemyRole.Caster) return move==2?new EnemySkill("Nightfall",12,Element.Poison,true,Debuff.Weaken):new EnemySkill("Void Hex",26,Element.Poison);
                     break;
             }
             return null;

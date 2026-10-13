@@ -26,3 +26,11 @@ Use the browser route already included in the project:
 6. Claim battle, idle and milestone rewards. Reload Safari, close/reopen it, and background the game for several minutes. Check that heroes, gear, crystals, fractional idle credits, milestone claims and chapter progress survive without duplicate payouts.
 
 Safari is an initial iPhone browser test. It does not validate a native iOS app; that later requires an iOS Unity export, a Mac/Xcode/signing, and a device or TestFlight build. Android testing uses **Ashlight > Android > Build Test APK** with Android Build Support/SDK/NDK/OpenJDK and an Android device or emulator. No cloud/device build or store-ready performance result is claimed by this update.
+
+## Story, tactics and Forge update
+
+- Check story introductions after 1-5, 2-2, 2-5, 3-3 and 3-5. All six classes should be available by the end of chapter 3 without summoning. Later Rare arrivals are 6-5, 8-5, 10-5 and 12-5. An already-owned story ally grants 20 shards rather than an unrelated recruit; reload a pending victory and verify that claiming still pays only once.
+- Equip Guarded Slash and check normal enemy attacks follow the taunt while rear-row and area attacks keep their targeting. Use Sanctuary/Renewal against debuffs and Aegis/Divine Ward before area attacks. Watch effects on all living recipients; dead heroes must stay dead.
+- Use an interrupt before a heal/shield/attack or during Cinder's charge. A cancelled action should have no attack animation/projectile/damage. Bosses show STEADY until completing an ordinary action. Use Flame Lance/Radiant Blade to break an enemy ward and Arcane Burst to expose a target before the other heroes attack.
+- Earn materials from a victory and Idle Rewards. Select gear in Equipment, open Forge, compare +0/+1, then upgrade once. Check the exact material cost, all copies of that gear type (including reserve heroes), and re-equipping after an upgrade. Test +10, insufficient materials, and saving/restarting. Other gear types must retain their own ranks. Forging and loadout changes must remain locked during a fight.
+- Run the isolated **Check Save Serialization** diagnostic for pending story duplicates and forged gear/materials. The diagnostic fixtures have not run in the cloud; they require Unity.

@@ -19,7 +19,7 @@ namespace Ashlight {
         public ClassDefinition WithTalentBonuses(int health,int skillsDamage) {
             if(health==0 && skillsDamage==0) return this;
             var skills=new SkillDefinition[Skills.Count];
-            for(int i=0;i<skills.Length;i++) { var skill=Skills[i]; skills[i]=new SkillDefinition(skill.Name,(skill.Damage*(100+skillsDamage)+99)/100,skill.Healing,skill.Guard,skill.PartyHealing,skill.Affinity); }
+            for(int i=0;i<skills.Length;i++) { var skill=Skills[i]; skills[i]=new SkillDefinition(skill.Name,(skill.Damage*(100+skillsDamage)+99)/100,skill.Healing,skill.Guard,skill.PartyHealing,skill.Affinity,skill.Utility); }
             return new ClassDefinition(Kind,Name,AbilityName,Description,(MaxHealth*(100+health)+99)/100,AttackDamage,(AbilityDamage*(100+skillsDamage)+99)/100,AbilityHealing,Array.AsReadOnly(skills));
         }
         public ClassDefinition WithFactionBonus(int percent) {
@@ -30,7 +30,7 @@ namespace Ashlight {
         public ClassDefinition WithEquipment(int health,int attack,int damage) {
             if(health==0 && attack==0 && damage==0) return this;
             var skills=new SkillDefinition[Skills.Count];
-            for(int i=0;i<skills.Length;i++) { var s=Skills[i]; skills[i]=new SkillDefinition(s.Name,s.Damage>0?s.Damage+damage:0,s.Healing,s.Guard,s.PartyHealing,s.Affinity); }
+            for(int i=0;i<skills.Length;i++) { var s=Skills[i]; skills[i]=new SkillDefinition(s.Name,s.Damage>0?s.Damage+damage:0,s.Healing,s.Guard,s.PartyHealing,s.Affinity,s.Utility); }
             return new ClassDefinition(Kind,Name,AbilityName,Description,MaxHealth+health,AttackDamage+attack,AbilityDamage>0?AbilityDamage+damage:0,AbilityHealing,Array.AsReadOnly(skills));
         }
         public static string PassiveDescription(HeroClass kind) {
