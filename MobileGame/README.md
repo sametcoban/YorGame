@@ -492,7 +492,7 @@ Copy updated **Assets/Scripts** and **Assets/Editor** into Unity. **6,735 engine
 
 Every named hero now belongs to **Dawn Order, Wilderkin or Veilborn**. Each faction has ten heroes covering all six classes and five rarities; faction identity is authored independently from elemental affinity. Factions appear on hero cards, skill selection and formation slots. The formation screen and battle HUD show faction counts and the current team bonus.
 
-**Three or four matching active heroes** grant the whole party **+10% maximum HP and damage**. **Five matching heroes** grant **+20%**. Only the strongest threshold applies, with no stacking. All active heroes receive the bonus, including heroes from other factions. Reserve heroes do not contribute. Defeated heroes remain part of the lineup, so the bonus stays stable throughout the fight and between waves.
+**Three matching active heroes** grant the whole party **+10% maximum HP and damage**. **Four matching heroes** grant **+15%**, and **five** grant **+20%**. Only the strongest threshold applies, with no stacking. All active heroes receive the bonus, including heroes from other factions. Reserve heroes do not contribute. Defeated heroes remain part of the lineup, so the bonus stays stable throughout the fight and between waves.
 
 HP, attacks, damaging skills and ultimates receive the bonus after level/rank growth, talent upgrades and equipment; counters receive it before elemental and enemy protection adjustments. Increases round up. Direct skill healing and Guard values do not increase; support passives based on maximum HP naturally benefit from the HP bonus. Replacing heroes before combat recalculates the whole party and removes bonuses from reserves. Formation swaps preserve the bonus. Chapter party limits remain unchanged: a three-hero bonus first becomes possible in chapter 3, and five matching heroes become possible in chapter 5.
 
@@ -754,3 +754,9 @@ Auto Play scores these effects alongside damage/healing and avoids drawing a cro
 Materials come from claimed story victories (10 + two per chapter index, plus 10 for finales), claimed Tower victories (10 + floor/5), and idle rewards (one per minute, capped at 12 hours). Results/Home/Idle/Forge display materials. Upgrading locks during combat and respects the material wallet cap. Save version **15** records material balances and gear-type ranks, validates them before applying a snapshot, and migrates versions 1–14 with their owned heroes, equipment, wallet and progress intact.
 
 **Update:** copy the entire **Assets/Scripts** and **Assets/Editor** folders, including `Prototype.Home.cs` and `Prototype.Forge.cs`, then press Play. Cloud checks cover the models and balance; actual Unity compilation/playback, JSON diagnostics and device appearance still need local verification.
+
+## Faction formation follow-up
+
+Three heroes from the same faction grant the entire active team +10% maximum HP and attack/skill/ultimate damage; four grant +15%, and five grant +20%. Healing and guard amounts retain their existing values. The largest faction group determines one bonus; bonuses do not stack and defeated heroes keep counting until the formation changes. Reserve heroes receive no formation bonus.
+
+Formation shows faction counts, active bonus, all three thresholds and the next threshold. Chapters with too few slots explain that more slots must unlock first. Collection replacement previews show the exact team bonus before/after and include it in team power and stat comparisons without spending or changing heroes. Existing saves recompute the new four-hero tier when loaded; no save reset is needed. Enemy elemental weaknesses and resistances continue to provide battle matchup choices.

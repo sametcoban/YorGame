@@ -103,7 +103,8 @@ namespace Ashlight {
     public sealed class HeroReplacement {
         public readonly PartyHero Hero;
         public readonly int TeamPower, HealthDelta, AttackDelta, PowerDelta;
-        public HeroReplacement(PartyHero hero,int teamPower,PartyHero previous,int previousTeamPower) { Hero=hero; TeamPower=teamPower; HealthDelta=hero.Definition.MaxHealth-previous.Definition.MaxHealth; AttackDelta=hero.Definition.AttackDamage-previous.Definition.AttackDamage; PowerDelta=teamPower-previousTeamPower; }
+        public readonly int FactionBonus;
+        public HeroReplacement(PartyHero hero,int teamPower,PartyHero previous,int previousTeamPower) { Hero=hero; TeamPower=teamPower; FactionBonus=hero.FactionBonus; HealthDelta=hero.Definition.MaxHealth-previous.Definition.MaxHealth; AttackDelta=hero.Definition.AttackDamage-previous.Definition.AttackDamage; PowerDelta=teamPower-previousTeamPower; }
     }
     public sealed class Battle {
         readonly List<PartyHero> party = new List<PartyHero>();
@@ -112,8 +113,17 @@ namespace Ashlight {
         public bool ClassPassivesEnabled { get; private set; }
         public bool FactionsEnabled { get; private set; }
         public int FactionCount(HeroFaction faction) { int count=0; foreach(var member in party) if(member.Identity.Faction==faction) count++; return count; }
-        public int TeamFactionBonus { get { if(!FactionsEnabled) return 0; int best=0; foreach(HeroFaction faction in Enum.GetValues(typeof(HeroFaction))) best=Math.Max(best,FactionCount(faction)); return best>=5?20:best>=3?10:0; } }
-        public string FactionSummary { get { return "Dawn "+FactionCount(HeroFaction.DawnOrder)+" · Wilderkin "+FactionCount(HeroFaction.Wilderkin)+" · Veilborn "+FactionCount(HeroFaction.Veilborn)+" | "+(TeamFactionBonus==0?"3 matching: +10% HP & damage": "TEAM +"+TeamFactionBonus+"% HP & damage"); } }
+        public int TeamFactionBonus { get { if(!FactionsEnabled) return 0; int best=0; foreach(HeroFaction faction in Enum.GetValues(typeof(HeroFaction))) best=Math.Max(best,FactionCount(faction)); return FactionRules.Bonus(best); } }
+        public string FactionSummary { get { return "Dawn "+FactionCount(HeroFaction.DawnOrder)+" · Wilderkin "+FactionCount(HeroFaction.Wilderkin)+" · Veilborn "+FactionCount(HeroFaction.Veilborn)+" | "+(!FactionsEnabled?"SYNERGY OFF":TeamFactionBonus==0?"NO ACTIVE BONUS": "TEAM +"+TeamFactionBonus+"% HP & damage"); } }
+        public string FactionProgress {
+            get {
+                if(!FactionsEnabled) return "Faction bonuses are disabled.";
+                int best=0; foreach(HeroFaction faction in Enum.GetValues(typeof(HeroFaction))) best=Math.Max(best,FactionCount(faction));
+                if(best>=5) return "Maximum faction bonus active · +20% HP & damage.";
+                int target=best<3?3:best+1;
+                return "NEXT · "+(target-best)+" more matching "+(target-best==1?"hero":"heroes")+" for +"+FactionRules.Bonus(target)+"%"+(target>PartyLimit?" · Unlock more party slots in later chapters.":"");
+            }
+        }
         void RefreshFactionStats() {
             int bonus=TeamFactionBonus;
             foreach(var member in savedHeroes.Values) { member.FactionBonus=party.Contains(member)?bonus:0; member.RefreshStats(); }
@@ -373,7 +383,7 @@ namespace Ashlight {
         public HeroReplacement PreviewReplacement(string id,int slot) {
             var candidate=HeroProgress(id); if(candidate==null || slot<0 || slot>=party.Count || party.Contains(candidate)) return null;
             var counts=new int[3]; for(int i=0;i<party.Count;i++) counts[(int)(i==slot?candidate:party[i]).Identity.Faction]++;
-            int strongest=Math.Max(counts[0],Math.Max(counts[1],counts[2])); int bonus=FactionsEnabled?(strongest>=5?20:strongest>=3?10:0):0;
+            int strongest=Math.Max(counts[0],Math.Max(counts[1],counts[2])); int bonus=FactionsEnabled?FactionRules.Bonus(strongest):0;
             int total=0; PartyHero replacement=null;
             for(int i=0;i<party.Count;i++) { var cloned=PreviewCopy(i==slot?candidate:party[i],bonus); total+=cloned.Power; if(i==slot) replacement=cloned; }
             return new HeroReplacement(replacement,total,party[slot],TeamPower);

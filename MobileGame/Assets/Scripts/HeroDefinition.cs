@@ -2,6 +2,10 @@ using System;
 using System.Collections.Generic;
 namespace Ashlight {
     public enum HeroFaction { DawnOrder, Wilderkin, Veilborn }
+    public static class FactionRules {
+        public static int Bonus(int matchingHeroes) { return matchingHeroes>=5?20:matchingHeroes==4?15:matchingHeroes==3?10:0; }
+        public const string Tiers="3 matching +10% · 4 +15% · 5 +20% HP & damage";
+    }
     public enum HeroGender { Woman, Man }
     public enum HeroQuality { Common, Uncommon, Rare, Epic, Legendary }
     public sealed class StoryRecruit {

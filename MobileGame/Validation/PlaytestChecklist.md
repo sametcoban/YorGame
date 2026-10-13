@@ -34,3 +34,9 @@ Safari is an initial iPhone browser test. It does not validate a native iOS app;
 - Use an interrupt before a heal/shield/attack or during Cinder's charge. A cancelled action should have no attack animation/projectile/damage. Bosses show STEADY until completing an ordinary action. Use Flame Lance/Radiant Blade to break an enemy ward and Arcane Burst to expose a target before the other heroes attack.
 - Earn materials from a victory and Idle Rewards. Select gear in Equipment, open Forge, compare +0/+1, then upgrade once. Check the exact material cost, all copies of that gear type (including reserve heroes), and re-equipping after an upgrade. Test +10, insufficient materials, and saving/restarting. Other gear types must retain their own ranks. Forging and loadout changes must remain locked during a fight.
 - Run the isolated **Check Save Serialization** diagnostic for pending story duplicates and forged gear/materials. The diagnostic fixtures have not run in the cloud; they require Unity.
+
+## Faction formation follow-up
+
+- In Formation, check mixed teams and teams with 3, 4 and 5 matching heroes. Expect no bonus, +10%, +15% and +20% respectively. Verify the counts and next-threshold text, including early chapters with locked slots. Check that the four-line formation summary stays readable on the phone-sized window.
+- In Collection, preview swaps from 3 to 4, 4 to 5 and back again. Verify team bonus and power match the applied swap; previewing must leave the roster, health and wallet unchanged. Check the three-line comparison fits its panel.
+- Save/reopen with four matching heroes and confirm +15% persists. Replacing a matching hero should update all active heroes and remove the bonus from the outgoing reserve hero. Formation changes remain locked during combat.

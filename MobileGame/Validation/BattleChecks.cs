@@ -1284,7 +1284,30 @@ class BattleChecks {
   foreach(var member in threeFaction.Party) Check(member.Definition.MaxHealth==member.Identity.Stats.MaxHealth);
   Check(threeFaction.HeroProgress("Rogue_Uncommon").Definition.MaxHealth==threeFaction.HeroProgress("Rogue_Uncommon").Identity.Stats.MaxHealth);
   var fourFaction=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Common"});
-  Check(fourFaction.TeamFactionBonus==10);
+  Check(fourFaction.TeamFactionBonus==15);
+  foreach(var member in fourFaction.Party) {
+   Check(member.Definition.MaxHealth==(member.Identity.Stats.MaxHealth*115+99)/100);
+   Check(member.Definition.AttackDamage==(member.Identity.Stats.AttackDamage*115+99)/100);
+   Check(member.Skill(0).Damage==(member.Identity.Stats.Skills[0].Damage*115+99)/100);
+   Check(member.Ultimate.Damage==(member.Identity.Ultimate.Damage*115+99)/100);
+  }
+  Check(fourFaction.FactionProgress.Contains("1 more matching hero for +20%"));
+  var fourSave=fourFaction.ExportProgress();
+  var fourReload=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true);
+  Check(fourReload.RestoreProgress(fourSave) && fourReload.TeamFactionBonus==15);
+  int beforePower=fourFaction.TeamPower, beforeHealth=fourFaction.Party[0].Health;
+  var gainPreview=fourFaction.PreviewReplacement("Sorceress_Rare",4);
+  Check(gainPreview!=null && gainPreview.FactionBonus==20 && fourFaction.TeamFactionBonus==15 && fourFaction.TeamPower==beforePower && fourFaction.Party[0].Health==beforeHealth);
+  Check(fourFaction.EquipHeroAt("Sorceress_Rare",4) && fourFaction.TeamFactionBonus==20 && fourFaction.TeamPower==gainPreview.TeamPower);
+  var lossPreview=fourFaction.PreviewReplacement("Sorceress_Common",4);
+  Check(lossPreview.FactionBonus==15 && fourFaction.TeamFactionBonus==20);
+  Check(fourFaction.EquipHeroAt("Sorceress_Common",4) && fourFaction.TeamFactionBonus==15 && fourFaction.TeamPower==lossPreview.TeamPower);
+  var dropPreview=fourFaction.PreviewReplacement("Ranger_Common",2);
+  Check(dropPreview.FactionBonus==10);
+  Check(fourFaction.EquipHeroAt("Ranger_Common",2) && fourFaction.TeamFactionBonus==10 && fourFaction.TeamPower==dropPreview.TeamPower);
+  Check(FactionRules.Bonus(0)==0 && FactionRules.Bonus(2)==0 && FactionRules.Bonus(3)==10 && FactionRules.Bonus(4)==15 && FactionRules.Bonus(5)==20);
+  Check(new Battle(true,enableFactions:true).FactionProgress.Contains("Unlock more party slots"));
+  Check(new Battle(true).FactionSummary.Contains("SYNERGY OFF"));
   var fiveFaction=FactionBattle(new[]{"Knight_Common","Paladin_Common","Rogue_Uncommon","Cleric_Uncommon","Sorceress_Rare"});
   Check(fiveFaction.TeamFactionBonus==20 && fiveFaction.Party[0].Definition.MaxHealth==120 && fiveFaction.Party[0].Definition.AttackDamage==30);
   Check(fiveFaction.HeroProgress("Ranger_Rare").FactionBonus==0);
@@ -1503,7 +1526,7 @@ class BattleChecks {
   Check(swapPreview!=null && swapPreview.TeamPower<beforePreviewPower && filteredCollection.TeamPower==beforePreviewPower && filteredCollection.ActiveIndex==beforePreviewActive && filteredCollection.TeamFactionBonus==20);
   Check(filteredCollection.HeroProgress(reserveForPreview).Definition.MaxHealth==reserveHp && filteredCollection.Party[0].Definition.MaxHealth==originalSlotHp);
   Check(filteredCollection.EquipHeroAt(reserveForPreview,0) && filteredCollection.TeamPower==swapPreview.TeamPower && filteredCollection.Party[0].Definition.MaxHealth==swapPreview.Hero.Definition.MaxHealth && filteredCollection.Party[0].Definition.AttackDamage==swapPreview.Hero.Definition.AttackDamage);
-  Check(filteredCollection.TeamFactionBonus==10 && filteredCollection.PreviewReplacement(reserveForPreview,1)==null && !filteredCollection.EquipHeroAt(reserveForPreview,1));
+  Check(filteredCollection.TeamFactionBonus==15 && filteredCollection.PreviewReplacement(reserveForPreview,1)==null && !filteredCollection.EquipHeroAt(reserveForPreview,1));
   Check(filteredCollection.PreviewReplacement("missing",0)==null && filteredCollection.PreviewReplacement("Knight_Common",-1)==null && !filteredCollection.EquipHeroAt("Knight_Common",5));
   filteredCollection.Attack(); Check(!filteredCollection.EquipHeroAt("Knight_Common",0));
   var slotLimited=new Battle(true); Check(!slotLimited.EquipHeroAt("Paladin_Common",0) && !slotLimited.EquipHeroAt("Knight_Common",1));

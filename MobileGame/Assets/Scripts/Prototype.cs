@@ -845,7 +845,7 @@ namespace Ashlight {
                 if(suggested[i]!=battle.Party[i].Identity.Id) differs=true;
                 if(i<Battle.FrontSlots) front+=(i==0?"":" + ")+battle.HeroProgress(suggested[i]).Identity.Name;
             }
-            formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\nSUGGESTED FRONT · "+front+" · Based on health, armor, defense chances and class.";
+            formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\n"+FactionRules.Tiers+"\n"+battle.FactionProgress+"\nSUGGESTED FRONT · "+front;
             formationAuto.interactable=battle.CanChangeParty && differs;
             formationAuto.GetComponentInChildren<Text>().text=differs?"AUTO ARRANGE":"FORMATION READY";
             for(int i=0;i<formationSlots.Length;i++) {
@@ -1193,7 +1193,7 @@ namespace Ashlight {
                 collectionTargets[i].GetComponentInChildren<Text>().text=(i<Battle.FrontSlots?"FRONT "+(i+1):"BACK "+(i-Battle.FrontSlots+1))+"\n"+(occupied?battle.Party[i].Identity.Name:"LOCKED");
                 collectionTargets[i].GetComponent<Image>().color=i==collectionTarget?new Color(.31f,.25f,.15f):new Color(.075f,.085f,.105f);
             }
-            collectionCompare.text=hero==null?"":preview==null?"Already in your team · Arrange in Formation to move this hero.":"Replace "+target.Identity.Name+" → "+hero.Identity.Name+" · HP "+Signed(preview.HealthDelta)+" · ATK "+Signed(preview.AttackDelta)+"\nTeam Power "+battle.TeamPower+" → "+preview.TeamPower+" ("+Signed(preview.PowerDelta)+") · Includes faction changes.";
+            collectionCompare.text=hero==null?"":preview==null?"Already in your team · Arrange in Formation to move this hero.":"Replace "+target.Identity.Name+" → "+hero.Identity.Name+" · HP "+Signed(preview.HealthDelta)+" · ATK "+Signed(preview.AttackDelta)+"\nTeam Power "+battle.TeamPower+" → "+preview.TeamPower+" ("+Signed(preview.PowerDelta)+")\nTEAM FACTION BONUS · +"+battle.TeamFactionBonus+"% → +"+preview.FactionBonus+"% HP & damage";
             collectionAssign.interactable=hero!=null && battle.CanChangeParty;
             collectionAssign.GetComponentInChildren<Text>().text=hero==null?"SELECT A HERO":!battle.CanChangeParty?"AVAILABLE BEFORE COMBAT":preview==null?"ARRANGE IN FORMATION":"ASSIGN TO "+(battle.IsFrontRow(collectionTarget)?"FRONT "+(collectionTarget+1):"BACK "+(collectionTarget-Battle.FrontSlots+1))+" · Replace "+target.Identity.Name;
             collectionShared.interactable=hero!=null && (battle.IsShared(collectionHero) || (battle.CrystalUnlocked && battle.SharedCount<5 && hero.Level<battle.CrystalLevel)); collectionShared.GetComponentInChildren<Text>().text=battle.IsShared(collectionHero)?"UNLINK":battle.CrystalUnlocked?"LINK · LV "+battle.CrystalLevel:"OWN 5 TO UNLOCK";
