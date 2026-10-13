@@ -39,7 +39,14 @@ public static class SaveSerializationChecks {
         var storyTest=new Battle(true); var storySave=storyTest.ExportProgress(); storySave.encounter=4;
         storySave.recruited=new[]{"Knight_Common","Paladin_Common"}; storySave.loadouts=new[]{storySave.loadouts[0],new HeroLoadoutData{id="Paladin_Common",secondSkill=1}};
         if(!storyTest.RestoreProgress(storySave)) throw new InvalidOperationException("Could not prepare story arrival fixture.");
-        storyTest.Enemies[0].Health=1; storyTest.Attack(); var storyReload=RoundTrip(storyTest);
+        int storyTurns=0;
+        while(storyTest.Current!=Phase.Won && storyTurns++<100) {
+            if(storyTest.Current==Phase.Player) storyTest.Attack();
+            else if(storyTest.Current==Phase.EnemyWindup) { storyTest.BeginStrike(); storyTest.Defend(false,.1f); storyTest.FinishStrike(); }
+            else throw new InvalidOperationException("Unexpected story fixture phase: "+storyTest.Current);
+        }
+        if(storyTest.Current!=Phase.Won) throw new InvalidOperationException("Story fixture battle failed to finish.");
+        var storyReload=RoundTrip(storyTest);
         if(!storyReload.Results.RecruitDuplicate || storyReload.Results.RecruitShards!=20 || !storyReload.ContinueAfterVictory() || storyReload.HeroProgress("Paladin_Common").Shards!=20 || storyReload.ContinueAfterVictory())
             throw new InvalidOperationException("Pending story duplicate reward changed or repeated during serialization.");
         var sharedTest=new Battle(true); var sharedSave=sharedTest.ExportProgress();
