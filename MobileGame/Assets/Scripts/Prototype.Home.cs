@@ -49,7 +49,7 @@ namespace Ashlight {
         }
         void CloseHubPanels() {
             managementHero=null;
-            foreach(var root in new[]{homeRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{homeRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;

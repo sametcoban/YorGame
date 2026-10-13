@@ -73,7 +73,7 @@ class BalanceChecks {
    Console.WriteLine("{0}-{1}: {2}/{3} wins",stage/5+1,stage%5+1,wins,Runs);
   }
  }
- static void PrepareTeam(Battle b) {
+ static void PrepareTeam(Battle b,bool recommendations=false) {
   b.FillAvailableSlots();
   foreach(var hero in b.Recruits) {
    while(b.UpgradeHero(hero.Id)) {}
@@ -88,8 +88,9 @@ class BalanceChecks {
   foreach(var member in b.Party) b.EquipBestGear(member.Identity.Id);
   int goal=b.Encounter<15?3:b.Encounter<30?5:10;
   foreach(GearSlot slot in new[]{GearSlot.Weapon,GearSlot.Armor,GearSlot.Accessory}) foreach(var member in b.Party) { var gear=member.Gear(slot); if(gear!=null) while(b.EnhancementLevel(gear.Id)<goal && b.CanEnhanceGear(gear.Id)) b.EnhanceGear(gear.Id); }
+  if(recommendations) { var team=b.RecommendTeam(); if(team==null || !b.ApplyRecommendation(team) || b.TeamPower!=team.Power) throw new Exception("Stage recommendation rejected or mismatched"); }
  }
- static void FullProgression(bool earnedSummons,bool wishlist=false) {
+ static void FullProgression(bool earnedSummons,bool wishlist=false,bool recommendations=false) {
   int complete=0, retries=0, waiting=0, summons=0; int[] failures=new int[60];
   for(int seed=0;seed<Runs;seed++) {
    var rng=new Random(40000+seed); var now=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
@@ -98,12 +99,12 @@ class BalanceChecks {
    while(!b.CampaignComplete) {
     // At most three earned pulls between wins; no real money or injected resources.
     for(int pull=0;earnedSummons && pull<3 && b.CanSummon;pull++) { if(b.Summon(rng.NextDouble(),rng.NextDouble())==null) throw new Exception("Earned summon rejected"); summons++; }
-    PrepareTeam(b); bool won=false;
+    PrepareTeam(b,recommendations); bool won=false;
     for(int attempt=0;attempt<4;attempt++) {
      if(Fight(b,rng)) { won=true; break; }
      retries++; b.Reset(); now=now.AddMinutes(30); waiting+=30;
      if(!b.ClaimIdleRewards()) throw new Exception("Retry idle claim rejected");
-     PrepareTeam(b);
+     PrepareTeam(b,recommendations);
     }
     if(!won) { failures[b.Encounter]++; break; }
     if(!b.ContinueAfterVictory(rng.NextDouble(),rng.Next(18))) throw new Exception("Progression claim rejected");
@@ -116,7 +117,7 @@ class BalanceChecks {
    }
    if(b.CampaignComplete) complete++;
   }
-  Console.WriteLine("FULL PROGRESSION (summons {5}, wishlist {6}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons,wishlist);
+  Console.WriteLine("FULL PROGRESSION (summons {5}, wishlist {6}, recommendations {7}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons,wishlist,recommendations);
   for(int stage=0;stage<failures.Length;stage++) if(failures[stage]>0) Console.WriteLine("Progression stopped at {0}-{1}: {2} runs",stage/5+1,stage%5+1,failures[stage]);
   if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete twelve chapters");
  }
@@ -141,5 +142,8 @@ class BalanceChecks {
   if(milestones!=2850) throw new Exception("Milestone reward budget changed unexpectedly");
   Console.WriteLine("ECONOMY: {0} story crystals + {1} milestones + {2} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,milestones,Summoning.StarterCrystals);
  }
- static void Main() { Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 600 full progression campaigns"); }
+ static void Main(string[] args) {
+  if(args.Length>0 && args[0]=="recommendations") { FullProgression(true,true,true); Console.WriteLine("PASS: 200 recommendation progression campaigns"); return; }
+  Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); FullProgression(true,true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 800 full progression campaigns");
+ }
 }

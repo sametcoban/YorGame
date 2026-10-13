@@ -17,7 +17,10 @@ namespace Ashlight {
             activitiesInfo=Label(activitiesRoot.transform,"",new Vector2(.05f,.42f),new Vector2(.95f,.83f),25);
             bossStart=ScreenButton(activitiesRoot.transform,"DAILY BOSS",.05f,.25f,.48f,.39f,StartBossChallenge);
             ScreenButton(activitiesRoot.transform,"ENEMY GUIDE",.52f,.25f,.95f,.39f,()=> { guidePage=0; guideRoot.SetActive(true); guideRoot.transform.SetAsLastSibling(); guideDetail.text="Fight enemies to reveal their abilities and counters."; RefreshGuide(); });
-            ScreenButton(activitiesRoot.transform,"HOME",.25f,.035f,.75f,.17f,()=>activitiesRoot.SetActive(false)); activitiesRoot.SetActive(false);
+            ScreenButton(activitiesRoot.transform,"REPLAY CHAPTER SCENE",.05f,.135f,.48f,.225f,ReplayCurrentStory);
+            ScreenButton(activitiesRoot.transform,"FIRST JOURNEY",.52f,.135f,.95f,.225f,OpenBetaOpening);
+            ScreenButton(activitiesRoot.transform,"FEEDBACK",.365f,.025f,.635f,.115f,OpenFeedback);
+            ScreenButton(activitiesRoot.transform,"HOME",.68f,.025f,.95f,.115f,()=>activitiesRoot.SetActive(false)); activitiesRoot.SetActive(false);
             guideRoot=ScreenRoot("Enemy Guide");
             guideTitle=Label(guideRoot.transform,"",new Vector2(.05f,.88f),new Vector2(.95f,.98f),28);
             for(int i=0;i<6;i++) { int index=i; float left=i%2==0?.05f:.52f, bottom=.69f-i/2*.145f;

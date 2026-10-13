@@ -272,7 +272,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateTutorial();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateTutorial();
             if(battle.Current==Phase.Won) { atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
         }
@@ -291,31 +291,33 @@ namespace Ashlight {
             tutorialTitle.color=new Color(1,.82f,.4f);
             tutorialBody=Label(tutorialRoot.transform,"",new Vector2(.18f,.33f),new Vector2(.82f,.67f),26);
             tutorialContinue=MakeButton(tutorialRoot.transform,"GOT IT",.44f,.82f,()=> {
+                int finished=tutorialPending;
                 if(tutorialPending>=0) tutorialSeen |= 1<<tutorialPending;
                 tutorialPending=-1; PersistTutorial(); tutorialRoot.SetActive(false);
+                if(replayingTutorial && finished<4) ShowTutorial(finished+1,true); else replayingTutorial=false;
             });
             PlaceGearControl(tutorialContinue,.44f,.22f,.82f,.32f);
             var skip=MakeButton(tutorialRoot.transform,"SKIP TUTORIAL",.18f,.41f,()=> {
-                tutorialSeen=31; tutorialPending=-1; PersistTutorial(); tutorialRoot.SetActive(false);
+                tutorialSeen=31; tutorialPending=-1; replayingTutorial=false; PersistTutorial(); tutorialRoot.SetActive(false);
             });
             PlaceGearControl(skip,.18f,.22f,.41f,.32f);
             skip.GetComponentInChildren<Text>().resizeTextMaxSize=20;
             tutorialRoot.SetActive(false);
-            var replay=MakeButton(homeRoot.transform,"TUTORIAL",.80f,.95f,()=> {
-                tutorialSeen=0; tutorialPending=-1; PersistTutorial(); ShowTutorial(0);
+            var replay=MakeButton(activitiesRoot.transform,"TUTORIAL",.05f,.32f,()=> {
+                replayingTutorial=true; tutorialPending=-1; ShowTutorial(0,true);
             });
-            PlaceGearControl(replay,.80f,.86f,.95f,.985f);
+            PlaceGearControl(replay,.05f,.025f,.32f,.115f);
             replay.GetComponentInChildren<Text>().resizeTextMaxSize=18;
         }
-        void ShowTutorial(int step) {
-            if(tutorialRoot==null || step<0 || step>4 || (tutorialSeen & (1<<step))!=0) return;
+        void ShowTutorial(int step,bool replay=false) {
+            if(tutorialRoot==null || step<0 || step>4 || (!replay && (tutorialSeen & (1<<step))!=0)) return;
             string[] titles={"WELCOME TO ASHLIGHT","PREPARE YOUR HERO","VICTORY & REWARDS","RECRUIT YOUR NEXT HERO","YOUR JOURNEY BEGINS"};
             string[] instructions={
                 "Your journey starts with a Knight.\nOpen Campaign, then choose Chapter 1 to enter your first battle.\nMore chapters unlock more team slots: eventually two heroes in front and three in back.",
                 "Review Enemy Preview, then close it to prepare.\nUse Skills to choose two of your class's six skills.\nAttack or use a skill to fight. Auto Play handles your turns; defense is automatic. Full energy triggers an ultimate.",
                 "You've defeated every wave in this stage!\nContinue claims the displayed rewards and saves this victory.\nYour heroes gain XP, and some stages recruit another hero.",
-                "Back at Home, open Summoning to spend 100 crystals.\nOpen Heroes to review your collection.\nBefore a fight, assign heroes and arrange their front and back positions in Formation.",
-                "New heroes join your collection; duplicates grant shards.\nAssign your team before combat, within the chapter's slot limit.\nKeep clearing stages, claim Idle Rewards, and complete Daily Quests."
+                "Clear chapter 1 to meet Lucan and unlock a second team slot.\nOpen Heroes to review your collection and Next Upgrades.\nStage Team Suggestion lets you review heroes and skills before applying them. Summoning is optional.",
+                "New heroes join your collection; duplicates grant shards.\nUse Home → Activities → First Journey to see opening milestones.\nClaim Idle Rewards and chapter milestones. Feedback lets you copy a local playtest report."
             };
             tutorialPending=step; PersistTutorial();
             tutorialTitle.text=titles[step]+" · "+(step+1)+"/5";
@@ -580,7 +582,7 @@ namespace Ashlight {
             var actor = acting.GetComponent<HeroVisual>(); if (actor != null && pause) actor.ContactPause();
         }
         void PerformAction(int skillSlot) {
-            if ((tutorialRoot!=null && tutorialRoot.activeSelf) || atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || collectionRoot.activeSelf || heroDetailsRoot.activeSelf || teamPresetRoot.activeSelf || advancementRoot.activeSelf || forgeRoot.activeSelf || presentingAction) return;
+            if ((tutorialRoot!=null && tutorialRoot.activeSelf) || atChapters || selectionRoot.activeSelf || equipmentRoot.activeSelf || formationRoot.activeSelf || progressionRoot.activeSelf || previewRoot.activeSelf || collectionRoot.activeSelf || heroDetailsRoot.activeSelf || teamPresetRoot.activeSelf || advancementRoot.activeSelf || forgeRoot.activeSelf || BetaModalActive || presentingAction) return;
             int actingIndex = battle.ActiveIndex, target = battle.SelectedEnemyIndex;
             var members = battle.Party; int[] healing = new int[members.Count];
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health;
@@ -1222,7 +1224,8 @@ namespace Ashlight {
             Label(previewRoot.transform,"UPCOMING ENEMIES",new Vector2(.05f,.88f),new Vector2(.95f,.98f),28);
             previewText=Label(previewRoot.transform,"",new Vector2(.04f,.28f),new Vector2(.96f,.86f),21);
             Label(previewRoot.transform,"Defender: protects rear allies · Archer: targets your back row\nCaster: elemental spells · Healer: restores allies · Support: shields allies",new Vector2(.04f,.14f),new Vector2(.96f,.26f),18);
-            var done=MakeButton(previewRoot.transform,"PREPARE PARTY",.25f,.75f,()=>previewRoot.SetActive(false)); PlaceGearControl(done,.25f,.025f,.75f,.12f);
+            var done=MakeButton(previewRoot.transform,"PREPARE PARTY",.05f,.48f,()=>previewRoot.SetActive(false)); PlaceGearControl(done,.05f,.025f,.48f,.12f);
+            ScreenButton(previewRoot.transform,"TEAM SUGGESTION",.52f,.025f,.95f,.12f,OpenTeamRecommendation);
             previewRoot.SetActive(false);
             previewButton=MakeButton(safe,"ENEMY PREVIEW",.02f,.23f,OpenStagePreview); PlaceGearControl(previewButton,.02f,.625f,.23f,.72f);
         }
@@ -1283,6 +1286,7 @@ namespace Ashlight {
             var rect=summonRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; summonRoot.GetComponent<Image>().color=new Color(.035f,.045f,.065f,.98f);
             summonTitle=Label(summonRoot.transform,"",new Vector2(.04f,.83f),new Vector2(.96f,.98f),23); summonCards=new Text[10]; summonCardPanels=new GameObject[10];
             for(int i=0;i<10;i++) { float x=i%2==0?.05f:.52f, y=.70f-(i/2)*.115f; Panel(summonRoot.transform,new Vector2(x,y),new Vector2(x+.43f,y+.10f),new Color(.08f,.10f,.15f)); summonCardPanels[i]=summonRoot.transform.GetChild(summonRoot.transform.childCount-1).gameObject; var border=summonCardPanels[i].AddComponent<Outline>(); border.effectDistance=new Vector2(2,-2); border.effectColor=new Color(.4f,.31f,.17f); summonCards[i]=Label(summonRoot.transform,"",new Vector2(x+.01f,y),new Vector2(x+.42f,y+.10f),18); }
+            SetupSummonPortraits();
             Label(summonRoot.transform,Summoning.Odds+"\nRare+ within 5 pulls · Legendary within 15 · Guarantees carry between batches.",new Vector2(.04f,.14f),new Vector2(.73f,.22f),16);
             summonSkip=MakeButton(summonRoot.transform,"SKIP REVEAL",.76f,.95f,()=>FinishSummonReveal(true)); PlaceGearControl(summonSkip,.76f,.14f,.95f,.22f); summonSkip.GetComponentInChildren<Text>().resizeTextMaxSize=18; summonSkip.gameObject.SetActive(false);
             repeatSingle=MakeButton(summonRoot.transform,"SUMMON x1 · 100",.05f,.35f,()=>SummonHeroes(1)); PlaceGearControl(repeatSingle,.05f,.025f,.35f,.12f);
@@ -1304,26 +1308,32 @@ namespace Ashlight {
                 float x=i%2==0?.05f:.52f,y=.70f-(i/2)*.115f;
                 var cardRect=summonCardPanels[i].GetComponent<RectTransform>(); var textRect=summonCards[i].GetComponent<RectTransform>();
                 cardRect.anchorMin=new Vector2(count==1?.2f:x,count==1?.35f:y); cardRect.anchorMax=new Vector2(count==1?.8f:x+.43f,count==1?.70f:y+.10f);
-                textRect.anchorMin=cardRect.anchorMin+Vector2.right*.01f; textRect.anchorMax=cardRect.anchorMax-Vector2.right*.01f;
+                LayoutSummonCard(i,count==1);
                 cardRect.localScale=textRect.localScale=Vector3.one;
                 summonCards[i].resizeTextMaxSize=count==1?28:18;
                 summonCards[i].text="SEALED HERO · "+(i+1); summonCards[i].color=new Color(.65f,.67f,.73f);
                 summonCardPanels[i].GetComponent<Image>().color=new Color(.06f,.07f,.1f);
                 summonCardPanels[i].GetComponent<Outline>().effectColor=new Color(.3f,.32f,.38f);
+                summonCardPanels[i].GetComponent<Outline>().effectDistance=Vector2.one*2;
                 refunds+=results[i].Refund; shards+=results[i].Shards; if(!results[i].Duplicate) added++;
             }
-            summonSummary="SUMMON RESULTS · "+added+" NEW · "+(count-added)+" DUPLICATES\nSpent "+count*Summoning.Cost+" · Refunded "+refunds+" · +"+shards+" hero shards\n"+SummonWallet()+" | "+saveNotice;
-            summonTitle.text="THE SUMMONING · "+count+" HERO"+(count==1?"":"ES")+"\nTap Skip to reveal every hero.";
+            summonSummary="SUMMON RESULTS · "+added+" NEW · "+(count-added)+" DUPLICATES\nSpent "+count*Summoning.Cost+" · Refunded "+refunds+" · Net cost "+(count*Summoning.Cost-refunds)+"\nDUPLICATE REWARDS · +"+shards+" hero shards\n"+SummonWallet()+" | "+saveNotice;
+            summonTitle.color=new Color(1,.82f,.4f); summonTitle.text="THE SUMMONING · "+count+" HERO"+(count==1?"":"ES")+"\nTap Skip to reveal every hero.";
             revealingSummons=true; repeatSingle.interactable=repeatTen.interactable=false; summonSkip.gameObject.SetActive(true);
             summonRoot.transform.SetAsLastSibling(); summonRoot.SetActive(true);
             summonReveal=StartCoroutine(RevealSummons());
         }
         void RenderSummonCard(int index) {
             var result=presentedSummons[index]; var hero=result.Hero;
+            ShowPortrait(summonPortraits[index],new PartyHero(hero));
             summonCards[index].text=hero.Name+" · "+hero.Quality+"\n"+hero.DisplayClass+" · "+hero.Affinity+"\n"+
                 (result.Duplicate?"DUPLICATE\n+"+result.Shards+" HERO SHARDS · +"+result.Refund+" CRYSTALS":"NEW HERO · ADDED TO COLLECTION\n"+hero.FactionName);
+            var owned=battle.HeroProgress(hero.Id);
+            if(result.Duplicate && owned!=null) summonCards[index].text+="\nNOW "+owned.Shards+" shards"+(owned.UpgradeRank<5?" / "+owned.UpgradeCost:" · MAX ASCENSION");
+            if(summonSingle) summonCards[index].text+="\nULT · "+hero.Ultimate.Name+" · "+(hero.Ultimate.AreaDamage?"AREA":"SINGLE TARGET");
             summonCards[index].color=RarityTint(hero.Quality);
             summonCardPanels[index].GetComponent<Outline>().effectColor=RarityTint(hero.Quality);
+            summonCardPanels[index].GetComponent<Outline>().effectDistance=Vector2.one*(hero.Quality>=HeroQuality.Epic?4:2);
             summonCardPanels[index].GetComponent<Image>().color=Color.Lerp(new Color(.06f,.07f,.1f),RarityTint(hero.Quality),.12f);
             summonCardPanels[index].transform.localScale=summonCards[index].transform.localScale=Vector3.one;
         }
@@ -1333,13 +1343,14 @@ namespace Ashlight {
             for(int i=0;i<presentedSummons.Length;i++) {
                 RenderSummonCard(i);
                 var quality=presentedSummons[i].Hero.Quality;
-                summonTitle.text="THE SUMMONING · "+(i+1)+" / "+presentedSummons.Length+" REVEALED\n"+quality+" · "+presentedSummons[i].Hero.Name;
+                summonTitle.color=RarityTint(quality);
+                summonTitle.text=(quality==HeroQuality.Legendary?"LEGENDARY AWAKENING":quality==HeroQuality.Epic?"EPIC HERO REVEALED":"THE SUMMONING")+" · "+(i+1)+" / "+presentedSummons.Length+" REVEALED\n"+quality+" · "+presentedSummons[i].Hero.Name;
                 sounds.Play(quality==HeroQuality.Legendary?"Victory":quality==HeroQuality.Epic?"Charge":"Light",.45f);
-                float duration=.23f+(int)quality*.035f; start=Time.unscaledTime;
+                float duration=quality==HeroQuality.Legendary?.9f:quality==HeroQuality.Epic?.65f:quality==HeroQuality.Rare?.45f:.23f+(int)quality*.035f; start=Time.unscaledTime;
                 while(Time.unscaledTime<start+duration) {
                     float progress=Mathf.Clamp01((Time.unscaledTime-start)/duration);
                     float scale=.94f+.06f*progress+.035f*Mathf.Sin(progress*Mathf.PI);
-                    summonCardPanels[i].transform.localScale=summonCards[i].transform.localScale=Vector3.one*scale;
+                    summonCardPanels[i].transform.localScale=Vector3.one*scale; summonCards[i].transform.localScale=Vector3.one;
                     summonCardPanels[i].GetComponent<Image>().color=Color.Lerp(new Color(.06f,.07f,.1f),RarityTint(quality),.12f+Mathf.Sin(progress*Mathf.PI)*(.15f+(int)quality*.05f));
                     yield return null;
                 }
@@ -1352,9 +1363,9 @@ namespace Ashlight {
             summonReveal=null; revealingSummons=false;
             if(presentedSummons!=null && summonRoot!=null) {
                 for(int i=0;i<presentedSummons.Length;i++) RenderSummonCard(i);
-                summonTitle.text=summonSummary; summonSkip.gameObject.SetActive(false);
+                summonTitle.color=new Color(1,.82f,.4f); summonTitle.text=summonSummary; summonSkip.gameObject.SetActive(false);
                 repeatSingle.interactable=battle.CanSummon; repeatTen.interactable=battle.CanSummonTen;
-                if(showTutorial) ShowTutorial(4);
+                if(showTutorial && battle.Encounter>=5) ShowTutorial(4);
             }
         }
         void CloseSummonResults() {
@@ -1374,7 +1385,12 @@ namespace Ashlight {
             DarkFantasyStage.Frame(battleCamera);
             CreateEnemy();
             message=(battle.InTower?"Tower floor "+battle.TowerFloor:"Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1))+": choose your heroes, then attack.";
-            if(!battle.IsDailyBoss) { OpenStagePreview(); ShowTutorial(1); }
+            if(!battle.IsDailyBoss) {
+                System.Action prepare=()=> { OpenStagePreview(); ShowTutorial(1); };
+                if(!battle.InTower && !battle.StorySeen(battle.ChapterIndex,false)) ShowCampaignStory(battle.ChapterIndex,false,prepare);
+                else if(!battle.InTower && battle.StageIndex==4 && !battle.StorySeen(battle.ChapterIndex,true)) ShowCampaignStory(battle.ChapterIndex,true,prepare);
+                else prepare();
+            }
         }
         void EnterChapters() {
             if(battle.IsDailyBoss) { CloseBossChallenge(); return; }
@@ -1426,7 +1442,7 @@ namespace Ashlight {
             RefreshChapterPage(); homeToast=reward; OpenHome();
             if(finishedChapter>=0) OpenMilestoneStory(finishedChapter);
             if(storyArrival!=null) ShowStoryRecruit(storyArrival,arrivalDuplicate);
-            if(claimedVictory) ShowTutorial(3);
+            if(claimedVictory) ShowTutorial(battle.Encounter>=5?4:3);
         }
         void Restart() {
             CancelActionPresentation();
@@ -1439,11 +1455,12 @@ namespace Ashlight {
         void ApplyBattleSpeed() {
             bool combat=!atChapters && (presentingAction || enemyTurn!=null ||
                 battle.Current==Phase.Player || battle.Current==Phase.EnemyWindup || battle.Current==Phase.EnemyStrike || battle.Current==Phase.WaveCleared);
-            bool menu=(heroDetailsRoot!=null && heroDetailsRoot.activeSelf) || (tutorialRoot!=null && tutorialRoot.activeSelf) || (selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf) || (collectionRoot!=null && collectionRoot.activeSelf) || (teamPresetRoot!=null && teamPresetRoot.activeSelf) || (advancementRoot!=null && advancementRoot.activeSelf) || (forgeRoot!=null && forgeRoot.activeSelf);
+            bool menu=(heroDetailsRoot!=null && heroDetailsRoot.activeSelf) || (tutorialRoot!=null && tutorialRoot.activeSelf) || (selectionRoot!=null && selectionRoot.activeSelf) || (equipmentRoot!=null && equipmentRoot.activeSelf) || (resultsRoot!=null && resultsRoot.activeSelf) || (formationRoot!=null && formationRoot.activeSelf) || (progressionRoot!=null && progressionRoot.activeSelf) || (previewRoot!=null && previewRoot.activeSelf) || (collectionRoot!=null && collectionRoot.activeSelf) || (teamPresetRoot!=null && teamPresetRoot.activeSelf) || (advancementRoot!=null && advancementRoot.activeSelf) || (forgeRoot!=null && forgeRoot.activeSelf) || BetaModalActive;
             Time.timeScale=combat && !menu?battleSpeed:1;
         }
         void OnDisable() { Time.timeScale=1; FinishSummonReveal(false); }
         void Update() {
+            MonitorBetaFrames();
             if (status == null) return;
             ApplyBattleSpeed();
             var area = Screen.safeArea;
@@ -1541,7 +1558,7 @@ namespace Ashlight {
             }
             if(atChapters) { if(Time.unscaledTime>=nextHomeRefresh) { RefreshHome(); nextHomeRefresh=Time.unscaledTime+.5f; } repeatSingle.interactable=!revealingSummons && battle.CanSummon; repeatTen.interactable=!revealingSummons && battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); timing.transform.parent.gameObject.SetActive(false); cue.text=""; RefreshEnemyTelegraphs(); return; }
 
-            if (autoPlay && !tutorialRoot.activeSelf && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && !heroDetailsRoot.activeSelf && !teamPresetRoot.activeSelf && !advancementRoot.activeSelf && !forgeRoot.activeSelf && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
+            if (autoPlay && !tutorialRoot.activeSelf && !presentingAction && !selectionRoot.activeSelf && !equipmentRoot.activeSelf && !formationRoot.activeSelf && !progressionRoot.activeSelf && !previewRoot.activeSelf && !collectionRoot.activeSelf && !heroDetailsRoot.activeSelf && !teamPresetRoot.activeSelf && !advancementRoot.activeSelf && !forgeRoot.activeSelf && !BetaModalActive && battle.Current == Phase.Player && Time.time >= nextAutoAction) {
                 battle.SelectEnemy(AutoBattlePlanner.ChooseTarget(battle));
                 PerformAction(AutoBattlePlanner.ChooseSkill(battle));
                 nextAutoAction = Time.time+1.3f;

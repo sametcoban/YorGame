@@ -13,6 +13,8 @@ public static class SaveSerializationChecks {
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
         var battle=new Battle(true); var fresh=RoundTrip(battle);
+        var storySeen=new Battle(true);
+        if(!storySeen.MarkStorySeen(0,false) || !RoundTrip(storySeen).StorySeen(0,false) || RoundTrip(storySeen).StorySeen(0,true)) throw new InvalidOperationException("Campaign scene flags changed during Unity serialization.");
         var activities=new Battle(true); var activitiesSave=activities.ExportProgress(); activitiesSave.encounter=10;
         activitiesSave.discoveredEnemies=new[]{EnemyGuideEntry.Catalog[0].Key};
         activitiesSave.bossClockDay=new DateTime(2026,10,15,0,0,0,DateTimeKind.Utc).Ticks; activitiesSave.bossClaimDay=activitiesSave.bossClockDay;
