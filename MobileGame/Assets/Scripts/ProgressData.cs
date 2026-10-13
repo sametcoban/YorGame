@@ -17,7 +17,8 @@ namespace Ashlight {
     public sealed class GearEnhancementData { public string id; public int level; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 19;
+        public int version = 20;
+        public int seenLaterStories, puzzleClears;
         public long weeklyClock, weeklyClaim;
         public int[] weeklyRecords=new int[3];
         public int seenStories;

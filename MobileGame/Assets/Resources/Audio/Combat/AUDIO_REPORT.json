@@ -145,5 +145,152 @@
     "sample_rate": 22050,
     "peak": 0.62,
     "sha256": "ffc4f54a54963e2b9ec15dd0b92d4391ae0e59614de8b39f28308d01cdab0f6c"
+  },
+  {
+    "name": "SwordSwingV1",
+    "duration": 0.23918367346938776,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "2778e3f40fb9a6ed3aef2b9da22f8fdac397a97e6b36469897e225d5136957da"
+  },
+  {
+    "name": "SwordSwingV2",
+    "duration": 0.273015873015873,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "427e0e7d9bc461d324d1f560d3a99c37bb33dbe67ecaf8d49394bc57d74dd9d8"
+  },
+  {
+    "name": "HeavySwingV1",
+    "duration": 0.3127891156462585,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "83dc126222b5e13ecdb853664774dedd6327cd2a0986775194cb113ad4d0bc4b"
+  },
+  {
+    "name": "HeavySwingV2",
+    "duration": 0.3570068027210884,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "9a611287f1304b0aabb9e98727da47d6564ea3c32d8c4f2021e9dabad59b32a4"
+  },
+  {
+    "name": "DaggerSwipeV1",
+    "duration": 0.165578231292517,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "180bce1100f0e4039d266b5c67ecee0844fc9737c6d624b4027a6ef969f5ca1b"
+  },
+  {
+    "name": "DaggerSwipeV2",
+    "duration": 0.18897959183673468,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "e850751e3d4f71428f32e4186dd3b267133f8a3e03ba0358c45053187619bb61"
+  },
+  {
+    "name": "BowReleaseV1",
+    "duration": 0.2575963718820862,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "4a0bfb01789d34a39d5400f8109304fd60770017b4d514e6259fce0d88db7559"
+  },
+  {
+    "name": "BowReleaseV2",
+    "duration": 0.29401360544217686,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "0e4273faf0a818fcd608267b546fdd015e2a00e2d5f62380f6a0011a062c7b59"
+  },
+  {
+    "name": "FireV1",
+    "duration": 0.4232199546485261,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "7cda166fb0f773d6916075d064ff9c48ea93a276edd981a4d874c1a6b866f030"
+  },
+  {
+    "name": "FireV2",
+    "duration": 0.48299319727891155,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "ed5cc375144fb8d0c09a06d4e955b630b274ebe8ac44e6b9c6c82bb1d4cc1483"
+  },
+  {
+    "name": "ColdV1",
+    "duration": 0.4415873015873016,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "b2c6f6a26f8462028d7cd9a8c85c8b3a3717ffe98c184f07640d4c1d750ebde4"
+  },
+  {
+    "name": "ColdV2",
+    "duration": 0.5039909297052154,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "d9219587dc874a910aa4a1eeb6439a2bf37dc0735fa8de2e25966b2ccb2aaefa"
+  },
+  {
+    "name": "PoisonV1",
+    "duration": 0.3679818594104308,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "86a98fe18ad61dcd71c6976be167cd720340286db39cf532c5fac1c710c38a5d"
+  },
+  {
+    "name": "PoisonV2",
+    "duration": 0.42,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "940cade87ed08cb63f457d92a1aefc1366cbf8ae05749e080d2ab24d9fb82fca"
+  },
+  {
+    "name": "LightningV1",
+    "duration": 0.294421768707483,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "5f9ecb8eb8f6bafb5daf2726d221e7b6fee9f549a27356518541e02468b8e974"
+  },
+  {
+    "name": "LightningV2",
+    "duration": 0.3360090702947846,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "33373b6d65d2c452068de4dc8100057479f60685d9324ce6b887c76f56b7fd8f"
+  },
+  {
+    "name": "LightV1",
+    "duration": 0.4415873015873016,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "90c6ddb8f39fbe1ba8be3afc8fe02a8fb6b41563b05006fa0480fb956e25610d"
+  },
+  {
+    "name": "LightV2",
+    "duration": 0.5039909297052154,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "9b6c75df001a576d0bff6b9197a03da87b5d76716ae61ffd5790978172bcab77"
+  },
+  {
+    "name": "MenuTick",
+    "duration": 0.08997732426303855,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "0fcc92e1b93a0ad7ca7748718fcda900bb4e07e1ff4e9f90346d30a8b5515d7d"
+  },
+  {
+    "name": "BossArcane",
+    "duration": 0.6,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "f85482a4f08d1a852a2acd38d97bab329a86d011a5f897f11711ca3fdce2ef21"
+  },
+  {
+    "name": "BossFrost",
+    "duration": 0.7,
+    "sample_rate": 22050,
+    "peak": 0.62,
+    "sha256": "e41547afdca6f383cce59193ffe740d6a80f03968c9b677c44a4f2ae3dc4991c"
   }
 ]

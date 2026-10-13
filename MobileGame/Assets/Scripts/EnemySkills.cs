@@ -15,7 +15,7 @@ namespace Ashlight {
     }
     public static class EnemySkills {
         public static string Family(int encounter) {
-            return new[]{"Road Wardens","Frostbound","Ember Legion","Stormborn","Blight Court","Eclipse Host","Pyre Legion","Drowned Court","Crimson Covenant","Glass Legion","Rime Court","Abyssal Host"}[Math.Min(11,Math.Max(0,encounter/5))];
+            return new[]{"Road Wardens","Frostbound","Ember Legion","Stormborn","Blight Court","Eclipse Host","Pyre Legion","Drowned Court","Crimson Covenant","Glass Legion","Rime Court","Abyssal Host","Hollow Choir","Saltbound Court","Widow Brood","Fallen Stars","Sunless Smiths","Dawnless Host"}[Math.Min(17,Math.Max(0,encounter/5))];
         }
         public static string Tactics(int encounter) {
             switch(encounter/5) {
@@ -24,6 +24,12 @@ namespace Ashlight {
                 case 8: return "Crimson: priests renew allies · focus the healer first.";
                 case 9: return "Glass: guards ward allies · strike an unshielded target.";
                 case 10: return "Rime: every third spell hits the party · spread Cold affinity.";
+                case 12: return "Choir: healing cantors and shocking bells · silence the rear choir.";
+                case 13: return "Salt: chilling harpoons · protect your healers in the back row.";
+                case 14: return "Widow: venom volleys · bring cleanse and focus the poison caster.";
+                case 15: return "Stars: shocking party spells · interrupt the third spell.";
+                case 16: return "Forge: renewed boss shields · exploit Lightning weakness.";
+                case 17: return "Dawn: weakening hexes and healing partners · break the rear support.";
                 case 11: return "Abyss: poison volleys and weakening hexes · bring healing.";
                 default: return "Defenders protect rear enemies · Rogues bypass that protection.";
             }
@@ -31,6 +37,22 @@ namespace Ashlight {
         static EnemySkill FamilyMove(int encounter,EnemyDefinition enemy,int completedStrikes) {
             int chapter=encounter/5, move=completedStrikes%3;
             if(chapter<6) return null;
+            if(chapter>=12) {
+                var elements=new[]{Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison};
+                var statuses=new[]{Debuff.Shock,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Burn,Debuff.Weaken};
+                int theme=chapter-12; var element=elements[theme]; var status=statuses[theme];
+                if(enemy.IsBoss) {
+                    if(move==1 && (theme==0 || theme==5)) return new EnemySkill("Choir Renewal",0,element,action:EnemyAction.HealPartner);
+                    if(move==1 && theme==4) return new EnemySkill("Molten Aegis",0,element,action:EnemyAction.Shield);
+                    if(move==2) return new EnemySkill(Family(encounter)+" Cataclysm",20,element,true,status);
+                } else {
+                    if(enemy.Role==EnemyRole.Healer && move==1) return new EnemySkill("Choir Renewal",0,element,action:EnemyAction.HealPartner);
+                    if(enemy.Role==EnemyRole.Archer) return new EnemySkill("Hunting Volley",28,element,status:move==2?status:Debuff.None,backRow:true);
+                    if(enemy.Role==EnemyRole.Caster) return new EnemySkill(move==2?"Falling Hex":"Hex Spear",move==2?16:26,element,move==2,move==2?status:Debuff.None);
+                    if(enemy.Role==EnemyRole.Defender && theme==4 && move==1) return new EnemySkill("Iron Ward",0,element,action:EnemyAction.Shield);
+                }
+                return null;
+            }
             if(enemy.IsBoss) {
                 if(move==1 && chapter==8) return new EnemySkill("Blood Communion",0,Element.Light,action:EnemyAction.HealPartner);
                 if(move==1 && chapter==9) return new EnemySkill("Obsidian Aegis",0,Element.Fire,action:EnemyAction.Shield);
@@ -75,8 +97,8 @@ namespace Ashlight {
         }
         public static EnemySkill For(int encounter, bool boss, int completedStrikes) {
             int chapter=encounter/5;
-            var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light,Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison}[Math.Min(11,Math.Max(0,chapter))];
-            var status=new[]{Debuff.None,Debuff.Chill,Debuff.Burn,Debuff.Shock,Debuff.Poison,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Poison}[Math.Min(11,Math.Max(0,chapter))];
+            var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light,Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison,Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison}[Math.Min(17,Math.Max(0,chapter))];
+            var status=new[]{Debuff.None,Debuff.Chill,Debuff.Burn,Debuff.Shock,Debuff.Poison,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Burn,Debuff.Weaken}[Math.Min(17,Math.Max(0,chapter))];
             int pattern=completedStrikes%3;
             if(pattern==0) return new EnemySkill("Quick Strike",35,Element.Physical);
             if(pattern==1) return new EnemySkill(chapter==0?"Crushing Blow":element+" Hex",chapter==0?42:24,element,false,status);

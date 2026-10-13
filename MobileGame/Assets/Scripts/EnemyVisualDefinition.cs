@@ -63,11 +63,17 @@ namespace Ashlight {
                 new[]{"Blood Templar","Crimson Beast","Scarlet Priest","Sanguine Hunter","Crimson Pontiff","Blood Confessor"},
                 new[]{"Obsidian Guard","Glassfang","Ash Prophet","Cinder Stalker","Obsidian Colossus","Glass Warden"},
                 new[]{"Pale Sentinel","Rimefang","Winter Seer","Frost Hunter","Pale Sovereign","Rime Herald"},
-                new[]{"Abyss Guard","Void Hound","Night Prophet","Dread Archer","Abyssal Emperor","Void Regent"}
+                new[]{"Abyss Guard","Void Hound","Night Prophet","Dread Archer","Abyssal Emperor","Void Regent"},
+                new[]{"Bell Guard","Chimefang","Echo Priest","Silent Hunter","Hollow Bellmaster","Bell Confessor"},
+                new[]{"Salt Sentinel","Brine Hound","Tide Cantor","Reef Archer","Saltbound Empress","Brine Regent"},
+                new[]{"Web Guardian","Venomfang","Widow Seer","Silk Stalker","Widow Sovereign","Silk Reaper"},
+                new[]{"Astral Guard","Starfang","Comet Oracle","Orbit Hunter","Fallen Astronomer","Comet Warden"},
+                new[]{"Forge Sentinel","Slag Beast","Furnace Prophet","Ash Marksman","Sunless Forgemaster","Iron Confessor"},
+                new[]{"Dawnless Guard","Gloam Hound","Night Cantor","Dusk Archer","Dawn Eater","Gloam Regent"}
             };
             string[] models={"LanternWarden","AshHound","HollowMatron","CinderScout","Roadkeeper","IronWatcher"};
-            string[] cloth={"WineWool","AshWool","WineWool","SootWool","AshWool","VioletWool"};
-            Element[] elements={Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison};
+            string[] cloth={"WineWool","AshWool","WineWool","SootWool","AshWool","VioletWool","VioletWool","AshWool","MossWool","VioletWool","WineWool","SootWool"};
+            Element[] elements={Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison,Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison};
             for(int chapter=0;chapter<names.Length;chapter++) for(int enemy=0;enemy<6;enemy++)
                 yield return new EnemyVisualDefinition(names[chapter][enemy],names[chapter][enemy].Replace(" ",""),elements[chapter]+" STRIKE",enemy==1?1.6f:enemy>=4?2.65f:2.35f,elements[chapter],enemy>=4,enemy==2 || enemy==3,models[enemy],cloth[chapter]);
         }

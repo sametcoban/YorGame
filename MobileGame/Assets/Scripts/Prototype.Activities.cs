@@ -17,8 +17,8 @@ namespace Ashlight {
             activitiesInfo=Label(activitiesRoot.transform,"",new Vector2(.05f,.59f),new Vector2(.95f,.83f),21);
             bossStart=ScreenButton(activitiesRoot.transform,"DAILY BOSS",.05f,.25f,.34f,.39f,StartBossChallenge);
             ScreenButton(activitiesRoot.transform,"ENEMY GUIDE",.365f,.25f,.635f,.39f,()=> { guidePage=0; guideRoot.SetActive(true); guideRoot.transform.SetAsLastSibling(); guideDetail.text="Fight enemies to reveal their abilities and counters."; RefreshGuide(); });
-            ScreenButton(activitiesRoot.transform,"REPLAY CHAPTER SCENE",.05f,.135f,.48f,.225f,ReplayCurrentStory);
-            ScreenButton(activitiesRoot.transform,"FIRST JOURNEY",.52f,.135f,.95f,.225f,OpenBetaOpening);
+            ScreenButton(activitiesRoot.transform,"CHAPTER SCENE",.05f,.135f,.26f,.225f,ReplayCurrentStory);
+            ScreenButton(activitiesRoot.transform,"FIRST JOURNEY",.28f,.135f,.49f,.225f,OpenBetaOpening);
             ScreenButton(activitiesRoot.transform,"FEEDBACK",.365f,.025f,.635f,.115f,OpenFeedback);
             ScreenButton(activitiesRoot.transform,"HOME",.68f,.025f,.95f,.115f,()=>activitiesRoot.SetActive(false)); activitiesRoot.SetActive(false);
             guideRoot=ScreenRoot("Enemy Guide");
@@ -80,6 +80,10 @@ namespace Ashlight {
             if(bossReported || campaignBattle==null) return;
             bool rewarded; if(!campaignBattle.FinishDailyBoss(battle,out rewarded)) return;
             bossReported=true; autoPlay=false; Time.timeScale=1; SaveProgress();
+            if(battle.IsFormationPuzzle) {
+                bossReport.text=(battle.Current==Phase.Won?"PUZZLE CLEAR":"PUZZLE ATTEMPT")+" · "+FormationPuzzles.Name(battle.PuzzleIndex)+"\n\n"+(rewarded?"+50 CRYSTALS · +50 MATERIALS":battle.Current==Phase.Won?"First-clear reward already claimed":"Try a different formation, skill pair or target order.")+"\n\n"+FormationPuzzles.Hint(battle.PuzzleIndex)+"\nLoan heroes returned · Campaign formation preserved\n"+saveNotice;
+                bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling(); return;
+            }
             bool weekly=battle.IsWeeklyTrial; string rewardText=rewarded?(weekly?"+150 CRYSTALS · +150 MATERIALS · +5 HERO SHARDS EACH":"+35 CRYSTALS · +30 MATERIALS"):weekly?(!battle.WeeklyGoalMet?"Goal not met · Survive 8 rounds or defeat the boss":"Weekly reward already claimed"):battle.DailyBossScore==0?"No damage · No reward":"Daily reward already claimed";
             bossReport.text=(weekly?(battle.WeeklyGoalMet?"WEEKLY CLEAR":"WEEKLY ATTEMPT COMPLETE"):"DAILY BOSS COMPLETE")+"\n"+battle.Enemy.Name+"\n\nDAMAGE · "+battle.DailyBossScore+"\nPersonal best · "+(weekly?campaignBattle.WeeklyBest(battle.TrialIndex):campaignBattle.DailyBossBest(battle.RunBossIndex))+"\nEnemy rounds completed · "+battle.DailyBossRounds+" / 8\n\n"+rewardText+"\n"+saveNotice;
             foreach(var hero in battle.Party) bossReport.text+="\n"+hero.Identity.Name+" · "+hero.EncounterDamage+" damage · "+hero.EncounterHealing+" healing";

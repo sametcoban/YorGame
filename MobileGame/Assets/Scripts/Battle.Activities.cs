@@ -73,6 +73,7 @@ namespace Ashlight {
         }
         public bool FinishDailyBoss(Battle run,out bool rewarded) {
             rewarded=false;
+            if(run!=null && run.IsFormationPuzzle) return FinishFormationPuzzle(run,out rewarded);
             if(run!=null && run.IsWeeklyTrial) return FinishWeeklyTrial(run,out rewarded);
             if(run==null || run.bossOwner!=this || run.runClaimed || (run.Current!=Phase.Lost && run.Current!=Phase.Won)) return false;
             run.runClaimed=true;

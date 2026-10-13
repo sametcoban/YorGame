@@ -91,7 +91,7 @@ class BalanceChecks {
   if(recommendations) { var team=b.RecommendTeam(); if(team==null || !b.ApplyRecommendation(team) || b.TeamPower!=team.Power) throw new Exception("Stage recommendation rejected or mismatched"); }
  }
  static void FullProgression(bool earnedSummons,bool wishlist=false,bool recommendations=false) {
-  int complete=0, retries=0, waiting=0, summons=0; int[] failures=new int[60];
+  int complete=0, retries=0, waiting=0, summons=0; int[] failures=new int[ChapterDefinition.TotalStages];
   for(int seed=0;seed<Runs;seed++) {
    var rng=new Random(40000+seed); var now=new DateTime(2026,10,12,0,0,0,DateTimeKind.Utc);
    var b=new Battle(true,enableWaves:true,enableClassPassives:true,enableFactions:true,criticalRandom:rng,utcNow:()=>now);
@@ -119,7 +119,7 @@ class BalanceChecks {
   }
   Console.WriteLine("FULL PROGRESSION (summons {5}, wishlist {6}, recommendations {7}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons,wishlist,recommendations);
   for(int stage=0;stage<failures.Length;stage++) if(failures[stage]>0) Console.WriteLine("Progression stopped at {0}-{1}: {2} runs",stage/5+1,stage%5+1,failures[stage]);
-  if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete twelve chapters");
+  if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete eighteen chapters");
  }
  static void Economy() {
   int storyCrystals=0;
@@ -140,10 +140,16 @@ class BalanceChecks {
   }
   int milestones=0; for(int chapter=0;chapter<12;chapter++) milestones+=ChapterMilestone.For(chapter).Crystals;
   if(milestones!=2850) throw new Exception("Milestone reward budget changed unexpectedly");
+  int expandedCrystals=0; for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) { var save=b.ExportProgress(); save.encounter=stage; if(!b.RestoreProgress(save)) throw new Exception("Expanded economy fixture rejected"); expandedCrystals+=b.CampaignVictoryCrystals; }
+  int expandedMilestones=0; for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) expandedMilestones+=ChapterMilestone.For(chapter).Crystals;
+  if(expandedCrystals!=8250 || expandedMilestones!=5625) throw new Exception("Expanded reward budget mismatch");
+  Console.WriteLine("EXPANDED ECONOMY: {0} story crystals + {1} milestones; three optional puzzle first clears add 150 crystals/materials total",expandedCrystals,expandedMilestones);
   Console.WriteLine("ECONOMY: {0} story crystals + {1} milestones + {2} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,milestones,Summoning.StarterCrystals);
  }
  static void Main(string[] args) {
+  if(args.Length>0 && args[0]=="late") { Stages(20,HeroQuality.Legendary,60,90); Console.WriteLine("PASS: 6,000 expanded-stage samples"); return; }
+  if(args.Length>0 && args[0]=="economy") { Economy(); return; }
   if(args.Length>0 && args[0]=="recommendations") { FullProgression(true,true,true); Console.WriteLine("PASS: 200 recommendation progression campaigns"); return; }
-  Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); FullProgression(true,true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Console.WriteLine("PASS: 30,000 stage samples, 400 first-arc campaigns, and 800 full progression campaigns");
+  Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); FullProgression(true,true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Stages(20,HeroQuality.Legendary,60,90); Console.WriteLine("PASS: 36,000 stage samples, 400 first-arc campaigns, and 800 full progression campaigns");
  }
 }

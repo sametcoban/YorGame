@@ -156,7 +156,7 @@ namespace Ashlight {
                     Piece("Ember",PrimitiveType.Sphere,new Vector3(Mathf.Cos(angle)*1.1f,4.45f+Mathf.Sin(angle)*1.1f,6.3f),new Vector3(.18f,.18f,.10f));
                 }
             } else if(chapter>=6) {
-                int motif=chapter-6;
+                int motif=(chapter-6)%6;
                 for(int side=-1;side<=1;side+=2) for(int i=0;i<3;i++) {
                     float x=side*(4.8f+i*.2f), z=-1+i*2.1f;
                     Stone(new Vector3(x,1.3f,z),new Vector3(.5f,2.6f+motif*.12f,.6f),true,new Vector3(0,motif*17,side*(motif==3?20:0)));

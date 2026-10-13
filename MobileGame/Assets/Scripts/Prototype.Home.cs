@@ -19,7 +19,7 @@ namespace Ashlight {
             root.GetComponent<Image>().color=MenuPalette.Surface; return root;
         }
         Button ScreenButton(Transform root,string text,float left,float bottom,float right,float top,UnityEngine.Events.UnityAction action) {
-            var button=MakeButton(root,text,left,right,action); PlaceGearControl(button,left,bottom,right,top); return button;
+            var button=MakeButton(root,text,left,right,()=> { if(sounds!=null) sounds.Play("MenuTick",.3f); action(); }); PlaceGearControl(button,left,bottom,right,top); return button;
         }
         void CreateHomeScreens() {
             homeRoot=ScreenRoot("Home Screen");
@@ -49,7 +49,7 @@ namespace Ashlight {
         }
         void CloseHubPanels() {
             managementHero=null;
-            foreach(var root in new[]{homeRoot,setGuideRoot,bondsRoot,weeklyRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{homeRoot,puzzlesRoot,goalsRoot,setGuideRoot,bondsRoot,weeklyRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;
@@ -58,7 +58,7 @@ namespace Ashlight {
         void OpenCampaign() {
             if(!atChapters) return;
             homeRoot.SetActive(false); chapterRoot.SetActive(true); chapterRoot.transform.SetAsLastSibling();
-            chapterTitle.text="CAMPAIGN\n"+(battle.CampaignComplete?"All 12 chapters cleared · Claim your milestones or challenge the Tower.":"Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1)+" · "+ChapterDefinition.Catalog[battle.ChapterIndex].Name)+"\n"+battle.Crystals+" crystals · "+saveNotice;
+            chapterTitle.text="CAMPAIGN\n"+(battle.CampaignComplete?"All "+ChapterDefinition.Catalog.Count+" chapters cleared · Claim your milestones or challenge the Tower.":"Chapter "+(battle.ChapterIndex+1)+" · Stage "+(battle.StageIndex+1)+" · "+ChapterDefinition.Catalog[battle.ChapterIndex].Name)+"\n"+battle.Crystals+" crystals · "+saveNotice;
             chapterPage=battle.ChapterIndex/6; RefreshChapterPage();
         }
         void RefreshHome() {

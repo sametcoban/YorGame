@@ -272,7 +272,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateTutorial();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateTutorial();
             if(battle.Current==Phase.Won) { atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
         }
@@ -406,7 +406,7 @@ namespace Ashlight {
             transitioningWave=true;
             message="WAVE "+(battle.WaveIndex+1)+" CLEARED — next wave incoming!";
             cue.text="WAVE CLEARED";
-            yield return new WaitForSeconds(1.2f);
+            yield return new WaitForSeconds(autoPlay?.65f:1.2f);
             if(battle.AdvanceWave()) {
                 effects.Clear(); CreateEnemy();
                 for(int i=0;i<foeAttackAt.Length;i++) foeAttackAt[i]=-10;
@@ -442,7 +442,7 @@ namespace Ashlight {
                 if (skill.Action!=EnemyAction.Interrupted && art != null && art.SourceModel == "AshHound") sounds.Play("HoundGrowl",.7f);
                 else if (skill.Action!=EnemyAction.Interrupted && art != null && art.IsRanged) sounds.Play("Charge",.6f);
                 message = skill.Action!=EnemyAction.Attack ? actor.name+" prepares "+skill.Name+"." : actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + AttackTargetLabel(skill) + ".";
-                yield return new WaitForSeconds(skill.Action==EnemyAction.Interrupted?.25f:1.2f);
+                yield return new WaitForSeconds(skill.Action==EnemyAction.Interrupted?.25f:autoPlay && (art==null || !art.IsBoss)?.65f:1.2f);
                 if (!battle.BeginStrike()) break;
                 if(skill.Action!=EnemyAction.Attack) {
                     if(visual!=null && skill.Action!=EnemyAction.Interrupted) visual.Play("Cast");
@@ -505,7 +505,7 @@ namespace Ashlight {
                     } else if(battle.Enemies[foeIndex].Health>0 && (skill.PartyWide || i==target) && !strikeDefended[i] && battle.Party[i].Health>0) { effects.Floating(allies[i].position,"BLOCKED",Element.Light); sounds.Play("Guard"); }
                     if(battle.LastStatusDamage[i]>0) effects.Floating(allies[i].position,"DEBUFF −"+battle.LastStatusDamage[i],skill.Element);
                 }
-                if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { effects.BossImpact(allies[target].position,skill.Element); sounds.Play("BossSlam",.75f); }
+                if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { effects.BossImpact(allies[target].position,skill.Element); sounds.PlayBoss(skill.Element,.75f); }
                 PresentPassiveHealing();
                 presentation.Warning(false);
                 if (battle.Current == Phase.Player) message = defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
@@ -593,7 +593,7 @@ namespace Ashlight {
             if (!(skillSlot >= 0 ? battle.UseAbility(skillSlot) : battle.Attack())) return;
             for (int i = 0; i < healing.Length; i++) healing[i] = members[i].Health-healing[i]-battle.LastUltimateHealing[i];
             bool casting = profile.Casting;
-            actionMotion = profile.Motion(members[actingIndex].Identity.Class);
+            actionMotion = CombatMotion.WithAutoRecovery(profile.Motion(members[actingIndex].Identity.Class),autoPlay);
             presentingAction = true; actionTarget = target;
             attacker = allies[actingIndex]; attackTime = Time.time;
             var visual = attacker.GetComponent<HeroVisual>(); if (visual != null) visual.Play(casting ? "Cast" : "Attack");
@@ -1465,10 +1465,10 @@ namespace Ashlight {
             hero = allies[battle.ActiveIndex];
             int visibleTarget = presentingAction ? actionTarget : battle.SelectedEnemyIndex;
             var visibleEnemy = battle.Enemies[visibleTarget].Definition;
-            status.text = (battle.InTower ? "TOWER " + battle.TowerFloor : battle.IsWeeklyTrial?"WEEKLY TRIAL":battle.IsDailyBoss?"DAILY BOSS":"ASHLIGHT") + " · WAVE " + (battle.WaveIndex+1) + "/" + battle.WaveCount +
+            status.text = (battle.InTower ? "TOWER " + battle.TowerFloor : battle.IsFormationPuzzle?"FORMATION PUZZLE":battle.IsWeeklyTrial?"WEEKLY TRIAL":battle.IsDailyBoss?"DAILY BOSS":"ASHLIGHT") + " · WAVE " + (battle.WaveIndex+1) + "/" + battle.WaveCount +
                 " · " + (visibleEnemy.IsBoss ? "BOSS: " : "") + visibleEnemy.Name + " " + VisibleEnemyHealth(visibleTarget) + "/" + visibleEnemy.MaxHealth + EnemyMechanicLabel(visibleTarget) +
                 "\nWeak: " + visibleEnemy.Weakness + " · Resists: " + visibleEnemy.Resistance + " · Acting: " + party[battle.ActiveIndex].Identity.Name +
-                (battle.IsDailyBoss?" · ROUND "+Mathf.Min(8,battle.DailyBossRounds+1)+"/8 · SCORE "+battle.DailyBossScore:"");
+                (battle.IsFormationPuzzle?" · ENEMY ACTION "+Mathf.Min(FormationPuzzles.ActionLimit,battle.DailyBossRounds+1)+"/"+FormationPuzzles.ActionLimit:battle.IsDailyBoss?" · ROUND "+Mathf.Min(8,battle.DailyBossRounds+1)+"/8 · SCORE "+battle.DailyBossScore:"");
             if (saveFailed) status.text += "\n" + saveNotice;
             for(int i=0;i<energyBars.Length;i++) {
                 bool visible=!atChapters && i<party.Count;
@@ -1548,7 +1548,7 @@ namespace Ashlight {
             soundButton.GetComponentInChildren<Text>().text=sounds.Muted?"SOUND OFF":"SOUND ON";
             if (!presentingAction && lastSoundPhase != battle.Current) {
                 if (battle.Current == Phase.Won) sounds.Play("Victory",.7f);
-                else if (battle.Current == Phase.Lost) sounds.Play(battle.IsDailyBoss && (battle.IsWeeklyTrial?battle.WeeklyGoalMet:battle.DailyBossScore>0)?"Victory":"Defeat",.8f);
+                else if (battle.Current == Phase.Lost) sounds.Play(battle.IsDailyBoss && !battle.IsFormationPuzzle && (battle.IsWeeklyTrial?battle.WeeklyGoalMet:battle.DailyBossScore>0)?"Victory":"Defeat",.8f);
                 lastSoundPhase = battle.Current;
             }
             if(atChapters) { if(Time.unscaledTime>=nextHomeRefresh) { RefreshHome(); nextHomeRefresh=Time.unscaledTime+.5f; } repeatSingle.interactable=!revealingSummons && battle.CanSummon; repeatTen.interactable=!revealingSummons && battle.CanSummonTen; if(dailyRoot.activeSelf) RefreshDailyMenu(); timing.transform.parent.gameObject.SetActive(false); cue.text=""; RefreshEnemyTelegraphs(); return; }

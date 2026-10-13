@@ -15,7 +15,7 @@ namespace Ashlight {
         readonly PortraitView[] summonPortraits=new PortraitView[10];
         bool summonSingle;
         readonly string[] feedbackKinds={"Bug","Balance","Confusing screen","General feedback"};
-        bool BetaModalActive { get { return (recommendationRoot!=null && recommendationRoot.activeSelf) || (storyRoot!=null && storyRoot.activeSelf) || (betaRoot!=null && betaRoot.activeSelf) || (feedbackRoot!=null && feedbackRoot.activeSelf) || SeasonModalActive; } }
+        bool BetaModalActive { get { return (recommendationRoot!=null && recommendationRoot.activeSelf) || (storyRoot!=null && storyRoot.activeSelf) || (betaRoot!=null && betaRoot.activeSelf) || (feedbackRoot!=null && feedbackRoot.activeSelf) || SeasonModalActive || JourneyModalActive; } }
         void CreateBetaScreens() {
             recommendationRoot=ScreenRoot("Stage Team Recommendation");
             recommendationTitle=Label(recommendationRoot.transform,"",new Vector2(.05f,.83f),new Vector2(.95f,.98f),28);

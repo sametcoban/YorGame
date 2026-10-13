@@ -17,13 +17,31 @@ namespace Ashlight {
             "A crimson bell calls from above the crypt. The Blood Cathedral has begun collecting names instead of prayers.",
             "The cathedral's altar holds a map through the Obsidian Wastes. Glass figures repeat the words of travellers who vanished there.",
             "Beyond the wastes, winter has stolen the horizon. A pale crown hangs where the sun should be.",
-            "One gate remains. Behind the Abyssal Crown, the first stolen ember still remembers the world before its darkness."
+            "One gate remains. Behind the Abyssal Crown, the first stolen ember still remembers the world before its darkness.",
+            "Six lanterns remain dark beyond the broken crown. The first hangs in a belfry whose bells repeat the voices of the lost.",
+            "The bells send the company toward a coast crusted with salt. A court beneath the tide demands a living heir.",
+            "Silk covers the inland road. Every thread leads toward a widow who remembers the company before they arrived.",
+            "Beyond the webs stands an observatory in ruins. Its fallen stars still obey someone inside.",
+            "The lenses point toward a hidden forge. Its smiths hammer stolen sunlight into chains.",
+            "The last chain stretches into a sunless valley. Something vast has learned to swallow the dawn."
         };
         static readonly string[] Replies={
-            "Then we keep this flame alive.","We cross together. Nobody stays beneath that ice.","Find the furnace. Break its chains.","Let the bells ring. We know where to go.","We will give this place a quieter ending.","A throne can fall. Keep moving.","Their march ends here.","Follow my lantern. Stay close.","We take our names back.","Listen to each other, not the glass.","There is still light beyond that crown.","One last gate. One living ember."
+            "Then we keep this flame alive.","We cross together. Nobody stays beneath that ice.","Find the furnace. Break its chains.","Let the bells ring. We know where to go.","We will give this place a quieter ending.","A throne can fall. Keep moving.","Their march ends here.","Follow my lantern. Stay close.","We take our names back.","Listen to each other, not the glass.","There is still light beyond that crown.","One last gate. One living ember.",
+            "We will answer with our own voices.",
+            "Nobody is tribute. We break the court.",
+            "Cut a path. Keep each other in sight.",
+            "Stars can fall. So can their master.",
+            "Break the chains before morning disappears.",
+            "We carry the dawn together."
         };
         static readonly string[] BossLines={
-            "This road ends where my lantern falls.","Warm blood has no place beyond my gate.","The furnace has room for all of you.","The spire will speak through your bones.","Lay down your weapons. My roots will carry you.","Kneel, and you may forget the dawn.","The march does not stop for the living.","Every kingdom sinks. Yours is next.","Your names belong to the bell now.","Break one reflection. A thousand remain.","Nothing survives the winter I wear.","Bring me your ember. Let the world go quiet."
+            "This road ends where my lantern falls.","Warm blood has no place beyond my gate.","The furnace has room for all of you.","The spire will speak through your bones.","Lay down your weapons. My roots will carry you.","Kneel, and you may forget the dawn.","The march does not stop for the living.","Every kingdom sinks. Yours is next.","Your names belong to the bell now.","Break one reflection. A thousand remain.","Nothing survives the winter I wear.","Bring me your ember. Let the world go quiet.",
+            "Every voice becomes my bell.",
+            "The tide has already chosen your heir.",
+            "Your paths were woven long ago.",
+            "Look up. Your stars are falling.",
+            "The sun is only another metal to bend.",
+            "Your little lantern cannot feed the sky."
         };
         public static CampaignStory For(int chapter,bool boss) {
             if(chapter<0 || chapter>=ChapterDefinition.Catalog.Count) throw new ArgumentOutOfRangeException("chapter");
@@ -35,7 +53,7 @@ namespace Ashlight {
         }
     }
     public static class BetaSupport {
-        public const string BuildTag="ashlight-beta-prep-2";
+        public const string BuildTag="ashlight-beta-prep-3";
         public static string Feedback(ProgressData progress,string category,string notes,string runtime,DateTime time) {
             var report=new StringBuilder();
             report.AppendLine("ASHLIGHT PLAYTEST REPORT · "+BuildTag).AppendLine("UTC: "+time.ToUniversalTime().ToString("u"));
@@ -56,12 +74,16 @@ namespace Ashlight {
         }
     }
     public sealed partial class Battle {
-        int seenStories;
-        public bool StoryUnlocked(int chapter,bool boss) { return chapter>=0 && chapter<12 && !InTower && encounter>=chapter*5+(boss?4:0); }
-        public bool StorySeen(int chapter,bool boss) { return chapter>=0 && chapter<12 && (seenStories&(1<<(chapter+(boss?12:0))))!=0; }
+        int seenStories, seenLaterStories;
+        public bool StoryUnlocked(int chapter,bool boss) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && !InTower && encounter>=chapter*5+(boss?4:0); }
+        public bool StorySeen(int chapter,bool boss) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && (chapter<12?(seenStories&(1<<(chapter+(boss?12:0))))!=0:(seenLaterStories&(1<<(chapter-12+(boss?6:0))))!=0); }
         public bool MarkStorySeen(int chapter,bool boss) {
             if(IsDailyBoss || !campaign || (!CanChangeParty && !CampaignComplete) || !StoryUnlocked(chapter,boss)) return false;
-            seenStories|=1<<(chapter+(boss?12:0)); return true;
+            if(chapter<12) seenStories|=1<<(chapter+(boss?12:0)); else seenLaterStories|=1<<(chapter-12+(boss?6:0)); return true;
+        }
+        internal static int AllowedLaterStories(int stage) {
+            int intros=Math.Max(0,Math.Min(6,stage/5-11)),bosses=Math.Max(0,Math.Min(6,(stage+1)/5-12));
+            return ((1<<intros)-1)|(((1<<bosses)-1)<<6);
         }
         internal static int AllowedStories(int stage) {
             int intros=Math.Min(12,stage/5+1),bosses=Math.Min(12,(stage+1)/5);

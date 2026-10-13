@@ -75,3 +75,13 @@ Safari is an initial iPhone browser test. It does not validate a native iOS app;
 - Reload records/claims, cross a UTC Monday, and move the clock backward in an isolated test environment. Check the new weekly rotation, frozen starting week during an attempt, and stale lobby review. Verify campaign stage, equipment, hero HP and energy are preserved when returning.
 - After campaign completion, complete three positive-score boss attempts, claim Idle Rewards, summon with earned crystals and finish the daily chain. Confirm failed/abandoned zero-score attempts do not count.
 - Review every menu, hero portrait, summon reveal and affinity badge for consistent surfaces/text/rarity colors. Test the new header buttons for overlap and overlays for blocked combat actions. Native Unity JSON diagnostics now include weekly records and bond counters; they have not executed in the cloud.
+
+### Journey expansion (`ashlight-beta-prep-3`)
+
+- Update all Scripts, Editor and Resources/Audio/Combat files; rebuild the enemy roster. Run Check Combat Assets and native serialization checks in Unity.
+- Load a save that finished chapter 12: it should open chapter 13, retaining heroes, loadouts, Forge levels, shards, resources and the original 24 story-scene flags. Check later intro and boss scenes remain seen after restarting.
+- Check the three new chapter pages, milestones through chapter 18, two/three-enemy waves and paired finales. Target every enemy. Inspect the six new environment palettes and animated enemy variants.
+- Home → Activities → Puzzles: swap heroes, cycle both skills without duplicates, and try healer targeting, back-row protection and shield dispelling. Loan heroes use fixed Rare level-ten stats. First clear gives exactly 50 crystals/materials; replay, defeat, abandonment and app restart must not pay again or change your campaign team. Twelve enemy actions is the puzzle limit; Daily/Weekly still use eight.
+- Home → Activities → Goals: page through missing heroes and companions; compare gear collection against owned inventory and active sets. Check text and four Activities shortcuts at narrow portrait aspect ratios.
+- Compare manual and Auto Play timing, especially Twin Fangs, Rogue basics, multi-target ultimates, interruptions and the transition into an enemy round. Ordinary recovery should be shorter in Auto; impacts and full ultimate/boss cues must remain readable.
+- Listen for three alternating takes per supported weapon/element, menu ticks and frost/arcane boss impacts. Toggle mute and check voice overlap, pauses and background/resume behavior.

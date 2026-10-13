@@ -18,7 +18,13 @@ namespace Ashlight {
             new ChapterStageDefinition("Blood Cathedral","#260912","#442A35","#944857","#ECB9C1","#FF335F",.03f),
             new ChapterStageDefinition("Obsidian Wastes","#17120C","#262321","#8E774A","#D8C6A0","#FFC351",.035f),
             new ChapterStageDefinition("Pale Realm","#172535","#516474","#A4B4CF","#DDE5FF","#A2BAFF",.04f),
-            new ChapterStageDefinition("Abyssal Crown","#08071A","#24203D","#655E96","#C7BEFF","#895BFF",.038f)
+            new ChapterStageDefinition("Abyssal Crown","#08071A","#24203D","#655E96","#C7BEFF","#895BFF",.038f),
+            new ChapterStageDefinition("Hollow Belfry","#121022","#373243","#8E7AB3","#D2C5FF","#A899FF",.034f),
+            new ChapterStageDefinition("Saltbound Court","#0B222A","#3F5558","#91AAA5","#B7E9DD","#61DFD8",.034f),
+            new ChapterStageDefinition("Widow Woods","#0D1B13","#35412F","#749656","#C5DEAC","#A2DC55",.034f),
+            new ChapterStageDefinition("Shattered Observatory","#0C152B","#333C59","#7985BE","#D1DFFF","#8DAAFF",.034f),
+            new ChapterStageDefinition("Sunless Forge","#250D08","#3C2B25","#9D6845","#F3C293","#FF7A32",.034f),
+            new ChapterStageDefinition("Last Dawn","#140F23","#3C3549","#B69767","#FFEBC5","#FFD58B",.034f)
         };
         public static ChapterStageDefinition For(int chapter) {
             if(chapter<0 || chapter>=Catalog.Length) throw new ArgumentOutOfRangeException("chapter");

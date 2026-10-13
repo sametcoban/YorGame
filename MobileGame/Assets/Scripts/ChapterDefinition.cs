@@ -18,7 +18,13 @@ namespace Ashlight {
             "The Crimson Covenant's bell falls silent. Its broken altar hides a map through the Obsidian Wastes.",
             "The Glass Legion shatters. The party crosses the wastes toward a pale horizon where winter has stolen the sun.",
             "The Pale Sovereign's crown cracks. Beyond the returning light waits a final gate, leading into the Abyssal Crown.",
-            "The Abyssal Emperor's crown is broken. The heroes return with a living ember, and the world begins to remember the dawn."
+            "The Abyssal Emperor's crown is broken. The heroes return with a living ember, and the world begins to remember the dawn. But six distant lanterns remain dark.",
+            "The hollow bell cracks. Its echoes carry a warning from the saltbound coast.",
+            "The court releases its drowned captives. A silk road leads inland toward the Widow Woods.",
+            "The widow's web loosens. Between its threads hangs a fallen map of the stars.",
+            "The shattered lenses reveal a furnace beneath the horizon. Its smoke is swallowing the morning.",
+            "The sunless forge falls quiet. Its last chain points toward the creature devouring the dawn.",
+            "The Dawn Eater falls. The company lights the road home, carrying the names of everyone who followed."
         };
         public static ChapterMilestone For(int chapter) {
             if(chapter<0 || chapter>=ChapterDefinition.Catalog.Count) throw new ArgumentOutOfRangeException("chapter");
@@ -53,11 +59,17 @@ namespace Ashlight {
             new ChapterDefinition("The Blood Cathedral",new[]{"Blood Templar","Crimson Beast","Scarlet Priest","Sanguine Hunter","Crimson Pontiff"},8,Element.Poison,Element.Light),
             new ChapterDefinition("The Obsidian Wastes",new[]{"Obsidian Guard","Glassfang","Ash Prophet","Cinder Stalker","Obsidian Colossus"},9,Element.Cold,Element.Fire),
             new ChapterDefinition("The Pale Realm",new[]{"Pale Sentinel","Rimefang","Winter Seer","Frost Hunter","Pale Sovereign"},10,Element.Fire,Element.Cold),
-            new ChapterDefinition("The Abyssal Crown",new[]{"Abyss Guard","Void Hound","Night Prophet","Dread Archer","Abyssal Emperor"},11,Element.Light,Element.Poison)
+            new ChapterDefinition("The Abyssal Crown",new[]{"Abyss Guard","Void Hound","Night Prophet","Dread Archer","Abyssal Emperor"},11,Element.Light,Element.Poison),
+            new ChapterDefinition("The Hollow Belfry",new[]{"Bell Guard","Chimefang","Echo Priest","Silent Hunter","Hollow Bellmaster"},12,Element.Light,Element.Lightning),
+            new ChapterDefinition("The Saltbound Court",new[]{"Salt Sentinel","Brine Hound","Tide Cantor","Reef Archer","Saltbound Empress"},13,Element.Fire,Element.Cold),
+            new ChapterDefinition("The Widow Woods",new[]{"Web Guardian","Venomfang","Widow Seer","Silk Stalker","Widow Sovereign"},14,Element.Cold,Element.Poison),
+            new ChapterDefinition("The Shattered Observatory",new[]{"Astral Guard","Starfang","Comet Oracle","Orbit Hunter","Fallen Astronomer"},15,Element.Poison,Element.Lightning),
+            new ChapterDefinition("The Sunless Forge",new[]{"Forge Sentinel","Slag Beast","Furnace Prophet","Ash Marksman","Sunless Forgemaster"},16,Element.Lightning,Element.Fire),
+            new ChapterDefinition("The Last Dawn",new[]{"Dawnless Guard","Gloam Hound","Night Cantor","Dusk Archer","Dawn Eater"},17,Element.Light,Element.Poison)
         });
         public static int TotalStages { get { return Catalog.Count*StagesPerChapter; } }
         // Chapter 3 onward ends with two bosses in the same encounter. Save indices stay stable.
-        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger", "Pyre Executioner", "Tidebound Reaper", "Blood Confessor", "Glass Warden", "Rime Herald", "Void Regent" };
+        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger", "Pyre Executioner", "Tidebound Reaper", "Blood Confessor", "Glass Warden", "Rime Herald", "Void Regent", "Bell Confessor", "Brine Regent", "Silk Reaper", "Comet Warden", "Iron Confessor", "Gloam Regent" };
         public static IReadOnlyList<EnemyDefinition> EnemiesAt(int encounter) {
             var primary = EnemyAt(encounter);
             if (encounter / StagesPerChapter < 2 || encounter % StagesPerChapter != 4)
@@ -73,7 +85,7 @@ namespace Ashlight {
                 int count=2+(encounter%StagesPerChapter+wave)%2;
                 var group=new EnemyDefinition[count];
                 int chapterIndex=encounter/StagesPerChapter;
-                var rearRole=chapterIndex==8?EnemyRole.Healer:chapterIndex==9?EnemyRole.Support:chapterIndex==7?EnemyRole.Archer:chapterIndex==10?EnemyRole.Caster:new[]{EnemyRole.Caster,EnemyRole.Archer}[(encounter+wave)%2];
+                var rearRole=chapterIndex==8 || chapterIndex==12 || chapterIndex==17?EnemyRole.Healer:chapterIndex==9 || chapterIndex==16?EnemyRole.Support:chapterIndex==7 || chapterIndex==13?EnemyRole.Archer:chapterIndex==10?EnemyRole.Caster:new[]{EnemyRole.Caster,EnemyRole.Archer}[(encounter+wave)%2];
                 var roles=new[]{EnemyRole.Defender,rearRole,EnemyRole.Bruiser};
                 for(int i=0;i<count;i++) {
                     // Match silhouettes to roles: guardian, priest/archer, beast.
@@ -103,7 +115,8 @@ namespace Ashlight {
         }
         public static double DamageScale(int encounter) {
             if(encounter<0 || encounter>=TotalStages) throw new ArgumentOutOfRangeException("encounter");
-            return 1+Math.Max(0,encounter-StagesPerChapter+1)*.08;
+            // Keep the first twelve chapters stable; health keeps growing after the level cap.
+            return 1+Math.Max(0,Math.Min(encounter,59)-StagesPerChapter+1)*.08+Math.Max(0,encounter-59)*.04;
         }
         public static int WavePower(int encounter,int wave,int waveCount=3,bool scaleCampaignDamage=true) {
             int partyLimit=Math.Min(5,encounter/StagesPerChapter+1); double total=0;

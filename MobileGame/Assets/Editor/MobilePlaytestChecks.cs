@@ -16,10 +16,10 @@ public static class MobilePlaytestChecks {
             errors+=CheckActor(Resources.Load<GameObject>("Heroes/NamedVariants/"+hero.Id),hero.Id,false);
         }
         foreach(var foe in EnemyVisualDefinition.Catalog) errors+=CheckActor(Resources.Load<GameObject>(foe.ResourcePath),foe.EnemyName,true);
-        foreach(string sound in new[]{"SwordSwing","HeavySwing","DaggerSwipe","BowDraw","BowRelease","Fire","Cold","Poison","Lightning","Light","Charge","Parry","Dodge","Hit","Guard","BossSlam","HoundGrowl","HoundBite","Heal","Victory","Defeat"})
+        foreach(string sound in CombatAudio.RequiredClips)
             if(Resources.Load<AudioClip>("Audio/Combat/"+sound)==null) { Debug.LogError("Missing combat sound: "+sound); errors++; }
         if(errors>0) throw new InvalidOperationException("Combat assets: "+errors+" issues. Run Ashlight > Art > Build All Named Heroes and Build Enemy Roster, then check again.");
-        Debug.Log("Combat assets passed: all 30 named heroes, portraits, enemy variants and 21 sounds exist. This verifies imports, not animation playback or device performance.");
+        Debug.Log("Combat assets passed: all 30 named heroes, portraits, enemy variants and "+CombatAudio.RequiredClips.Count+" sounds exist. This verifies imports, not animation playback or device performance.");
     }
     static int CheckActor(GameObject actor,string name,bool enemy) {
         if(actor==null) { Debug.LogError("Missing actor prefab: "+name); return 1; }

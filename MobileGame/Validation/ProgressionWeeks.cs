@@ -37,7 +37,7 @@ class ProgressionWeeks {
       for(int stage=0;stage<3 && !b.CampaignComplete;stage++) {
        if(!Fight(b,rng)) { retries++; b.Reset(); break; }
        if(!b.ContinueAfterVictory(rng.NextDouble(),rng.Next(18))) throw new Exception("Reward rejected");
-       for(int chapter=0;chapter<12;chapter++) if(b.CanClaimMilestone(chapter)) b.ClaimMilestone(chapter);
+       for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) if(b.CanClaimMilestone(chapter)) b.ClaimMilestone(chapter);
        Prepare(b,day);
       }
       if(!b.CanChangeParty && !b.CampaignComplete) b.Reset();
@@ -57,7 +57,7 @@ class ProgressionWeeks {
    }
    foreach(int day in new[]{1,7,14,28}) Console.WriteLine("{0} logins/day · day {1}: mean stage {2:F1}, owned {3:F1}, Rowan level {4:F1}, team power {5:F0}, crystals {6:F0}",sessions,day,stageTotals[day-1]/(double)seeds,heroesTotals[day-1]/(double)seeds,levelTotals[day-1]/(double)seeds,powerTotals[day-1]/(double)seeds,crystalTotals[day-1]/(double)seeds);
    Console.WriteLine("SUMMARY {0} logins/day: {1}/{2} campaigns completed, {3:F1} pulls, {4:F1} all-daily days, Rowan cap mean day {5:F1}, {6} losses",sessions,completed,seeds,pulls/(double)seeds,allDailyDays/(double)seeds,levelCapDay/(double)seeds,retries);
-   if(completed!=seeds || allDailyDays!=seeds*(sessions==1?27:28)) throw new Exception("Campaign completion or sustainable daily quests regressed");
+   if(completed!=(sessions==1?0:seeds) || allDailyDays!=seeds*(sessions==1?27:28)) throw new Exception("Campaign completion or sustainable daily quests regressed");
   }
   Console.WriteLine("PASS: 48 twenty-eight-day profiles with earned rewards and save reloads");
  }

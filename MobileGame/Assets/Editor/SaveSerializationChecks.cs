@@ -20,6 +20,11 @@ public static class SaveSerializationChecks {
         if(seasonalReload.Party[0].BondBattles!=10 || seasonalReload.WeeklyBest(0)!=123 || seasonalReload.WeeklyBest(2)!=345 || seasonalReload.ExportProgress().weeklyClaim!=seasonalSave.weeklyClaim) throw new InvalidOperationException("Weekly records or bonds changed during Unity serialization.");
         var storySeen=new Battle(true);
         if(!storySeen.MarkStorySeen(0,false) || !RoundTrip(storySeen).StorySeen(0,false) || RoundTrip(storySeen).StorySeen(0,true)) throw new InvalidOperationException("Campaign scene flags changed during Unity serialization.");
+        var extended=new Battle(true); var extendedSave=extended.ExportProgress(); extendedSave.encounter=64; extendedSave.seenStories=(1<<24)-1; extendedSave.seenLaterStories=65; extendedSave.puzzleClears=5;
+        if(!extended.RestoreProgress(extendedSave)) throw new InvalidOperationException("Could not prepare chapter expansion fixture.");
+        var extendedReload=RoundTrip(extended);
+        if(!extendedReload.StorySeen(11,true) || !extendedReload.StorySeen(12,false) || !extendedReload.StorySeen(12,true) || !extendedReload.PuzzleCleared(0) || extendedReload.PuzzleCleared(1) || !extendedReload.PuzzleCleared(2) || extendedReload.Encounter!=64)
+            throw new InvalidOperationException("Expanded story or puzzle flags changed during Unity serialization.");
         var activities=new Battle(true); var activitiesSave=activities.ExportProgress(); activitiesSave.encounter=10;
         activitiesSave.discoveredEnemies=new[]{EnemyGuideEntry.Catalog[0].Key};
         activitiesSave.bossClockDay=new DateTime(2026,10,15,0,0,0,DateTimeKind.Utc).Ticks; activitiesSave.bossClaimDay=activitiesSave.bossClockDay;

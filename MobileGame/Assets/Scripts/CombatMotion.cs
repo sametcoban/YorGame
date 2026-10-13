@@ -27,6 +27,13 @@ namespace Ashlight {
                 default: return Knight;
             }
         }
+        public static ActionMotion WithAutoRecovery(ActionMotion motion,bool autoPlay) {
+            if(motion==null) throw new ArgumentNullException("motion");
+            if(!autoPlay) return motion;
+            float lastContact=Math.Max(motion.Impact,motion.SecondImpact);
+            int finalFrame=(int)Math.Ceiling((lastContact+.22f)*30)+1;
+            return new ActionMotion((int)Math.Round(motion.Impact*30)+1,Math.Min(finalFrame,(int)Math.Round(motion.Duration*30)+1),motion.Advance,motion.SecondImpact==0?0:(int)Math.Round(motion.SecondImpact*30)+1);
+        }
         static float Smooth(float value) { value = Math.Max(0,Math.Min(1,value)); return value*value*(3-2*value); }
         public static float Advance(float elapsed, float contact, float recovery) {
             if (elapsed < 0 || elapsed >= recovery) return 0;

@@ -222,7 +222,7 @@ class BattleChecks {
   }
  }
  static void BetaPreparationChecks() {
-  for(int stage=0;stage<60;stage++) {
+  for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) {
    var b=FactionBattle(new[]{"Knight_Common"},stage); int wallet=b.Crystals,materials=b.ForgeMaterials,power=b.TeamPower;
    int skill0=b.Party[0].SkillIndex(0),skill1=b.Party[0].SkillIndex(1),health=b.Party[0].Health;
    var before=b.ExportProgress(); var rec=b.RecommendTeam(); var again=b.RecommendTeam();
@@ -244,7 +244,7 @@ class BattleChecks {
   var tower=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},20); Check(tower.EnterTower());
   var towerRec=tower.RecommendTeam(); var towerSave=tower.ExportProgress(); towerSave.towerFloor=31;
   Check(tower.RestoreProgress(towerSave) && !tower.ApplyRecommendation(towerRec));
-  for(int chapter=0;chapter<12;chapter++) {
+  for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) {
    var b=FactionBattle(new[]{"Knight_Common"},chapter*5); int wallet=b.Crystals;
    Check(b.StoryUnlocked(chapter,false) && !b.StoryUnlocked(chapter,true) && !b.StorySeen(chapter,false));
    Check(b.MarkStorySeen(chapter,false) && b.StorySeen(chapter,false) && !b.MarkStorySeen(chapter,true) && b.Crystals==wallet);
@@ -252,12 +252,12 @@ class BattleChecks {
    var boss=b.ExportProgress(); boss.encounter=chapter*5+4; Check(b.RestoreProgress(boss) && b.MarkStorySeen(chapter,true) && b.StorySeen(chapter,true));
    foreach(bool isBoss in new[]{false,true}) { var story=CampaignStory.For(chapter,isBoss); Check(story.Speakers.Length==3 && story.Lines.Length==3 && !string.IsNullOrWhiteSpace(story.Title)); foreach(var line in story.Lines) Check(!string.IsNullOrWhiteSpace(line)); }
    var invalid=b.ExportProgress(); invalid.seenStories=1<<24; Check(!reload.RestoreProgress(invalid) && reload.StorySeen(chapter,false));
-   var legacy=b.ExportProgress(); legacy.version=17; legacy.seenStories=0; Check(reload.RestoreProgress(legacy) && reload.StorySeen(chapter,false) && reload.Crystals==wallet && reload.Wishlist.Length==b.Wishlist.Length);
+   var legacy=b.ExportProgress(); legacy.version=17; legacy.seenStories=0; Check(reload.RestoreProgress(legacy) && reload.StorySeen(chapter,false)==(chapter<12) && reload.Crystals==wallet && reload.Wishlist.Length==b.Wishlist.Length);
   }
   var fresh=new Battle(true); var bad=fresh.ExportProgress(); bad.seenStories=1<<12; Check(!fresh.RestoreProgress(bad) && !fresh.StorySeen(0,false));
   Check(fresh.OpeningChecklist.Contains("[NEXT] Claim your first stage victory") && !fresh.MarkStorySeen(1,false));
   var report=BetaSupport.Feedback(fresh.ExportProgress(),"Bug","Attack button overlaps", "Test runtime",new DateTime(2026,10,16,0,0,0,DateTimeKind.Utc));
-  Check(report.Contains(BetaSupport.BuildTag) && report.Contains("Attack button overlaps") && report.Contains("Knight_Common") && report.Contains("Stage index: 0") && report.Contains("Save version: 19"));
+  Check(report.Contains(BetaSupport.BuildTag) && report.Contains("Attack button overlaps") && report.Contains("Knight_Common") && report.Contains("Stage index: 0") && report.Contains("Save version: 20"));
   Check(fresh.Crystals==300 && fresh.Encounter==0);
  }
  static void SeasonalChecks() {
@@ -351,7 +351,72 @@ class BattleChecks {
    Check(clears>=9);
   }
  }
+ static void JourneyChecks() {
+  var owner=new Battle(true); var old=owner.ExportProgress(); old.encounter=60; old.version=19; old.seenStories=(1<<24)-1;
+  Check(owner.RestoreProgress(old) && owner.Encounter==60 && !owner.CampaignComplete && owner.ChapterIndex==12 && owner.Crystals==old.crystals);
+  for(int chapter=0;chapter<12;chapter++) Check(owner.StorySeen(chapter,false) && owner.StorySeen(chapter,true));
+  Check(!owner.StorySeen(12,false) && owner.MarkStorySeen(12,false) && owner.StorySeen(12,false));
+  var saved=owner.ExportProgress(); Check(saved.seenLaterStories==1 && saved.seenStories==old.seenStories && saved.version==20);
+  var restored=new Battle(true); Check(restored.RestoreProgress(saved) && restored.StorySeen(12,false));
+  var invalid=owner.ExportProgress(); invalid.seenLaterStories=1<<6; Check(!restored.RestoreProgress(invalid));
+  invalid=owner.ExportProgress(); invalid.seenLaterStories=1<<12; Check(!restored.RestoreProgress(invalid));
+  invalid=owner.ExportProgress(); invalid.puzzleClears=8; Check(!restored.RestoreProgress(invalid));
+  Check(Math.Abs(ChapterDefinition.DamageScale(59)-5.4)<.00001 && Math.Abs(ChapterDefinition.DamageScale(60)-5.44)<.00001 && Math.Abs(ChapterDefinition.DamageScale(89)-6.6)<.00001);
+  foreach(int chapter in new[]{12,17}) Check(EnemySkills.ForRole(chapter*5+4,ChapterDefinition.EnemyAt(chapter*5+4),1).Action==EnemyAction.HealPartner);
+  Check(EnemySkills.ForRole(84,ChapterDefinition.EnemyAt(84),1).Action==EnemyAction.Shield);
+  for(int chapter=12;chapter<18;chapter++) Check(EnemySkills.ForRole(chapter*5+4,ChapterDefinition.EnemyAt(chapter*5+4),2).PartyWide);
+  var loans=FormationPuzzles.Heroes(); int[,] skills={{3,1},{3,2},{4,0},{0,1},{0,2}};
+  Check(owner.StartFormationPuzzle(-1,loans,skills)==null && owner.StartFormationPuzzle(3,loans,skills)==null && owner.StartFormationPuzzle(0,null,skills)==null);
+  var duplicated=(string[])loans.Clone(); duplicated[1]=duplicated[0]; Check(owner.StartFormationPuzzle(0,duplicated,skills)==null);
+  Check(owner.StartFormationPuzzle(0,loans,new int[5,2])==null);
+  Check(new Battle(true).StartFormationPuzzle(0,loans,skills)==null);
+  string team=string.Join(",",owner.ExportProgress().party); int wallet=owner.Crystals,materials=owner.ForgeMaterials;
+  for(int puzzle=0;puzzle<3;puzzle++) {
+   if(puzzle==2) { skills[1,0]=4; skills[3,0]=2; skills[3,1]=3; }
+   var run=owner.StartFormationPuzzle(puzzle,loans,skills); Check(run!=null && run.IsFormationPuzzle && run.IsDailyBoss && run.Party.Count==5 && run.Enemies.Count==3 && !run.CanChangeParty && run.RecommendTeam()==null && !run.CanSummon);
+   foreach(var hero in run.Party) Check(hero.Level==10 && hero.Gear(GearSlot.Weapon)==null && hero.Gear(GearSlot.Armor)==null && hero.Gear(GearSlot.Accessory)==null);
+   bool reward; Check(!owner.FinishDailyBoss(run,out reward) && !reward && owner.Crystals==wallet+puzzle*50);
+   for(int actions=0;actions<200 && run.Current!=Phase.Won && run.Current!=Phase.Lost;actions++) {
+    if(run.Current==Phase.Player) { run.SelectEnemy(AutoBattlePlanner.ChooseTarget(run)); int slot=AutoBattlePlanner.ChooseSkill(run); Check(slot<0?run.Attack():run.UseAbility(slot)); }
+    else { Check(run.BeginStrike()); if(run.IncomingSkill.Action==EnemyAction.Attack) run.Defend(false,.1f); run.FinishStrike(); }
+   }
+   Console.WriteLine("Puzzle {0}: {1}, rounds {2}, damage {3}",puzzle,run.Current,run.DailyBossRounds,run.DailyBossScore);
+   Check(run.Current==Phase.Won); Check(owner.FinishDailyBoss(run,out reward) && reward && owner.PuzzleCleared(puzzle));
+   Check(!owner.FinishDailyBoss(run,out reward) && !reward && !run.ContinueAfterVictory());
+   Check(owner.Crystals==wallet+(puzzle+1)*50 && owner.ForgeMaterials==materials+(puzzle+1)*50 && owner.Encounter==60 && string.Join(",",owner.ExportProgress().party)==team);
+   int clears=0;
+   for(int seed=0;seed<50;seed++) {
+    var attempt=owner.StartFormationPuzzle(puzzle,loans,skills); var rng=new Random(9600+seed);
+    for(int actions=0;actions<200 && attempt.Current!=Phase.Won && attempt.Current!=Phase.Lost;actions++) {
+     if(attempt.Current==Phase.Player) { attempt.SelectEnemy(AutoBattlePlanner.ChooseTarget(attempt)); int choice=AutoBattlePlanner.ChooseSkill(attempt); Check(choice<0?attempt.Attack():attempt.UseAbility(choice)); }
+     else { Check(attempt.BeginStrike()); if(attempt.IncomingSkill.Action==EnemyAction.Attack) for(int i=0;i<attempt.Party.Count;i++) if(attempt.Party[i].Health>0 && (attempt.IncomingSkill.PartyWide || i==attempt.ActiveIndex)) { var defense=AutoBattlePlanner.RollDefense(attempt.Party[i].Identity.Class,rng.NextDouble()); if(defense!=DefenseOutcome.Miss) attempt.DefendHero(i,defense==DefenseOutcome.Parry,defense==DefenseOutcome.Parry?.12f:.26f); } attempt.FinishStrike(); }
+    }
+    Check(attempt.Current==Phase.Won || attempt.Current==Phase.Lost); if(attempt.Current==Phase.Won) clears++;
+   }
+   Console.WriteLine("Puzzle {0}: {1}/50 clears with class RNG defense",puzzle,clears); Check(clears>=45);
+   var replay=owner.StartFormationPuzzle(puzzle,loans,skills); foreach(var foe in replay.Enemies) foe.Health=1;
+   for(int actions=0;actions<50 && replay.Current!=Phase.Won;actions++) { if(replay.Current==Phase.Player) replay.Attack(); else { replay.BeginStrike(); replay.Defend(false,.1f); replay.FinishStrike(); } }
+   Check(replay.Current==Phase.Won && owner.FinishDailyBoss(replay,out reward) && !reward);
+  }
+  var abandoned=owner.StartFormationPuzzle(0,loans,skills); bool noReward;
+  Check(!new Battle(true).FinishDailyBoss(abandoned,out noReward) && !noReward);
+  Check(!owner.FinishDailyBoss(abandoned,out noReward) && !noReward);
+  var failed=owner.StartFormationPuzzle(0,loans,skills);
+  for(int actions=0;failed.Current==Phase.Player && actions<5;actions++) Check(failed.Attack());
+  for(int i=0;i<failed.Party.Count;i++) failed.Party[i].Health=i==0?1:0;
+  while(failed.Current==Phase.EnemyWindup) { Check(failed.BeginStrike()); failed.FinishStrike(); }
+  Check(failed.Current==Phase.Lost && failed.DailyBossScore>0 && owner.FinishDailyBoss(failed,out noReward) && !noReward);
+  Check(owner.Crystals==wallet+150 && owner.HeroProgress("Rogue_Rare")==null && owner.HeroProgress("Knight_Common").BondBattles==0);
+  Check(restored.RestoreProgress(owner.ExportProgress()) && restored.PuzzleCleared(0) && restored.PuzzleCleared(1) && restored.PuzzleCleared(2));
+  Check(owner.CollectionGoals(0).Contains("MISSING HEROES") && owner.CollectionGoals(1).Contains("BOND COMPANIONS") && owner.CollectionGoals(2).Contains("Missing Weapon, Armor, Accessory"));
+  foreach(HeroClass kind in Enum.GetValues(typeof(HeroClass))) foreach(bool cast in new[]{true,false}) {
+   var original=CombatMotion.For(kind,cast); var shorter=CombatMotion.WithAutoRecovery(original,true);
+   Check(CombatMotion.WithAutoRecovery(original,false)==original && shorter.Duration<=original.Duration && shorter.Impact==original.Impact && shorter.SecondImpact==original.SecondImpact && shorter.Duration>Math.Max(shorter.Impact,shorter.SecondImpact));
+   Check(CombatMotion.Advance(shorter.Duration,shorter.Impact,shorter.Duration)==0);
+  }
+ }
  static void Main() {
+  JourneyChecks();
   SeasonalChecks();
   BetaPreparationChecks();
   ActivitiesChecks();
@@ -560,7 +625,7 @@ class BattleChecks {
   var fresh=new Battle(true); fresh.EquipSkill(0,4); fresh.Attack(); fresh.BeginStrike(); fresh.FinishStrike();
   var checkpoint=fresh.ExportProgress(); var reload=new Battle(true);
   Check(reload.RestoreProgress(checkpoint) && reload.HeroHealth==100 && reload.Current==Phase.Player && reload.Party[0].SkillIndex(0)==4);
-  Check(ChapterDefinition.Catalog.Count==12 && ChapterDefinition.TotalStages==60);
+  Check(ChapterDefinition.Catalog.Count==18 && ChapterDefinition.TotalStages==90);
   var enemyNames=new System.Collections.Generic.HashSet<string>();
   for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) for(int stage=0;stage<5;stage++) {
    var foe=ChapterDefinition.EnemyAt(chapter*5+stage);
@@ -576,7 +641,7 @@ class BattleChecks {
   Check(continuedSave.crystals==913 && continuedSave.rareMisses==2 && continuedSave.legendaryMisses==9);
   Check(string.Join(",",continuedSave.recruited)==string.Join(",",oldComplete.recruited));
   foreach(var loadout in oldComplete.loadouts) Check(extended.HeroProgress(loadout.id).Level==loadout.level && extended.HeroProgress(loadout.id).Experience==loadout.experience && extended.HeroProgress(loadout.id).UpgradeRank==loadout.upgradeRank && extended.HeroProgress(loadout.id).Shards==loadout.shards && extended.HeroProgress(loadout.id).SkillIndex(0)==loadout.firstSkill && extended.HeroProgress(loadout.id).SkillIndex(1)==loadout.secondSkill);
-  // Completion after chapter twelve remains complete; there is no campaign-reset API.
+  // Completion after chapter eighteen remains complete; there is no campaign-reset API.
   var finalSave=campaign.ExportProgress(); finalSave.encounter=ChapterDefinition.TotalStages-1; finalSave.pendingVictory=false; finalSave.results=null;
   Check(resumed.RestoreProgress(finalSave)); foreach(var foe in resumed.Enemies) foe.Health=1;
   while(resumed.Current!=Phase.Won) {
@@ -586,7 +651,7 @@ class BattleChecks {
   Check(resumed.ContinueAfterVictory() && resumed.CampaignComplete && resumed.Current==Phase.Complete);
   Check(!resumed.Attack() && !resumed.UseAbility() && !resumed.ContinueAfterVictory());
   var completed=new Battle(true);
-  Check(completed.RestoreProgress(resumed.ExportProgress()) && completed.CampaignComplete && completed.Encounter==60);
+  Check(completed.RestoreProgress(resumed.ExportProgress()) && completed.CampaignComplete && completed.Encounter==90);
   var winner=new Battle(true);
   while(winner.Current!=Phase.Won) {
    if(winner.Current==Phase.Player) winner.Attack();
@@ -642,7 +707,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==19);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==20);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1015,7 +1080,7 @@ class BattleChecks {
   var visualCoverageNames=new System.Collections.Generic.HashSet<string>();
   var enemyPaths=new System.Collections.Generic.HashSet<string>();
   var sources=new System.Collections.Generic.HashSet<string>(new[]{"LanternWarden","AshHound","CinderScout","IronWatcher","Roadkeeper","HollowMatron"});
-  Check(EnemyVisualDefinition.Catalog.Count==70 && ChapterStageDefinition.Catalog.Length==12);
+  Check(EnemyVisualDefinition.Catalog.Count==106 && ChapterStageDefinition.Catalog.Length==18);
   foreach(var visual in EnemyVisualDefinition.Catalog) Check(visualCoverageNames.Add(visual.EnemyName) && enemyPaths.Add(visual.ResourcePath) && sources.Contains(visual.SourceModel));
   for(int encounter=0;encounter<ChapterDefinition.TotalStages;encounter++) foreach(var campaignEnemy in ChapterDefinition.EnemiesAt(encounter)) {
    var visual=EnemyVisualDefinition.For(campaignEnemy.Name);
@@ -1123,9 +1188,9 @@ class BattleChecks {
   Check(fallenWave.Attack() && fallenWave.Current==Phase.WaveCleared && fallenWave.Party[1].Energy==100);
   Check(fallenWave.AdvanceWave() && fallenWave.Party[0].Health==0 && fallenWave.ActiveIndex==1);
   Check(fallenWave.Party[1].Energy==100 && fallenWave.Attack() && fallenWave.LastUltimate!=null && fallenWave.Party[1].Energy==0);
-  // Complete all 180 waves with public actions and defend every affected living hero.
+  // Complete all 270 waves with public actions and defend every affected living hero.
   var waveCampaign=new Battle(true,enableWaves:true); int clearedWaves=0,steps=0;
-  while(!waveCampaign.CampaignComplete && steps++<6000) {
+  while(!waveCampaign.CampaignComplete && steps++<ChapterDefinition.TotalStages*100) {
    if(waveCampaign.Current==Phase.Player) {
     waveCampaign.SelectEnemy(AutoBattlePlanner.ChooseTarget(waveCampaign));
     int planned=AutoBattlePlanner.ChooseSkill(waveCampaign);
@@ -1284,7 +1349,7 @@ class BattleChecks {
   Check(duplicateAegis.Party[0].Guard==8 && duplicateAegis.Party[1].Guard==8 && duplicateAegis.Party[2].Guard==8);
   // With passives enabled, public actions still finish the entire 90-wave campaign.
   var passiveCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(123)); int passiveSteps=0,passiveWaves=0;
-  while(!passiveCampaign.CampaignComplete && passiveSteps++<6000) {
+  while(!passiveCampaign.CampaignComplete && passiveSteps++<ChapterDefinition.TotalStages*100) {
    if(passiveCampaign.Current==Phase.Player) {
     passiveCampaign.SelectEnemy(AutoBattlePlanner.ChooseTarget(passiveCampaign));
     int pick=AutoBattlePlanner.ChooseSkill(passiveCampaign); Check(pick<0?passiveCampaign.Attack():passiveCampaign.UseAbility(pick));
@@ -1389,7 +1454,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==19 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==20 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1419,7 +1484,7 @@ class BattleChecks {
   var malformedTalent=talentedKnight.ExportProgress(); malformedTalent.loadouts[0].talents=new[]{-1,-1}; Check(!talentLoad.RestoreProgress(malformedTalent));
   malformedTalent=talentedKnight.ExportProgress(); malformedTalent.loadouts[0].talents[0]=-2; Check(!talentLoad.RestoreProgress(malformedTalent));
   var chosenCampaign=new Battle(true,enableWaves:true,enableClassPassives:true,criticalRandom:new Random(321),enableFactions:true); int chosenSteps=0,chosenCount=0;
-  while(!chosenCampaign.CampaignComplete && chosenSteps++<6000) {
+  while(!chosenCampaign.CampaignComplete && chosenSteps++<ChapterDefinition.TotalStages*100) {
    if(chosenCampaign.Current==Phase.Player) {
     if(chosenCampaign.CanChangeParty) foreach(var recruit in chosenCampaign.Recruits)
      if(chosenCampaign.SharedCount<Battle.SharedSlots && !chosenCampaign.IsShared(recruit.Id) && chosenCampaign.HeroProgress(recruit.Id).Level<chosenCampaign.CrystalLevel) Check(chosenCampaign.SetShared(recruit.Id,true));
@@ -1495,7 +1560,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==19);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==20);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
@@ -1941,7 +2006,7 @@ class BattleChecks {
   var abyssHex=EnemySkills.ForRole(55,new EnemyDefinition("Night Prophet",200,role:EnemyRole.Caster),2);
   Check(abyssHex.PartyWide && abyssHex.Status==Debuff.Weaken);
   Check(EnemyRoles.For("Scarlet Priest")==EnemyRole.Healer && EnemyRoles.For("Grave Archer")==EnemyRole.Archer && EnemyRoles.For("Glass Warden")==EnemyRole.Support);
-  for(int encounter=30;encounter<60;encounter++) for(int wave=0;wave<3;wave++) {
+  for(int encounter=30;encounter<ChapterDefinition.TotalStages;encounter++) for(int wave=0;wave<3;wave++) {
    var foes=ChapterDefinition.WaveAt(encounter,wave,3);
    if(wave==2 && encounter%5==4) continue;
    Check(foes[0].Role==EnemyRole.Defender && EnemyVisualDefinition.For(foes[0].Name).SourceModel=="LanternWarden");
@@ -1979,7 +2044,7 @@ class BattleChecks {
   invalidMilestones.claimedMilestones=-1; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   invalidMilestones.claimedMilestones=4096; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   var previousMilestones=chapterRewards.ExportProgress(); previousMilestones.version=13; previousMilestones.claimedMilestones=4096;
-  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==19 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
+  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==20 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
   Check(chapterRewardReload.Attack() && !chapterRewardReload.ClaimMilestone(0));
   var completeRewards=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},59);
   var completeRewardSave=completeRewards.ExportProgress(); completeRewardSave.encounter=60; completeRewardSave.crystals=999999;
@@ -1988,8 +2053,8 @@ class BattleChecks {
   Check(completeRewards.ClaimMilestone(11) && completeRewards.Crystals==1000000 && completeRewards.MilestoneClaimed(11));
   var lastChapterReload=new Battle(true,enableWaves:true,enableFactions:true); Check(lastChapterReload.RestoreProgress(completeRewards.ExportProgress()) && lastChapterReload.MilestoneClaimed(11) && lastChapterReload.ReadyMilestones==11);
   int milestoneBudget=0;
-  for(int chapter=0;chapter<12;chapter++) { var reward=ChapterMilestone.For(chapter); milestoneBudget+=reward.Crystals; Check(reward.Crystals==100+chapter*25 && reward.Experience==100+chapter*25 && reward.Shards==5 && !string.IsNullOrEmpty(reward.Story)); }
-  Check(milestoneBudget==2850);
+  for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) { var reward=ChapterMilestone.For(chapter); milestoneBudget+=reward.Crystals; Check(reward.Crystals==100+chapter*25 && reward.Experience==100+chapter*25 && reward.Shards==5 && !string.IsNullOrEmpty(reward.Story)); }
+  Check(milestoneBudget==5625);
   // Reserve loadouts can be managed without replacing a hero or changing the active slot.
   var reserveLoadout=new Battle(true,enableWaves:true); var reserveLoadoutSave=chapterRewardSave;
   Check(reserveLoadout.RestoreProgress(reserveLoadoutSave)); int reserveActive=reserveLoadout.ActiveIndex;
