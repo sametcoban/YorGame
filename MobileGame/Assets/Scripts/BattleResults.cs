@@ -25,6 +25,7 @@ namespace Ashlight {
         public readonly bool RecruitDuplicate;
         public readonly string RecruitIntroduction;
         public readonly GearDefinition Loot;
+        public GearDefinition BossRelic { get; internal set; }
         public readonly string RecruitName;
         public readonly IReadOnlyList<HeroBattleResult> Heroes;
         public BattleResults(int xp,int crystals,GearDefinition loot,string recruit,IReadOnlyList<PartyHero> party,int materials=0,string introduction=null,bool recruitDuplicate=false,int recruitShards=0) {

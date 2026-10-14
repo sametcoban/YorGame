@@ -4,7 +4,7 @@ namespace Ashlight {
     public sealed partial class Prototype {
         GameObject homeRoot, summonLobbyRoot, idleRoot, milestonesRoot, milestoneStoryRoot, advancementRoot;
         Text homeTitle,homeWallet,homeNotice,summonLobbyWallet,idleSummary,idleNotice,milestonePageLabel,milestoneStoryTitle,milestoneStoryBody,milestoneStoryRewards,advanceTitle,advanceLevel,advanceAscension,advanceEquipment,advanceNotice;
-        Button homeCampaign,homeHeroes,homeSummoning,homeIdle,homeDaily,homeTower,homeMilestones,homeSound,idleClaim,milestoneClaim,advanceConfirm,advanceIdle;
+        Button homeCampaign,homeHeroes,homeSummoning,homeIdle,homeDaily,homeTower,homeMilestones,homeSound,idleClaim,milestoneClaim,advanceConfirm,advanceIdle,advanceMastery,relicClaim;
         Image idleMeter,advanceXP;
         readonly Button[] homeParty=new Button[Battle.MaxPartySize];
         readonly PortraitView[] homePortraits=new PortraitView[Battle.MaxPartySize];
@@ -48,6 +48,7 @@ namespace Ashlight {
             CreateSummonLobby(); CreateWishlistScreens(); CreateIdleScreen(); CreateMilestoneScreens(); CreateAdvancementScreen(); homeRoot.SetActive(false);
         }
         void CloseHubPanels() {
+            ShowWaveBanner(false);
             managementHero=null;
             foreach(var root in new[]{homeRoot,puzzlesRoot,goalsRoot,setGuideRoot,bondsRoot,weeklyRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
@@ -147,7 +148,8 @@ namespace Ashlight {
             milestoneStoryRoot=ScreenRoot("Chapter Story");
             milestoneStoryTitle=Label(milestoneStoryRoot.transform,"",new Vector2(.08f,.78f),new Vector2(.92f,.97f),32); milestoneStoryTitle.color=new Color(1,.82f,.4f);
             milestoneStoryBody=Label(milestoneStoryRoot.transform,"",new Vector2(.10f,.44f),new Vector2(.90f,.75f),28);
-            milestoneStoryRewards=Label(milestoneStoryRoot.transform,"",new Vector2(.10f,.20f),new Vector2(.90f,.415f),25);
+            milestoneStoryRewards=Label(milestoneStoryRoot.transform,"",new Vector2(.10f,.18f),new Vector2(.90f,.31f),25);
+            relicClaim=ScreenButton(milestoneStoryRoot.transform,"BOSS RELIC",.10f,.33f,.90f,.42f,()=> { if(battle.ClaimBossRelic(storyChapter)) { SaveProgress(); RefreshMilestoneStory(); } });
             milestoneClaim=ScreenButton(milestoneStoryRoot.transform,"CLAIM REWARD",.05f,.035f,.65f,.16f,ClaimCurrentMilestone);
             ScreenButton(milestoneStoryRoot.transform,"BACK",.70f,.035f,.95f,.16f,()=> { milestoneStoryRoot.SetActive(false); if(milestonesRoot.activeSelf) RefreshMilestones(); }); milestoneStoryRoot.SetActive(false);
         }
@@ -170,6 +172,7 @@ namespace Ashlight {
             milestoneStoryTitle.text="CHAPTER "+(storyChapter+1)+" CLEARED\n"+ChapterDefinition.Catalog[storyChapter].Name;
             var reward=ChapterMilestone.For(storyChapter); milestoneStoryBody.text=reward.Story;
             milestoneStoryRewards.text=(battle.MilestoneClaimed(storyChapter)?"REWARDS CLAIMED":"CHAPTER REWARDS")+"\n"+reward.Rewards+(storyChapter+1<ChapterDefinition.Catalog.Count?"\nNEXT · "+ChapterDefinition.Catalog[storyChapter+1].Name:"\nTHE CAMPAIGN IS COMPLETE · The Tower awaits.");
+            relicClaim.interactable=battle.CanClaimBossRelic(storyChapter); relicClaim.GetComponentInChildren<Text>().text=(battle.RelicClaimed(storyChapter)?"RELIC CLAIMED · ":"CLAIM RELIC · ")+GearDefinition.BossRelic(storyChapter).Name;
             milestoneClaim.interactable=battle.CanClaimMilestone(storyChapter); milestoneClaim.GetComponentInChildren<Text>().text=battle.MilestoneClaimed(storyChapter)?"REWARDS CLAIMED":"CLAIM REWARD";
         }
         void ClaimCurrentMilestone() {
@@ -185,7 +188,8 @@ namespace Ashlight {
             advancementRoot=ScreenRoot("Hero Upgrades");
             advanceTitle=Label(advancementRoot.transform,"",new Vector2(.05f,.85f),new Vector2(.95f,.98f),30);
             advanceLevel=Label(advancementRoot.transform,"",new Vector2(.05f,.64f),new Vector2(.75f,.83f),23);
-            advanceIdle=ScreenButton(advancementRoot.transform,"IDLE XP",.80f,.65f,.95f,.81f,()=> { advancementRoot.SetActive(false); OpenIdleRewards(); idleReturnsToUpgrades=true; });
+            advanceMastery=ScreenButton(advancementRoot.transform,"MASTERY",.80f,.73f,.95f,.83f,()=> { if(battle.MasterHero(advancementHero)) { SaveProgress(); RefreshAppearance(); RefreshAdvancement(); } });
+            advanceIdle=ScreenButton(advancementRoot.transform,"IDLE XP",.80f,.64f,.95f,.72f,()=> { advancementRoot.SetActive(false); OpenIdleRewards(); idleReturnsToUpgrades=true; });
             advanceXP=Bar(advancementRoot.transform,new Vector2(.05f,.61f),new Vector2(.95f,.625f),new Color(.35f,.7f,.43f));
             advanceAscension=Label(advancementRoot.transform,"",new Vector2(.05f,.36f),new Vector2(.95f,.59f),25);
             advanceEquipment=Label(advancementRoot.transform,"",new Vector2(.05f,.205f),new Vector2(.95f,.345f),20);
@@ -206,7 +210,7 @@ namespace Ashlight {
         static string StatChange(PartyHero before,PartyHero after) { return "HP "+before.Definition.MaxHealth+" → "+after.Definition.MaxHealth+" · ATK "+before.Definition.AttackDamage+" → "+after.Definition.AttackDamage+"\nULT "+before.Ultimate.Damage+" → "+after.Ultimate.Damage+" · POWER "+before.Power+" → "+after.Power; }
         void RefreshAdvancement() {
             var hero=battle.HeroProgress(advancementHero); var nextLevel=battle.PreviewNextLevel(advancementHero); var ascended=battle.PreviewAscension(advancementHero);
-            advanceTitle.text=hero.Identity.Name+" · UPGRADES\n"+hero.RarityLabel+" · Combat level "+hero.CombatLevel+(hero.CombatLevel>hero.Level?" · Shared Crystal linked":""); advanceTitle.color=RarityTint(hero.Quality);
+            advanceTitle.text=hero.Identity.Name+" · UPGRADES\n"+hero.RarityLabel+" · Combat level "+hero.CombatLevel+(battle.IsShared(advancementHero)?" · Shared Crystal linked":""); advanceTitle.color=RarityTint(hero.Quality);
             advanceLevel.text=nextLevel==null?"LEVEL · MAX OWN LEVEL "+PartyHero.MaxLevel:"LEVEL "+hero.Level+" → "+nextLevel.Level+" · XP "+hero.Experience+" / "+hero.NextLevelXP+"\n"+StatChange(hero,nextLevel)+"\nEarn XP from victories, idle rewards and chapter milestones.";
             SetMeter(advanceXP,hero.Level==PartyHero.MaxLevel?1:hero.Experience/(float)hero.NextLevelXP);
             advanceAscension.text=ascended==null?"ASCENSION · MAXIMUM REACHED":"ASCENSION · "+hero.RarityLabel+" → "+ascended.RarityLabel+"\n"+StatChange(hero,ascended)+"\nCOST "+hero.UpgradeCost+" hero shards · OWNED "+hero.Shards+"\n"+(hero.Shards>=hero.UpgradeCost?"Ready to ascend.":"Need "+(hero.UpgradeCost-hero.Shards)+" more · Earn shards from duplicates, quests, milestones and Tower.");
@@ -214,6 +218,9 @@ namespace Ashlight {
             advanceEquipment.text=equipment+"\nTalents unlock at own levels 5, 10 and 15. Shared levels do not unlock talents.";
             advanceConfirm.interactable=CanManageHeroes && ascended!=null && hero.Shards>=hero.UpgradeCost;
             advanceConfirm.GetComponentInChildren<Text>().text=ascended==null?"ASCENSION MAX":"ASCEND · "+hero.UpgradeCost+" SHARDS";
+            advanceMastery.interactable=battle.CanMasterHero(advancementHero);
+            advanceMastery.GetComponentInChildren<Text>().text=hero.MasteryRank==PartyHero.MaxMasteryRank?"MASTERY MAX":"MASTERY "+hero.MasteryRank+"/5\n"+battle.MasteryCost(advancementHero)+" MATERIALS";
+            advanceLevel.text+="\nMASTERY · +"+(hero.MasteryRank*2)+" combat levels · Requires own Lv 20 and chapter 13.\nOWNED · "+battle.ForgeMaterials+" materials";
             advanceIdle.interactable=atChapters;
         }
     }

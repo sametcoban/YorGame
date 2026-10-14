@@ -272,7 +272,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateTutorial();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateWaveBanner(); CreateTutorial();
             if(battle.Current==Phase.Won) { atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
         }
@@ -406,6 +406,7 @@ namespace Ashlight {
             transitioningWave=true;
             message="WAVE "+(battle.WaveIndex+1)+" CLEARED — next wave incoming!";
             cue.text="WAVE CLEARED";
+            ShowWaveBanner(true);
             yield return new WaitForSeconds(autoPlay?.65f:1.2f);
             if(battle.AdvanceWave()) {
                 effects.Clear(); CreateEnemy();
@@ -414,7 +415,7 @@ namespace Ashlight {
                 message="WAVE "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" — health and energy carried over.";
                 nextAutoAction=Time.time+.8f;
             }
-            transitioningWave=false;
+            ShowWaveBanner(false); transitioningWave=false;
         }
         void PresentPassiveHealing() {
             for(int i=0;i<battle.Party.Count;i++) {
@@ -857,7 +858,7 @@ namespace Ashlight {
                 if(suggested[i]!=battle.Party[i].Identity.Id) differs=true;
                 if(i<Battle.FrontSlots) front+=(i==0?"":" + ")+battle.HeroProgress(suggested[i]).Identity.Name;
             }
-            formationFaction.text="TEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\n"+FactionRules.Tiers+"\n"+battle.FactionProgress+"\nSUGGESTED FRONT · "+front;
+            formationFaction.text=battle.FormationSynergySummary+"\nTEAM POWER "+battle.TeamPower+" · "+battle.FactionSummary+"\n"+FactionRules.Tiers+"\n"+battle.FactionProgress+"\nSUGGESTED FRONT · "+front;
             formationAuto.interactable=battle.CanChangeParty && differs;
             formationAuto.GetComponentInChildren<Text>().text=differs?"AUTO ARRANGE":"FORMATION READY";
             for(int i=0;i<formationSlots.Length;i++) {
@@ -901,10 +902,11 @@ namespace Ashlight {
             Time.timeScale=1;
             var result=battle.Results; if(result==null) return;
             autoPlay=false; selectionRoot.SetActive(false); equipmentRoot.SetActive(false); formationRoot.SetActive(false); progressionRoot.SetActive(false);
-            resultsTitle.text=battle.InTower?"VICTORY · TOWER FLOOR "+battle.TowerFloor:"VICTORY · CHAPTER "+(battle.ChapterIndex+1)+", STAGE "+(battle.StageIndex+1);
+            resultsTitle.text=battle.InTower?"VICTORY · TOWER FLOOR "+battle.TowerFloor:(battle.StageIndex==4?"CHAPTER CLEARED · ":"VICTORY · CHAPTER ")+(battle.ChapterIndex+1)+" · "+ChapterDefinition.Catalog[battle.ChapterIndex].Name+"\nStage "+(battle.StageIndex+1)+" / 5";
             resultsRewards.text="+"+result.Crystals+" CRYSTALS\n+"+result.Experience+" XP / HERO\n+"+result.Materials+" FORGE MATERIALS"; resultsRewards.resizeTextMaxSize=26;
             resultsRewards.color=new Color(1,.82f,.4f);
             resultsLoot.text=result.Loot==null?"NO GEAR DROP":"GEAR DROP\n"+battle.EnhancedGear(result.Loot.Id).Description;
+            if(result.BossRelic!=null) resultsLoot.text+="\nBOSS RELIC · "+result.BossRelic.Description;
             resultsLoot.color=result.Loot==null?Color.white:result.Loot.Quality==HeroQuality.Legendary?new Color(1,.8f,.25f):result.Loot.Quality==HeroQuality.Epic?new Color(.8f,.5f,1):result.Loot.Quality==HeroQuality.Rare?new Color(.4f,.75f,1):Color.white;
             resultsExtra.text=(result.RecruitName==null?"": (result.RecruitDuplicate?"STORY ALLY · "+result.RecruitName+" · +"+result.RecruitShards+" shards":"NEW ALLY · "+result.RecruitName)+"\n")+(battle.InTower?"+"+battle.TowerShards+" SHARDS / HERO · ":"")+"Continue to claim your rewards.";
             int totalDamage=0,totalHealing=0;
@@ -1245,7 +1247,8 @@ namespace Ashlight {
             var rect=chapterRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero;
             chapterRoot.GetComponent<Image>().color=MenuPalette.Surface;
             chapterTitle=Label(chapterRoot.transform,"",new Vector2(.03f,.8f),new Vector2(.97f,.98f),30);
-            Label(chapterRoot.transform,"Choose the highlighted chapter to continue. Cleared chapters stay complete.\nYour party grows to five heroes as the campaign progresses.",new Vector2(.05f,.65f),new Vector2(.95f,.78f),22);
+            Label(chapterRoot.transform,"Choose the highlighted chapter to continue. Cleared chapters stay complete.\nYour party grows to five heroes as the campaign progresses.",new Vector2(.05f,.735f),new Vector2(.95f,.79f),18);
+            CreateCampaignRoute();
             chapterChoices=new Button[ChapterDefinition.Catalog.Count];
             chapterDetails=new Text[chapterChoices.Length]; chapterProgress=new Image[chapterChoices.Length];
             for(int i=0;i<chapterChoices.Length;i++) {
@@ -1269,6 +1272,7 @@ namespace Ashlight {
             chapterPageLabel=Label(chapterRoot.transform,"",new Vector2(.22f,.14f),new Vector2(.78f,.195f),18);
         }
         void RefreshChapterPage() {
+            RefreshCampaignRoute();
             int pages=(chapterChoices.Length+5)/6;
             chapterPage=Mathf.Clamp(chapterPage,0,pages-1);
             for(int i=0;i<chapterChoices.Length;i++) chapterChoices[i].gameObject.SetActive(i/6==chapterPage);
@@ -1430,14 +1434,8 @@ namespace Ashlight {
                 bool current=!battle.CampaignComplete && i==battle.ChapterIndex;
                 int cleared=complete?ChapterDefinition.StagesPerChapter:current?battle.StageIndex:0;
                 string state=complete?"CLEARED":current?"CURRENT":"LOCKED";
-                int minEnemies=Battle.MaxEnemies,maxEnemies=1;
-                for(int stage=0;stage<ChapterDefinition.StagesPerChapter;stage++) for(int wave=0;wave<3;wave++) {
-                    int count=ChapterDefinition.WaveAt(i*ChapterDefinition.StagesPerChapter+stage,wave,3).Count;
-                    minEnemies=Mathf.Min(minEnemies,count); maxEnemies=Mathf.Max(maxEnemies,count);
-                }
-                string enemies=minEnemies==maxEnemies?maxEnemies.ToString():minEnemies+"–"+maxEnemies;
                 chapterChoices[i].GetComponentInChildren<Text>().text="CHAPTER "+(i+1)+" · "+state+"\n"+chapter.Name;
-                chapterDetails[i].text=cleared+"/5 CLEAR · "+Mathf.Min(Battle.MaxPartySize,i+1)+" HEROES\n"+enemies+" FOES / WAVE · FINALE: "+(i>=2?"2 BOSSES":"1 BOSS");
+                chapterDetails[i].text=cleared+"/5 CLEAR · "+Mathf.Min(Battle.MaxPartySize,i+1)+" HEROES\nRELIC · "+GearDefinition.BossRelic(i).Name;
                 chapterDetails[i].color=current?new Color(1,.86f,.6f):complete?new Color(.6f,.82f,.68f):new Color(.6f,.64f,.7f);
                 chapterChoices[i].GetComponent<Image>().color=current?new Color(.21f,.17f,.11f):complete?new Color(.07f,.12f,.1f):new Color(.06f,.07f,.09f);
                 chapterProgress[i].color=complete?new Color(.35f,.7f,.43f):new Color(.85f,.64f,.25f);

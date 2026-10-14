@@ -85,3 +85,13 @@ Safari is an initial iPhone browser test. It does not validate a native iOS app;
 - Home → Activities → Goals: page through missing heroes and companions; compare gear collection against owned inventory and active sets. Check text and four Activities shortcuts at narrow portrait aspect ratios.
 - Compare manual and Auto Play timing, especially Twin Fangs, Rogue basics, multi-target ultimates, interruptions and the transition into an enemy round. Ordinary recovery should be shorter in Auto; impacts and full ultimate/boss cues must remain readable.
 - Listen for three alternating takes per supported weapon/element, menu ticks and frost/arcane boss impacts. Toggle mute and check voice overlap, pauses and background/resume behavior.
+
+### Boss relics and advanced progression (`ashlight-beta-prep-4`)
+
+- Copy all Scripts/Editor files and run native serialization diagnostics when Unity testing is available. Load version-20 saves without losing progress, heroes, gear or currencies.
+- Chapter finales: normal loot plus named relic appear before Continue; neither is granted early. Reload pending victory and claim once. Cleared legacy chapters offer a separate Claim Relic button in Milestones even when milestone currency was already claimed.
+- Equip and Forge relics; check stable IDs, set counting, gear comparison and material costs. New relics do not replace higher-rarity loot automatically without a comparison.
+- Own Lv 20 + chapter 13 enables Mastery. Check five costs, +2 combat levels per rank, gray unaffordable/max controls, reserve heroes, shared heroes, save/reload, and blocked spending during combat. Own level/rarity/XP do not increase with mastery.
+- Formation techniques: swap class positions before attacking; check final rows determine bonuses. Verify one application per battle, carried energy/guard between waves, no repeated grants on later actions, and no bonuses in loan puzzles. Check normal faction bonuses still work.
+- Inspect route-strip spacing, long relic names, chapter-clear headings, both reward paragraphs and the wave banner on narrow screens. Return Home/restart during transitions; transient banners should clear.
+- Device/playback/performance checks are intentionally pending until the user can playtest.

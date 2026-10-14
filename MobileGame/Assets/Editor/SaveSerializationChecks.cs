@@ -20,6 +20,10 @@ public static class SaveSerializationChecks {
         if(seasonalReload.Party[0].BondBattles!=10 || seasonalReload.WeeklyBest(0)!=123 || seasonalReload.WeeklyBest(2)!=345 || seasonalReload.ExportProgress().weeklyClaim!=seasonalSave.weeklyClaim) throw new InvalidOperationException("Weekly records or bonds changed during Unity serialization.");
         var storySeen=new Battle(true);
         if(!storySeen.MarkStorySeen(0,false) || !RoundTrip(storySeen).StorySeen(0,false) || RoundTrip(storySeen).StorySeen(0,true)) throw new InvalidOperationException("Campaign scene flags changed during Unity serialization.");
+        var mastery=new Battle(true); var masterySave=mastery.ExportProgress(); masterySave.encounter=60; masterySave.forgeMaterials=500; masterySave.loadouts[0].level=20;
+        if(!mastery.RestoreProgress(masterySave) || !mastery.MasterHero("Knight_Common") || !mastery.ClaimBossRelic(0)) throw new InvalidOperationException("Could not prepare mastery/relic fixture.");
+        var masteryReload=RoundTrip(mastery);
+        if(masteryReload.Party[0].MasteryRank!=1 || masteryReload.Party[0].CombatLevel!=22 || masteryReload.ForgeMaterials!=0 || !masteryReload.RelicClaimed(0) || masteryReload.GearCount("BossRelic_0")!=1 || masteryReload.ClaimBossRelic(0)) throw new InvalidOperationException("Mastery or relic claims changed during Unity serialization.");
         var extended=new Battle(true); var extendedSave=extended.ExportProgress(); extendedSave.encounter=64; extendedSave.seenStories=(1<<24)-1; extendedSave.seenLaterStories=65; extendedSave.puzzleClears=5;
         if(!extended.RestoreProgress(extendedSave)) throw new InvalidOperationException("Could not prepare chapter expansion fixture.");
         var extendedReload=RoundTrip(extended);

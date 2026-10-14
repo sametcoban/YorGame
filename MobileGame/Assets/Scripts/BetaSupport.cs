@@ -53,7 +53,7 @@ namespace Ashlight {
         }
     }
     public static class BetaSupport {
-        public const string BuildTag="ashlight-beta-prep-3";
+        public const string BuildTag="ashlight-beta-prep-4";
         public static string Feedback(ProgressData progress,string category,string notes,string runtime,DateTime time) {
             var report=new StringBuilder();
             report.AppendLine("ASHLIGHT PLAYTEST REPORT · "+BuildTag).AppendLine("UTC: "+time.ToUniversalTime().ToString("u"));
@@ -64,7 +64,7 @@ namespace Ashlight {
             report.AppendLine("Wishlist: "+string.Join(", ",progress.wishlist));
             report.AppendLine("Formation: "+string.Join(", ",progress.party));
             foreach(var id in progress.party) foreach(var hero in progress.loadouts) if(hero.id==id) {
-                report.AppendLine(id+" · own Lv "+hero.level+" · rank "+hero.upgradeRank+" · bond participations "+hero.bondBattles+" · skills "+hero.firstSkill+", "+hero.secondSkill+" · talents "+string.Join(", ",Array.ConvertAll(hero.talents,n=>n.ToString())));
+                report.AppendLine(id+" · own Lv "+hero.level+" · rank "+hero.upgradeRank+" · mastery "+hero.masteryRank+" · bond participations "+hero.bondBattles+" · skills "+hero.firstSkill+", "+hero.secondSkill+" · talents "+string.Join(", ",Array.ConvertAll(hero.talents,n=>n.ToString())));
                 report.AppendLine("Gear: "+string.Join(", ",hero.gear??new string[0]));
             }
             foreach(var gear in progress.enhancements) report.AppendLine("Forged: "+gear.id+" +"+gear.level);
