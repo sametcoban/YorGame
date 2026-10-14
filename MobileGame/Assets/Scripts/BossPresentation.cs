@@ -13,7 +13,7 @@ namespace Ashlight {
             if(enemy==null || skill==null || !enemy.IsBoss) return null;
             if(encounter<0 || encounter>=ChapterDefinition.TotalStages) throw new ArgumentOutOfRangeException("encounter");
             int chapter=encounter/5;
-            var style=chapter>=12?(BossEffectStyle)(chapter-12):new[]{BossEffectStyle.Bell,BossEffectStyle.Tide,BossEffectStyle.Forge,BossEffectStyle.Stars,BossEffectStyle.Thorns,BossEffectStyle.Eclipse}[chapter%6];
+            var style=chapter>=12?(BossEffectStyle)((chapter-12)%6):new[]{BossEffectStyle.Bell,BossEffectStyle.Tide,BossEffectStyle.Forge,BossEffectStyle.Stars,BossEffectStyle.Thorns,BossEffectStyle.Eclipse}[chapter%6];
             string label,counter;
             switch(skill.Action) {
                 case EnemyAction.HealPartner: label="ALLY RESTORATION"; counter="Focus the healer or interrupt its next action."; break;

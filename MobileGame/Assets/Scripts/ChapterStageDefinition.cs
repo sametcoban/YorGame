@@ -24,7 +24,13 @@ namespace Ashlight {
             new ChapterStageDefinition("Widow Woods","#0D1B13","#35412F","#749656","#C5DEAC","#A2DC55",.034f),
             new ChapterStageDefinition("Shattered Observatory","#0C152B","#333C59","#7985BE","#D1DFFF","#8DAAFF",.034f),
             new ChapterStageDefinition("Sunless Forge","#250D08","#3C2B25","#9D6845","#F3C293","#FF7A32",.034f),
-            new ChapterStageDefinition("Last Dawn","#140F23","#3C3549","#B69767","#FFEBC5","#FFD58B",.034f)
+            new ChapterStageDefinition("Last Dawn","#140F23","#3C3549","#B69767","#FFEBC5","#FFD58B",.034f),
+            new ChapterStageDefinition("Raven Bastion","#111322","#32323D","#71647E","#C8C4ED","#B390FF",.032f),
+            new ChapterStageDefinition("Cobalt Mines","#102434","#334E62","#6CABBE","#BEE8FF","#67CFFF",.032f),
+            new ChapterStageDefinition("Festered Harbor","#142018","#394436","#768954","#C4D4AE","#A4CA62",.032f),
+            new ChapterStageDefinition("Ember Sepulchre","#2B100E","#46352C","#AF784A","#F5D0AC","#FF9644",.032f),
+            new ChapterStageDefinition("Dreaming Spire","#1C1533","#49395A","#997ECA","#E1CBFF","#CF9FFF",.032f),
+            new ChapterStageDefinition("Dawnfall Gate","#272319","#524635","#BA9A62","#FFEDCC","#FFE7A8",.032f)
         };
         public static ChapterStageDefinition For(int chapter) {
             if(chapter<0 || chapter>=Catalog.Length) throw new ArgumentOutOfRangeException("chapter");

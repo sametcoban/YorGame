@@ -24,7 +24,13 @@ namespace Ashlight {
             "The widow's web loosens. Between its threads hangs a fallen map of the stars.",
             "The shattered lenses reveal a furnace beneath the horizon. Its smoke is swallowing the morning.",
             "The sunless forge falls quiet. Its last chain points toward the creature devouring the dawn.",
-            "The Dawn Eater falls. The company lights the road home, carrying the names of everyone who followed."
+            "The Dawn Eater falls. The company lights the road home, carrying the names of everyone who followed. Beyond the valley, another war is beginning.",
+            "The raven banners fall. Below the bastion, blue light spills from an abandoned mine.",
+            "The mine's overseer breaks. A buried waterway carries its poisoned waste toward the harbor.",
+            "The rot admiral loses his fleet. A funeral ship points toward the Ember Sepulchre.",
+            "The sepulchre releases its captives. Their dreams gather around a distant spire.",
+            "The dreaming regent wakes for the last time. Beyond the spire lies the Dawnfall Gate.",
+            "The gate opens to a living horizon. The company carries its hard-won dawn onward."
         };
         public static ChapterMilestone For(int chapter) {
             if(chapter<0 || chapter>=ChapterDefinition.Catalog.Count) throw new ArgumentOutOfRangeException("chapter");
@@ -65,11 +71,17 @@ namespace Ashlight {
             new ChapterDefinition("The Widow Woods",new[]{"Web Guardian","Venomfang","Widow Seer","Silk Stalker","Widow Sovereign"},14,Element.Cold,Element.Poison),
             new ChapterDefinition("The Shattered Observatory",new[]{"Astral Guard","Starfang","Comet Oracle","Orbit Hunter","Fallen Astronomer"},15,Element.Poison,Element.Lightning),
             new ChapterDefinition("The Sunless Forge",new[]{"Forge Sentinel","Slag Beast","Furnace Prophet","Ash Marksman","Sunless Forgemaster"},16,Element.Lightning,Element.Fire),
-            new ChapterDefinition("The Last Dawn",new[]{"Dawnless Guard","Gloam Hound","Night Cantor","Dusk Archer","Dawn Eater"},17,Element.Light,Element.Poison)
+            new ChapterDefinition("The Last Dawn",new[]{"Dawnless Guard","Gloam Hound","Night Cantor","Dusk Archer","Dawn Eater"},17,Element.Light,Element.Poison),
+            new ChapterDefinition("The Raven Bastion",new[]{"Raven Guard","Blackfang","Feather Oracle","Raven Archer","Raven Castellan"},18,Element.Light,Element.Poison),
+            new ChapterDefinition("The Cobalt Mines",new[]{"Cobalt Sentinel","Ore Hound","Crystal Seer","Shard Hunter","Cobalt Overseer"},19,Element.Fire,Element.Cold),
+            new ChapterDefinition("The Festered Harbor",new[]{"Harbor Guard","Bilge Hound","Rot Priest","Salt Archer","Rot Admiral"},20,Element.Cold,Element.Poison),
+            new ChapterDefinition("The Ember Sepulchre",new[]{"Sepulchre Guard","Pyre Hound","Ash Cantor","Ember Hunter","Ember Hierophant"},21,Element.Lightning,Element.Fire),
+            new ChapterDefinition("The Dreaming Spire",new[]{"Dream Guard","Dreamfang","Lucid Oracle","Dream Archer","Dreaming Regent"},22,Element.Poison,Element.Lightning),
+            new ChapterDefinition("The Dawnfall Gate",new[]{"Gate Sentinel","Dawnfang","Gate Priest","Dawn Hunter","Dawnfall Keeper"},23,Element.Light,Element.Fire)
         });
         public static int TotalStages { get { return Catalog.Count*StagesPerChapter; } }
         // Chapter 3 onward ends with two bosses in the same encounter. Save indices stay stable.
-        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger", "Pyre Executioner", "Tidebound Reaper", "Blood Confessor", "Glass Warden", "Rime Herald", "Void Regent", "Bell Confessor", "Brine Regent", "Silk Reaper", "Comet Warden", "Iron Confessor", "Gloam Regent" };
+        static readonly string[] Partners = { "Ashen Marshal", "Stormbound Executioner", "Rotbound Consort", "Eclipse Harbinger", "Pyre Executioner", "Tidebound Reaper", "Blood Confessor", "Glass Warden", "Rime Herald", "Void Regent", "Bell Confessor", "Brine Regent", "Silk Reaper", "Comet Warden", "Iron Confessor", "Gloam Regent","Wingless Marshal","Crystal Warden","Bilge Regent","Pyre Confessor","Lucid Harbinger","Dawnfall Reaper" };
         public static IReadOnlyList<EnemyDefinition> EnemiesAt(int encounter) {
             var primary = EnemyAt(encounter);
             if (encounter / StagesPerChapter < 2 || encounter % StagesPerChapter != 4)
@@ -79,6 +91,14 @@ namespace Ashlight {
         }
         public static IReadOnlyList<EnemyDefinition> WaveAt(int encounter,int wave,int waveCount) {
             if(waveCount<1 || wave<0 || wave>=waveCount) throw new ArgumentOutOfRangeException("wave");
+            if(encounter/StagesPerChapter>=18) {
+                if(wave==waveCount-1 && encounter%5==4) return EnemiesAt(encounter);
+                var roster=Catalog[encounter/5].Enemies; int formationChapter=encounter/5;
+                var roles=new[]{EnemyRole.Defender,EnemyRole.Bruiser,EnemyRole.Caster,formationChapter==20 || formationChapter==23?EnemyRole.Healer:EnemyRole.Support,EnemyRole.Archer};
+                var sources=new[]{0,1,2,2,3}; var formation=new EnemyDefinition[5];
+                for(int i=0;i<5;i++) { var formationSource=roster[sources[i]]; formation[i]=new EnemyDefinition(formationSource.Name+(i==3?" Acolyte":""),Math.Max(20,(int)Math.Ceiling(formationSource.MaxHealth*(wave==waveCount-1?.32:.14))),formationSource.Weakness,formationSource.Resistance,role:roles[i]); }
+                return Array.AsReadOnly(formation);
+            }
             if(encounter/StagesPerChapter>=6) {
                 if(wave==waveCount-1 && encounter%StagesPerChapter==4) return EnemiesAt(encounter);
                 var chapterRoster=Catalog[encounter/StagesPerChapter];
@@ -116,7 +136,7 @@ namespace Ashlight {
         public static double DamageScale(int encounter) {
             if(encounter<0 || encounter>=TotalStages) throw new ArgumentOutOfRangeException("encounter");
             // Keep the first twelve chapters stable; health keeps growing after the level cap.
-            return 1+Math.Max(0,Math.Min(encounter,59)-StagesPerChapter+1)*.08+Math.Max(0,encounter-59)*.04;
+            return 1+Math.Max(0,Math.Min(encounter,59)-StagesPerChapter+1)*.08+Math.Max(0,Math.Min(encounter,89)-59)*.04+Math.Max(0,encounter-89)*.015;
         }
         public static int WavePower(int encounter,int wave,int waveCount=3,bool scaleCampaignDamage=true) {
             int partyLimit=Math.Min(5,encounter/StagesPerChapter+1); double total=0;

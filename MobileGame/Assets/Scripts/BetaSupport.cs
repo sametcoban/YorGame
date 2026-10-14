@@ -23,7 +23,13 @@ namespace Ashlight {
             "Silk covers the inland road. Every thread leads toward a widow who remembers the company before they arrived.",
             "Beyond the webs stands an observatory in ruins. Its fallen stars still obey someone inside.",
             "The lenses point toward a hidden forge. Its smiths hammer stolen sunlight into chains.",
-            "The last chain stretches into a sunless valley. Something vast has learned to swallow the dawn."
+            "The last chain stretches into a sunless valley. Something vast has learned to swallow the dawn.",
+            "Raven banners gather beyond the valley. The bastion now trains its defenders to fight as a company.",
+            "Blue veins glow below the bastion. In the mines, a crystal court arranges its soldiers behind living shields.",
+            "Poisoned water carries the company to a harbor. Healers and hunters wait behind the rotting fleet's front line.",
+            "A funeral ship lands at an ember-filled tomb. Its mourners have armed the dead with burning wards.",
+            "Freed captives dream of a spire. Their dreams have grown soldiers, and those soldiers remember the heroes.",
+            "The spire reveals a final gate. The dawnfall host waits in formation, ready to steal the horizon again."
         };
         static readonly string[] Replies={
             "Then we keep this flame alive.","We cross together. Nobody stays beneath that ice.","Find the furnace. Break its chains.","Let the bells ring. We know where to go.","We will give this place a quieter ending.","A throne can fall. Keep moving.","Their march ends here.","Follow my lantern. Stay close.","We take our names back.","Listen to each other, not the glass.","There is still light beyond that crown.","One last gate. One living ember.",
@@ -32,7 +38,13 @@ namespace Ashlight {
             "Cut a path. Keep each other in sight.",
             "Stars can fall. So can their master.",
             "Break the chains before morning disappears.",
-            "We carry the dawn together."
+            "We carry the dawn together.",
+            "Hold our formation. Find their weak link.",
+            "Break the front line and keep moving.",
+            "Protect each other. Silence their healers.",
+            "Let their wards fall before our blades.",
+            "Stay awake. Trust the company.",
+            "We have carried the dawn this far."
         };
         static readonly string[] BossLines={
             "This road ends where my lantern falls.","Warm blood has no place beyond my gate.","The furnace has room for all of you.","The spire will speak through your bones.","Lay down your weapons. My roots will carry you.","Kneel, and you may forget the dawn.","The march does not stop for the living.","Every kingdom sinks. Yours is next.","Your names belong to the bell now.","Break one reflection. A thousand remain.","Nothing survives the winter I wear.","Bring me your ember. Let the world go quiet.",
@@ -41,7 +53,13 @@ namespace Ashlight {
             "Your paths were woven long ago.",
             "Look up. Your stars are falling.",
             "The sun is only another metal to bend.",
-            "Your little lantern cannot feed the sky."
+            "Your little lantern cannot feed the sky.",
+            "My ravens have already counted you.",
+            "The mine grows a new shield for every wound.",
+            "You will heal my fleet with your blood.",
+            "Every ember is a name you will forget.",
+            "You have already lost inside my dream.",
+            "A gate can close upon the sun."
         };
         public static CampaignStory For(int chapter,bool boss) {
             if(chapter<0 || chapter>=ChapterDefinition.Catalog.Count) throw new ArgumentOutOfRangeException("chapter");
@@ -53,7 +71,7 @@ namespace Ashlight {
         }
     }
     public static class BetaSupport {
-        public const string BuildTag="ashlight-beta-prep-4";
+        public const string BuildTag="ashlight-beta-prep-5";
         public static string Feedback(ProgressData progress,string category,string notes,string runtime,DateTime time) {
             var report=new StringBuilder();
             report.AppendLine("ASHLIGHT PLAYTEST REPORT · "+BuildTag).AppendLine("UTC: "+time.ToUniversalTime().ToString("u"));
@@ -76,14 +94,14 @@ namespace Ashlight {
     public sealed partial class Battle {
         int seenStories, seenLaterStories;
         public bool StoryUnlocked(int chapter,bool boss) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && !InTower && encounter>=chapter*5+(boss?4:0); }
-        public bool StorySeen(int chapter,bool boss) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && (chapter<12?(seenStories&(1<<(chapter+(boss?12:0))))!=0:(seenLaterStories&(1<<(chapter-12+(boss?6:0))))!=0); }
+        public bool StorySeen(int chapter,bool boss) { return chapter>=0 && chapter<ChapterDefinition.Catalog.Count && (chapter<12?(seenStories&(1<<(chapter+(boss?12:0))))!=0:(seenLaterStories&(1<<(chapter-12+(boss?12:0))))!=0); }
         public bool MarkStorySeen(int chapter,bool boss) {
             if(IsDailyBoss || !campaign || (!CanChangeParty && !CampaignComplete) || !StoryUnlocked(chapter,boss)) return false;
-            if(chapter<12) seenStories|=1<<(chapter+(boss?12:0)); else seenLaterStories|=1<<(chapter-12+(boss?6:0)); return true;
+            if(chapter<12) seenStories|=1<<(chapter+(boss?12:0)); else seenLaterStories|=1<<(chapter-12+(boss?12:0)); return true;
         }
         internal static int AllowedLaterStories(int stage) {
-            int intros=Math.Max(0,Math.Min(6,stage/5-11)),bosses=Math.Max(0,Math.Min(6,(stage+1)/5-12));
-            return ((1<<intros)-1)|(((1<<bosses)-1)<<6);
+            int intros=Math.Max(0,Math.Min(12,stage/5-11)),bosses=Math.Max(0,Math.Min(12,(stage+1)/5-12));
+            return ((1<<intros)-1)|(((1<<bosses)-1)<<12);
         }
         internal static int AllowedStories(int stage) {
             int intros=Math.Min(12,stage/5+1),bosses=Math.Min(12,(stage+1)/5);

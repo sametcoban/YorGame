@@ -222,6 +222,10 @@ namespace Ashlight {
                     for(int i=0;i<3;i++) Spark(to,element,new Vector3(i-1,.45f,0),.24f,.65f); break;
             }
         }
+        public void WeaponTrail(Vector3 from,Vector3 to,Element element,HeroClass kind) {
+            int count=kind==HeroClass.Rogue?2:1;
+            for(int i=0;i<count;i++) { var trail=Get(Mode.Beam,from+Vector3.up*(.6f+i*.15f),element,.14f,kind==HeroClass.Knight || kind==HeroClass.Paladin?.045f:.025f); if(trail!=null) { trail.Line.SetPosition(0,Vector3.zero); trail.Line.SetPosition(1,(to-from)*.75f); } }
+        }
         public void BossWarning(Vector3 position,BossCue cue,float duration) {
             var ground=new Vector3(position.x,.06f,position.z);
             Get(Mode.GroundRing,ground,cue.Element,duration,.075f);

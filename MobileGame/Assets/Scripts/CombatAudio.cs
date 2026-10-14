@@ -6,6 +6,7 @@ namespace Ashlight {
         static readonly string[] Names = { "SwordSwing", "HeavySwing", "DaggerSwipe", "BowDraw", "BowRelease", "Fire", "Cold", "Poison", "Lightning", "Light", "Charge", "Parry", "Dodge", "Hit", "Guard", "BossSlam", "HoundGrowl", "HoundBite", "Heal", "Victory", "Defeat", "MenuTick", "BossArcane", "BossFrost" };
         readonly Dictionary<string,AudioClip> clips = new Dictionary<string,AudioClip>();
         readonly AudioSource[] voices = new AudioSource[8];
+        AudioSource music,ambience; int chapterTheme=-1;
         int cursor;
         readonly Dictionary<string,int> variations=new Dictionary<string,int>();
         static readonly string[] Varied={"SwordSwing","HeavySwing","DaggerSwipe","BowRelease","Fire","Cold","Poison","Lightning","Light"};
@@ -20,7 +21,14 @@ namespace Ashlight {
                 source.spatialBlend = 0; source.loop = false; voices[i] = source;
             }
         }
-        public void ToggleMute() { Muted = !Muted; Clear(); PlayerPrefs.SetInt(MuteKey,Muted?1:0); PlayerPrefs.Save(); }
+        public void PlayChapter(int chapter) {
+            int theme=chapter%6; if(theme==chapterTheme && music!=null) { ResumeAtmosphere(); return; } chapterTheme=theme;
+            if(music==null) { music=gameObject.AddComponent<AudioSource>(); ambience=gameObject.AddComponent<AudioSource>(); foreach(var source in new[]{music,ambience}) { source.playOnAwake=false; source.loop=true; source.spatialBlend=0; source.priority=220; } }
+            music.clip=Resources.Load<AudioClip>("Audio/Chapters/Music"+theme); ambience.clip=Resources.Load<AudioClip>("Audio/Chapters/Ambience"+theme); music.volume=.22f; ambience.volume=.15f;
+            if(!Muted) { if(music.clip!=null) music.Play(); if(ambience.clip!=null) ambience.Play(); }
+        }
+        void ResumeAtmosphere() { if(Muted || music==null) return; if(music.clip!=null && !music.isPlaying) music.Play(); if(ambience.clip!=null && !ambience.isPlaying) ambience.Play(); }
+        public void ToggleMute() { Muted = !Muted; Clear(); ResumeAtmosphere(); PlayerPrefs.SetInt(MuteKey,Muted?1:0); PlayerPrefs.Save(); }
         public void Play(string name, float gain = 1, float pitch = 1) {
             if (Muted) return;
             foreach(string varied in Varied) if(name==varied) {
@@ -42,8 +50,8 @@ namespace Ashlight {
             Play(name,gain);
         }
         public void PlayElement(Element element, float gain = 1) { Play(element == Ashlight.Element.Physical ? "Hit" : element.ToString(),gain); }
-        public void Clear() { foreach (var source in voices) if (source != null) source.Stop(); }
+        public void Clear() { foreach (var source in voices) if (source != null) source.Stop(); if(music!=null) music.Stop(); if(ambience!=null) ambience.Stop(); }
         void OnDisable() { Clear(); }
-        void OnApplicationPause(bool paused) { if (paused) Clear(); }
+        void OnApplicationPause(bool paused) { if (paused) Clear(); else ResumeAtmosphere(); }
     }
 }

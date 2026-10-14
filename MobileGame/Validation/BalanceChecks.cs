@@ -46,8 +46,8 @@ class BalanceChecks {
   Console.WriteLine(healer?"CAMPAIGN WITH CLERIC":"CAMPAIGN DEFAULT TEAM");
   for(int i=0;i<30;i++) if(reached[i]>0) Console.WriteLine("{0}-{1}: reached {2}, won {3} ({4:F1}%)",i/5+1,i%5+1,reached[i],won[i],100.0*won[i]/reached[i]);
  }
- static void Stages(int level,HeroQuality quality,int first=0,int last=30) {
-  Console.WriteLine("FIXED ROSTER: "+quality+" own level "+level+", no gear/talents");
+ static void Stages(int level,HeroQuality quality,int first=0,int last=30,int mastery=0) {
+  Console.WriteLine("FIXED ROSTER: "+quality+" own level "+level+" · mastery "+mastery+", no gear/talents");
   for(int stage=first;stage<last;stage++) {
    int wins=0;
    for(int seed=0;seed<Runs;seed++) {
@@ -59,7 +59,7 @@ class BalanceChecks {
     var team=new System.Collections.Generic.List<string>();
     foreach(var kind in new[]{HeroClass.Knight,HeroClass.Paladin,HeroClass.Sorceress,HeroClass.Ranger,HeroClass.Cleric}) {
      string id=kind+"_"+quality;
-     if(!ids.Contains(id)) { ids.Add(id); loads.Add(new HeroLoadoutData{id=id,level=level,secondSkill=1}); }
+     if(!ids.Contains(id)) { ids.Add(id); loads.Add(new HeroLoadoutData{id=id,level=level,masteryRank=mastery,secondSkill=1}); }
      if(team.Count<Math.Min(5,stage/5+1)) team.Add(id);
     }
     save.recruited=ids.ToArray(); save.party=team.ToArray(); save.loadouts=loads.ToArray();
@@ -119,7 +119,7 @@ class BalanceChecks {
   }
   Console.WriteLine("FULL PROGRESSION (summons {5}, wishlist {6}, recommendations {7}): {0}/{1} completed, {2} retries, {3:F1} mean idle hours, {4:F1} mean earned pulls",complete,Runs,retries,waiting/(60.0*Runs),summons/(double)Runs,earnedSummons,wishlist,recommendations);
   for(int stage=0;stage<failures.Length;stage++) if(failures[stage]>0) Console.WriteLine("Progression stopped at {0}-{1}: {2} runs",stage/5+1,stage%5+1,failures[stage]);
-  if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete eighteen chapters");
+  if(complete<Runs*.95) throw new Exception("Developing teams cannot reliably complete twenty-four chapters");
  }
  static void Economy() {
   int storyCrystals=0;
@@ -142,14 +142,14 @@ class BalanceChecks {
   if(milestones!=2850) throw new Exception("Milestone reward budget changed unexpectedly");
   int expandedCrystals=0; for(int stage=0;stage<ChapterDefinition.TotalStages;stage++) { var save=b.ExportProgress(); save.encounter=stage; if(!b.RestoreProgress(save)) throw new Exception("Expanded economy fixture rejected"); expandedCrystals+=b.CampaignVictoryCrystals; }
   int expandedMilestones=0; for(int chapter=0;chapter<ChapterDefinition.Catalog.Count;chapter++) expandedMilestones+=ChapterMilestone.For(chapter).Crystals;
-  if(expandedCrystals!=8250 || expandedMilestones!=5625) throw new Exception("Expanded reward budget mismatch");
+  if(expandedCrystals!=12975 || expandedMilestones!=9300) throw new Exception("Expanded reward budget mismatch");
   Console.WriteLine("EXPANDED ECONOMY: {0} story crystals + {1} milestones; three optional puzzle first clears add 150 crystals/materials total",expandedCrystals,expandedMilestones);
   Console.WriteLine("ECONOMY: {0} story crystals + {1} milestones + {2} starter; duplicate refunds, dailies and Tower excluded",storyCrystals,milestones,Summoning.StarterCrystals);
  }
  static void Main(string[] args) {
-  if(args.Length>0 && args[0]=="late") { Stages(20,HeroQuality.Legendary,60,90); Console.WriteLine("PASS: 6,000 expanded-stage samples"); return; }
+  if(args.Length>0 && args[0]=="late") { Stages(20,HeroQuality.Legendary,60,90); Stages(20,HeroQuality.Legendary,90,120,1); Console.WriteLine("PASS: 12,000 expanded-stage samples"); return; }
   if(args.Length>0 && args[0]=="economy") { Economy(); return; }
   if(args.Length>0 && args[0]=="recommendations") { FullProgression(true,true,true); Console.WriteLine("PASS: 200 recommendation progression campaigns"); return; }
-  Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); FullProgression(true,true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Stages(20,HeroQuality.Legendary,60,90); Console.WriteLine("PASS: 36,000 stage samples, 400 first-arc campaigns, and 800 full progression campaigns");
+  Economy(); FullProgression(false); FullProgression(true); FullProgression(true,true); FullProgression(true,true,true); Campaign(false); Campaign(true); Stages(1,HeroQuality.Common); Stages(10,HeroQuality.Common); Stages(1,HeroQuality.Legendary); Stages(20,HeroQuality.Common,30,60); Stages(10,HeroQuality.Legendary,30,60); Stages(20,HeroQuality.Legendary,60,90); Stages(20,HeroQuality.Legendary,90,120,1); Console.WriteLine("PASS: 42,000 stage samples, 400 first-arc campaigns, and 800 full progression campaigns");
  }
 }

@@ -95,3 +95,17 @@ Safari is an initial iPhone browser test. It does not validate a native iOS app;
 - Formation techniques: swap class positions before attacking; check final rows determine bonuses. Verify one application per battle, carried energy/guard between waves, no repeated grants on later actions, and no bonuses in loan puzzles. Check normal faction bonuses still work.
 - Inspect route-strip spacing, long relic names, chapter-clear headings, both reward paragraphs and the wave banner on narrow screens. Return Home/restart during transitions; transient banners should clear.
 - Device/playback/performance checks are intentionally pending until the user can playtest.
+
+### Tactical/content expansion (`ashlight-beta-prep-5`)
+
+- Import all Scripts/Editor files and Audio/Chapters, rebuild the enemy roster, and run asset/serialization diagnostics when Unity testing is possible.
+- Load a version-21 chapter-18 completion save: chapter 19 opens, mastery/resources/gear survive, and chapter 13–18 boss-scene flags remain seen. Chapter 19–24 scenes/milestones/relics appear on the fourth campaign page.
+- Check five enemy buttons and bars within the safe area; two front and three rear actors must remain individually targetable. Check fourth/fifth hits, area ultimates, deaths, shields and interrupt animations. Finales retain two bosses.
+- Inspect Auto Play focus on paired bosses, interruptible charges, healer/support threats and shields. On approach waves, basic attacks should preserve ordinary damage-only skill charges when they can kill through the shield.
+- Upgrade each class to Mastery 1 and check its named signature once per wave, exact guard/heal/energy/cleanse/expose effect, the next-wave reset and exclusion of fallen allies. Class passives and signature labels should remain readable.
+- Lock a chosen equipped type and use Equip Best; it must remain equipped. Manually switch it, cycle all three sorts, compare refined stats and verify locks after restart.
+- Relic raids: clear three times for 15 essence/225 materials total, then replay without further daily reward. Failed/abandoned attempts give no essence/materials. Check midnight, app close and quota reload. Eight is the count of individual boss actions; no campaign/Tower advancement or regular loot occurs.
+- Refine relics through five essence costs; check Forge levels/refinement coexist, every equipped copy updates and previews match actual stats. Gray max/insufficient controls must explain cost/owned essence.
+- Complete and miss each stage-3 objective; both victories advance campaign. Reload pending victory for both cases: only the actual completed objective pays once, including rear-target-first tracking.
+- Inspect role crests on male/female rigs, melee trails, debuff colors, all six audio themes, mute, app pause/resume and a single AudioListener. Music should remain quieter than action cues.
+- Phone/browser layout, animation playback and performance remain pending until the user can playtest.

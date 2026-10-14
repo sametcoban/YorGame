@@ -16,8 +16,8 @@ namespace Ashlight {
             }
             forgeItem=Label(forgeRoot.transform,"",new Vector2(.06f,.48f),new Vector2(.94f,.67f),27);
             forgeComparison=Label(forgeRoot.transform,"",new Vector2(.06f,.28f),new Vector2(.94f,.46f),25);
-            Label(forgeRoot.transform,"Upgrades strengthen all owned and future copies of this gear type.\nEarn forging materials from battle victories and idle rewards.\nSelect another item in Equipment to upgrade a different gear type.",new Vector2(.06f,.145f),new Vector2(.94f,.265f),21);
-            forgeNotice=Label(forgeRoot.transform,"",new Vector2(.06f,.105f),new Vector2(.94f,.145f),18);
+            Label(forgeRoot.transform,"Upgrades strengthen all owned and future copies of this gear type.\nEarn forging materials from battle victories and idle rewards.\nSelect another item in Equipment to upgrade a different gear type.",new Vector2(.06f,.20f),new Vector2(.94f,.265f),21);
+            forgeNotice=Label(forgeRoot.transform,"",new Vector2(.06f,.18f),new Vector2(.94f,.20f),18);
             forgeConfirm=ScreenButton(forgeRoot.transform,"UPGRADE",.05f,.02f,.68f,.105f,()=> {
                 if(!battle.EnhanceGear(forgingItem)) return;
                 SaveProgress(); forgeNotice.text="Upgraded "+battle.EnhancedGear(forgingItem).Name+" · "+saveNotice; RefreshForge(); RefreshVisibleHeroMenus(); if(atChapters) RefreshHome();
@@ -43,6 +43,7 @@ namespace Ashlight {
             forgeNotice.text="Compare the upgrade before spending materials."; forgeRoot.transform.SetAsLastSibling(); forgeRoot.SetActive(true); RefreshForge();
         }
         void RefreshForge() {
+            RefreshRefinement();
             var hero=battle.HeroProgress(forgeHero); var item=battle.EnhancedGear(forgingItem);
             forgeTitle.text=hero.Identity.Name+" · EQUIPMENT FORGE\n"+battle.ForgeMaterials+" MATERIALS";
             for(int i=0;i<forgeSlots.Length;i++) forgeSlots[i].GetComponent<Image>().color=i==(int)browsingSlot?new Color(.25f,.19f,.10f):new Color(.075f,.085f,.105f);

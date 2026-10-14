@@ -15,7 +15,7 @@ namespace Ashlight {
     }
     public static class EnemySkills {
         public static string Family(int encounter) {
-            return new[]{"Road Wardens","Frostbound","Ember Legion","Stormborn","Blight Court","Eclipse Host","Pyre Legion","Drowned Court","Crimson Covenant","Glass Legion","Rime Court","Abyssal Host","Hollow Choir","Saltbound Court","Widow Brood","Fallen Stars","Sunless Smiths","Dawnless Host"}[Math.Min(17,Math.Max(0,encounter/5))];
+            return new[]{"Road Wardens","Frostbound","Ember Legion","Stormborn","Blight Court","Eclipse Host","Pyre Legion","Drowned Court","Crimson Covenant","Glass Legion","Rime Court","Abyssal Host","Hollow Choir","Saltbound Court","Widow Brood","Fallen Stars","Sunless Smiths","Dawnless Host","Raven Host","Cobalt Court","Festered Fleet","Ember Mourners","Dreambound","Dawnfall Host"}[Math.Min(23,Math.Max(0,encounter/5))];
         }
         public static string Tactics(int encounter) {
             switch(encounter/5) {
@@ -40,7 +40,7 @@ namespace Ashlight {
             if(chapter>=12) {
                 var elements=new[]{Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison};
                 var statuses=new[]{Debuff.Shock,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Burn,Debuff.Weaken};
-                int theme=chapter-12; var element=elements[theme]; var status=statuses[theme];
+                int theme=(chapter-12)%6; var element=chapter>=18?For(encounter,false,1).Element:elements[theme]; var status=chapter>=18?For(encounter,false,1).Status:statuses[theme];
                 if(enemy.IsBoss) {
                     if(move==1 && (theme==0 || theme==5)) return new EnemySkill("Choir Renewal",0,element,action:EnemyAction.HealPartner);
                     if(move==1 && theme==4) return new EnemySkill("Molten Aegis",0,element,action:EnemyAction.Shield);
@@ -97,8 +97,8 @@ namespace Ashlight {
         }
         public static EnemySkill For(int encounter, bool boss, int completedStrikes) {
             int chapter=encounter/5;
-            var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light,Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison,Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison}[Math.Min(17,Math.Max(0,chapter))];
-            var status=new[]{Debuff.None,Debuff.Chill,Debuff.Burn,Debuff.Shock,Debuff.Poison,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Burn,Debuff.Weaken}[Math.Min(17,Math.Max(0,chapter))];
+            var element=new[]{Element.Physical,Element.Cold,Element.Fire,Element.Lightning,Element.Poison,Element.Light,Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison,Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison,Element.Poison,Element.Cold,Element.Poison,Element.Fire,Element.Lightning,Element.Light}[Math.Min(23,Math.Max(0,chapter))];
+            var status=new[]{Debuff.None,Debuff.Chill,Debuff.Burn,Debuff.Shock,Debuff.Poison,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Weaken,Debuff.Burn,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Chill,Debuff.Poison,Debuff.Shock,Debuff.Burn,Debuff.Weaken,Debuff.Weaken,Debuff.Chill,Debuff.Poison,Debuff.Burn,Debuff.Shock,Debuff.Weaken}[Math.Min(23,Math.Max(0,chapter))];
             int pattern=completedStrikes%3;
             if(pattern==0) return new EnemySkill("Quick Strike",35,Element.Physical);
             if(pattern==1) return new EnemySkill(chapter==0?"Crushing Blow":element+" Hex",chapter==0?42:24,element,false,status);

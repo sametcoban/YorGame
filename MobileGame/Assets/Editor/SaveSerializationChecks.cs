@@ -24,7 +24,13 @@ public static class SaveSerializationChecks {
         if(!mastery.RestoreProgress(masterySave) || !mastery.MasterHero("Knight_Common") || !mastery.ClaimBossRelic(0)) throw new InvalidOperationException("Could not prepare mastery/relic fixture.");
         var masteryReload=RoundTrip(mastery);
         if(masteryReload.Party[0].MasteryRank!=1 || masteryReload.Party[0].CombatLevel!=22 || masteryReload.ForgeMaterials!=0 || !masteryReload.RelicClaimed(0) || masteryReload.GearCount("BossRelic_0")!=1 || masteryReload.ClaimBossRelic(0)) throw new InvalidOperationException("Mastery or relic claims changed during Unity serialization.");
-        var extended=new Battle(true); var extendedSave=extended.ExportProgress(); extendedSave.encounter=64; extendedSave.seenStories=(1<<24)-1; extendedSave.seenLaterStories=65; extendedSave.puzzleClears=5;
+        var raid=mastery.StartRelicRaid(0); if(raid==null) throw new InvalidOperationException("Could not prepare relic challenge.");
+        for(int step=0;raid.Current!=Phase.Won && raid.Current!=Phase.Lost && step<100;step++) { if(raid.Current==Phase.Player) raid.Attack(); else if(raid.Current==Phase.EnemyWindup) { raid.BeginStrike(); raid.Defend(false,.1f); raid.FinishStrike(); } }
+        bool raidReward; if(!mastery.FinishDailyBoss(raid,out raidReward) || !raidReward || !mastery.RefineRelic("BossRelic_0") || !mastery.SetGearLocked("BossRelic_0",true)) throw new InvalidOperationException("Could not prepare refinement/lock fixture.");
+        var refinedReload=RoundTrip(mastery); if(!refinedReload.GearLocked("BossRelic_0") || refinedReload.RelicRefinement("BossRelic_0")!=1 || refinedReload.RelicEssence!=0 || refinedReload.RelicRaidRewardsLeft!=2) throw new InvalidOperationException("Relic economy or locks changed during serialization.");
+        var oldScenes=new Battle(true); var oldSceneSave=oldScenes.ExportProgress(); oldSceneSave.version=21; oldSceneSave.encounter=64; oldSceneSave.seenLaterStories=65;
+        if(!oldScenes.RestoreProgress(JsonUtility.FromJson<ProgressData>(JsonUtility.ToJson(oldSceneSave))) || !oldScenes.StorySeen(12,true) || oldScenes.ExportProgress().seenLaterStories!=4097) throw new InvalidOperationException("Legacy story bank migration failed.");
+        var extended=new Battle(true); var extendedSave=extended.ExportProgress(); extendedSave.encounter=64; extendedSave.seenStories=(1<<24)-1; extendedSave.seenLaterStories=4097; extendedSave.puzzleClears=5;
         if(!extended.RestoreProgress(extendedSave)) throw new InvalidOperationException("Could not prepare chapter expansion fixture.");
         var extendedReload=RoundTrip(extended);
         if(!extendedReload.StorySeen(11,true) || !extendedReload.StorySeen(12,false) || !extendedReload.StorySeen(12,true) || !extendedReload.PuzzleCleared(0) || extendedReload.PuzzleCleared(1) || !extendedReload.PuzzleCleared(2) || extendedReload.Encounter!=64)

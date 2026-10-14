@@ -54,7 +54,7 @@ namespace Ashlight {
         });
         public static readonly IReadOnlyList<EnemyVisualDefinition> Catalog = All();
         static IReadOnlyList<EnemyVisualDefinition> All() {
-            var all = new List<EnemyVisualDefinition>(ChapterOne); all.AddRange(ChapterEnemies); all.AddRange(PairedBosses); all.AddRange(LaterEnemies()); return all.AsReadOnly();
+            var all = new List<EnemyVisualDefinition>(ChapterOne); all.AddRange(ChapterEnemies); all.AddRange(PairedBosses); all.AddRange(LaterEnemies()); all.AddRange(FormationAcolytes()); return all.AsReadOnly();
         }
         static IEnumerable<EnemyVisualDefinition> LaterEnemies() {
             string[][] names={
@@ -69,13 +69,22 @@ namespace Ashlight {
                 new[]{"Web Guardian","Venomfang","Widow Seer","Silk Stalker","Widow Sovereign","Silk Reaper"},
                 new[]{"Astral Guard","Starfang","Comet Oracle","Orbit Hunter","Fallen Astronomer","Comet Warden"},
                 new[]{"Forge Sentinel","Slag Beast","Furnace Prophet","Ash Marksman","Sunless Forgemaster","Iron Confessor"},
-                new[]{"Dawnless Guard","Gloam Hound","Night Cantor","Dusk Archer","Dawn Eater","Gloam Regent"}
+                new[]{"Dawnless Guard","Gloam Hound","Night Cantor","Dusk Archer","Dawn Eater","Gloam Regent"},
+                new[]{"Raven Guard","Blackfang","Feather Oracle","Raven Archer","Raven Castellan","Wingless Marshal"},
+                new[]{"Cobalt Sentinel","Ore Hound","Crystal Seer","Shard Hunter","Cobalt Overseer","Crystal Warden"},
+                new[]{"Harbor Guard","Bilge Hound","Rot Priest","Salt Archer","Rot Admiral","Bilge Regent"},
+                new[]{"Sepulchre Guard","Pyre Hound","Ash Cantor","Ember Hunter","Ember Hierophant","Pyre Confessor"},
+                new[]{"Dream Guard","Dreamfang","Lucid Oracle","Dream Archer","Dreaming Regent","Lucid Harbinger"},
+                new[]{"Gate Sentinel","Dawnfang","Gate Priest","Dawn Hunter","Dawnfall Keeper","Dawnfall Reaper"}
             };
             string[] models={"LanternWarden","AshHound","HollowMatron","CinderScout","Roadkeeper","IronWatcher"};
-            string[] cloth={"WineWool","AshWool","WineWool","SootWool","AshWool","VioletWool","VioletWool","AshWool","MossWool","VioletWool","WineWool","SootWool"};
-            Element[] elements={Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison,Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison};
+            string[] cloth={"WineWool","AshWool","WineWool","SootWool","AshWool","VioletWool","VioletWool","AshWool","MossWool","VioletWool","WineWool","SootWool","SootWool","AshWool","MossWool","WineWool","VioletWool","WineWool"};
+            Element[] elements={Element.Fire,Element.Cold,Element.Light,Element.Fire,Element.Cold,Element.Poison,Element.Lightning,Element.Cold,Element.Poison,Element.Lightning,Element.Fire,Element.Poison,Element.Poison,Element.Cold,Element.Poison,Element.Fire,Element.Lightning,Element.Light};
             for(int chapter=0;chapter<names.Length;chapter++) for(int enemy=0;enemy<6;enemy++)
                 yield return new EnemyVisualDefinition(names[chapter][enemy],names[chapter][enemy].Replace(" ",""),elements[chapter]+" STRIKE",enemy==1?1.6f:enemy>=4?2.65f:2.35f,elements[chapter],enemy>=4,enemy==2 || enemy==3,models[enemy],cloth[chapter]);
+        }
+        static IEnumerable<EnemyVisualDefinition> FormationAcolytes() {
+            for(int chapter=18;chapter<ChapterDefinition.Catalog.Count;chapter++) { var name=ChapterDefinition.Catalog[chapter].Enemies[2].Name+" Acolyte"; yield return new EnemyVisualDefinition(name,name.Replace(" ",""),"WARDING HEX",2.25f,EnemySkills.For(chapter*5,false,1).Element,ranged:true,sourceModel:"HollowMatron",clothRole:"VioletWool"); }
         }
         public static EnemyVisualDefinition For(string name) {
             foreach (var entry in Catalog) if (entry.EnemyName == name) return entry;

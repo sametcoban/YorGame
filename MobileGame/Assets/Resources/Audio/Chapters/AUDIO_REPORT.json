@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Music0",
+    "duration": 12,
+    "peak": 0.195806756797998,
+    "sha256": "ea30510f5f417b05da7eb1b2337d545a25cc3bb9bd511dcff1236776a8bf836e"
+  },
+  {
+    "name": "Ambience0",
+    "duration": 12,
+    "peak": 0.16263313699758905,
+    "sha256": "8186bf1b82f0af8add74f646af63e677228529a0e552f368693ba72362f9d896"
+  },
+  {
+    "name": "Music1",
+    "duration": 12,
+    "peak": 0.19779045991393782,
+    "sha256": "baf76f32399671d7f2a4892419c5c05b7520d8bdfa66d6be4a37ca64c5189d1d"
+  },
+  {
+    "name": "Ambience1",
+    "duration": 12,
+    "peak": 0.15286721396526995,
+    "sha256": "b4cc6ba6cbb0998239f8e010d64fda7deb32ee87f6e13ca951ac1278e5bb1a81"
+  },
+  {
+    "name": "Music2",
+    "duration": 12,
+    "peak": 0.1986449781792657,
+    "sha256": "ccc36e4c79ba9ddd599c115b9832a1a9f9c1afdfaa77f6d297f842ed5a987020"
+  },
+  {
+    "name": "Ambience2",
+    "duration": 12,
+    "peak": 0.14645832697531053,
+    "sha256": "750276726bf886da4fa859a2847b738a533bf9ac3cb8fecfd93bcd7519445445"
+  },
+  {
+    "name": "Music3",
+    "duration": 12,
+    "peak": 0.19986571855830562,
+    "sha256": "ebfd8522cafd4aca6e98aac017dc23d4c438b3d674f2a6bb0eafad6553f8a09f"
+  },
+  {
+    "name": "Ambience3",
+    "duration": 12,
+    "peak": 0.14746543778801843,
+    "sha256": "fce748cc74d5abc6a8df3b1199f60d34c2a934477baa4ea4d3c4417fb873c3a4"
+  },
+  {
+    "name": "Music4",
+    "duration": 12,
+    "peak": 0.19962157048249762,
+    "sha256": "deff565eee76018fb264f4b8de5b7ac705f5f2c376d226575e3f2d58bf2d1de2"
+  },
+  {
+    "name": "Ambience4",
+    "duration": 12,
+    "peak": 0.1685232093264565,
+    "sha256": "233483501235b6970c033ce2d2776a10f7cafac6e6cde9ec368c5f2f23435398"
+  },
+  {
+    "name": "Music5",
+    "duration": 12,
+    "peak": 0.19775994140446182,
+    "sha256": "1b52acbf727e9d938d05d68aaa64f6f06bcf1777ce22e068911757d134aad50e"
+  },
+  {
+    "name": "Ambience5",
+    "duration": 12,
+    "peak": 0.14810632648701438,
+    "sha256": "80469ed7a325f71457749ba0bdd30b65a42fd5388feb2246de3c79d73f6393a1"
+  }
+]

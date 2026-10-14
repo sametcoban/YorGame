@@ -13,7 +13,7 @@ namespace Ashlight {
         readonly Text[] statusBadges=new Text[Battle.MaxPartySize];
         void CreateActivitiesScreens() {
             activitiesRoot=ScreenRoot("Activities");
-            Label(activitiesRoot.transform,"ACTIVITIES",new Vector2(.05f,.86f),new Vector2(.95f,.98f),34);
+            Label(activitiesRoot.transform,"ACTIVITIES",new Vector2(.05f,.86f),new Vector2(.68f,.98f),34);
             activitiesInfo=Label(activitiesRoot.transform,"",new Vector2(.05f,.59f),new Vector2(.95f,.83f),21);
             bossStart=ScreenButton(activitiesRoot.transform,"DAILY BOSS",.05f,.25f,.34f,.39f,StartBossChallenge);
             ScreenButton(activitiesRoot.transform,"ENEMY GUIDE",.365f,.25f,.635f,.39f,()=> { guidePage=0; guideRoot.SetActive(true); guideRoot.transform.SetAsLastSibling(); guideDetail.text="Fight enemies to reveal their abilities and counters."; RefreshGuide(); });
@@ -80,6 +80,10 @@ namespace Ashlight {
             if(bossReported || campaignBattle==null) return;
             bool rewarded; if(!campaignBattle.FinishDailyBoss(battle,out rewarded)) return;
             bossReported=true; autoPlay=false; Time.timeScale=1; SaveProgress();
+            if(battle.IsRelicRaid) {
+                bossReport.text=(battle.RelicRaidGoalMet?"RELIC CLEAR":"RELIC ATTEMPT")+"\n"+battle.Enemy.Name+"\n\n"+(rewarded?"+5 RELIC ESSENCE · +75 MATERIALS":battle.RelicRaidGoalMet?"Daily reward limit reached or day changed":"Goal not met · No reward")+"\n\nDamage · "+battle.DailyBossScore+"\nReturn to Forge to refine your relics.\n"+saveNotice;
+                bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling(); return;
+            }
             if(battle.IsFormationPuzzle) {
                 bossReport.text=(battle.Current==Phase.Won?"PUZZLE CLEAR":"PUZZLE ATTEMPT")+" · "+FormationPuzzles.Name(battle.PuzzleIndex)+"\n\n"+(rewarded?"+50 CRYSTALS · +50 MATERIALS":battle.Current==Phase.Won?"First-clear reward already claimed":"Try a different formation, skill pair or target order.")+"\n\n"+FormationPuzzles.Hint(battle.PuzzleIndex)+"\nLoan heroes returned · Campaign formation preserved\n"+saveNotice;
                 bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling(); return;
@@ -111,7 +115,7 @@ namespace Ashlight {
             for(int i=0;i<statusBadges.Length;i++) {
                 bool visible=!atChapters && i<battle.Party.Count && battle.Party[i].Health>0; statusBadges[i].gameObject.SetActive(visible); if(!visible) continue;
                 var hero=battle.Party[i]; statusBadges[i].text=(hero.Status==Debuff.None?"":"["+hero.Status.ToString().ToUpperInvariant()+" "+hero.StatusRounds+"] ")+(hero.Guard>0?"[WARD "+hero.Guard+"] ":"")+(hero.TauntRounds>0?"[TAUNT]":"");
-                statusBadges[i].color=hero.Status==Debuff.None?new Color(.6f,.85f,1):new Color(1,.64f,.4f);
+                statusBadges[i].color=hero.Status==Debuff.None?new Color(.6f,.85f,1):CombatEffects.Tint(hero.Status==Debuff.Burn?Element.Fire:hero.Status==Debuff.Poison?Element.Poison:hero.Status==Debuff.Chill?Element.Cold:hero.Status==Debuff.Shock?Element.Lightning:Element.Light);
                 if(hero.Energy==100) energyBars[i].color=Color.Lerp(new Color(1,.65f,.15f),new Color(1,.92f,.5f),(Mathf.Sin(Time.unscaledTime*5)+1)*.5f);
             }
             if(battle.IsDailyBoss && !presentingAction && enemyTurn==null && (battle.Current==Phase.Lost || battle.Current==Phase.Won)) ShowBossReport();

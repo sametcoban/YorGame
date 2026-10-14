@@ -22,29 +22,31 @@ namespace Ashlight {
         public readonly GearSlot Slot;
         public readonly HeroQuality Quality;
         public readonly Element Element;
-        public readonly int Health, Attack, SkillDamage, Protection, Enhancement;
+        public readonly int Health, Attack, SkillDamage, Protection, Enhancement, Refinement;
         public const int MaxEnhancement=10;
-        GearDefinition[] enhanced;
+        GearDefinition[] enhanced, refined;
         public readonly float ElementBoost;
-        GearDefinition(GearSlot slot,HeroQuality quality,Element element,int enhancement=0,int relicChapter=-1) {
-            Slot=slot; Quality=quality; Element=element; Enhancement=enhancement;
+        GearDefinition(GearSlot slot,HeroQuality quality,Element element,int enhancement=0,int relicChapter=-1,int refinement=0) {
+            Refinement=refinement; Slot=slot; Quality=quality; Element=element; Enhancement=enhancement;
             RelicChapter=relicChapter; Id=relicChapter<0?slot+"_"+quality+"_"+element:"BossRelic_"+relicChapter;
             Name=element+" "+new[]{"Runeblade","Cuirass","Sigil"}[(int)slot]+(enhancement>0?" +"+enhancement:"");
             if(relicChapter>=0) Name=RelicNames[relicChapter]+(enhancement>0?" +"+enhancement:"");
-            int tier=(int)quality+1; double scale=(1+enhancement*.12)*(relicChapter>=0?1.1:1);
+            if(refinement>0) Name+=" · R"+refinement;
+            int tier=(int)quality+1; double scale=(1+enhancement*.12)*(relicChapter>=0?1.1:1)*(1+refinement*.08);
             Attack=slot==GearSlot.Weapon?(int)Math.Round(6*tier*scale):0; SkillDamage=slot==GearSlot.Weapon?(int)Math.Round(3*tier*scale):0;
             Health=slot==GearSlot.Armor?(int)Math.Round(20*tier*scale):0; Protection=slot==GearSlot.Armor?(int)Math.Round(2*tier*scale):0;
-            ElementBoost=slot==GearSlot.Accessory?(.06f*tier+enhancement*.01f)*(relicChapter>=0?1.1f:1):0;
+            ElementBoost=slot==GearSlot.Accessory?(.06f*tier+enhancement*.01f)*(relicChapter>=0?1.1f:1)*(1+refinement*.08f):0;
         }
         public int EnhanceCost { get { return Enhancement>=MaxEnhancement?0:(10+Enhancement*5)*((int)Quality+1); } }
         public GearDefinition Enhanced(int level) {
             if(level<0 || level>MaxEnhancement) throw new ArgumentOutOfRangeException("level");
             if(level==Enhancement) return this;
             if(enhanced==null) enhanced=new GearDefinition[MaxEnhancement+1];
-            return enhanced[level]??(enhanced[level]=new GearDefinition(Slot,Quality,Element,level,RelicChapter));
+            return enhanced[level]??(enhanced[level]=new GearDefinition(Slot,Quality,Element,level,RelicChapter,Refinement));
         }
+        public GearDefinition Refined(int rank) { if(rank<0 || rank>5 || rank>0 && RelicChapter<0) throw new ArgumentOutOfRangeException("rank"); if(rank==Refinement) return this; if(refined==null) refined=new GearDefinition[6]; return refined[rank]??(refined[rank]=new GearDefinition(Slot,Quality,Element,Enhancement,RelicChapter,rank)); }
         public string Description { get { return Quality+" "+Name+" · "+(Slot==GearSlot.Weapon?"Attack +"+Attack+", skill/ultimate damage +"+SkillDamage:Slot==GearSlot.Armor?"HP +"+Health+", protection "+Protection:Element+" damage +"+Math.Round(ElementBoost*100)+"%")+" · "+GearSets.Name(Element)+" set"; } }
-        static readonly string[] RelicNames={"Roadkeeper's Lantern","Matriarch's Mantle","Sovereign's Brand","Regent's Stormseal","Thorn Crown","Monarch's Veil","March Standard","Drowned King's Mail","Crimson Bell","Obsidian Heart","Pale Crown","Abyssal Signet","Hollow Chime","Saltbound Mantle","Widow's Fang","Fallen Lens","Sunless Hammer","Dawn Ember"};
+        static readonly string[] RelicNames={"Roadkeeper's Lantern","Matriarch's Mantle","Sovereign's Brand","Regent's Stormseal","Thorn Crown","Monarch's Veil","March Standard","Drowned King's Mail","Crimson Bell","Obsidian Heart","Pale Crown","Abyssal Signet","Hollow Chime","Saltbound Mantle","Widow's Fang","Fallen Lens","Sunless Hammer","Dawn Ember","Raven Seal","Cobalt Mail","Admiral's Fang","Sepulchre Brand","Dream Lens","Dawnfall Mantle"};
         static readonly IReadOnlyList<GearDefinition> catalog=Build();
         public static GearDefinition BossRelic(int chapter) { if(chapter<0 || chapter>=ChapterDefinition.Catalog.Count) throw new ArgumentOutOfRangeException("chapter"); return Find("BossRelic_"+chapter); }
         public static IReadOnlyList<GearDefinition> Catalog { get { return catalog; } }

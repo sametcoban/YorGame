@@ -4,6 +4,7 @@ namespace Ashlight {
     [Serializable]
     public sealed class PendingResultsData {
         public string lootId;
+        public bool objectiveMet;
         public int[] damage, healing;
     }
     public sealed class HeroBattleResult {

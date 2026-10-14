@@ -18,11 +18,20 @@ namespace Ashlight {
             return roll < parry ? DefenseOutcome.Parry : roll < parry+dodge ? DefenseOutcome.Dodge : DefenseOutcome.Miss;
         }
         public static int ChooseTarget(Battle battle) {
-            int target = -1, bestPriority = -1;
+            int target = -1; double bestPriority = double.MinValue;
             for (int i=0; i<battle.Enemies.Count; i++) {
                 var foe=battle.Enemies[i];
                 if(foe.Health==0) continue;
-                int priority=foe.Charged?3:foe.Shield>0?0:(foe.Definition.Role==EnemyRole.Healer || foe.Definition.Role==EnemyRole.Support || (foe.Definition.Row==EnemyRow.Back && (battle.Party[battle.ActiveIndex].Identity.Class==HeroClass.Rogue || battle.Party[battle.ActiveIndex].Identity.Class==HeroClass.Ranger)))?2:1;
+                double priority=foe.Charged?3:foe.Shield>0?0:(foe.Definition.Role==EnemyRole.Healer || foe.Definition.Role==EnemyRole.Support || (foe.Definition.Row==EnemyRow.Back && (battle.Party[battle.ActiveIndex].Identity.Class==HeroClass.Rogue || battle.Party[battle.ActiveIndex].Identity.Class==HeroClass.Ranger)))?2:1;
+                bool interrupt=false,dispel=false; var hero=battle.Party[battle.ActiveIndex];
+                for(int slot=0;slot<2;slot++) if(hero.SkillCharges(slot)>0) { var utility=hero.Skill(slot).Utility; interrupt|=(utility&SkillUtility.Interrupt)!=0 && battle.CanInterrupt(i); dispel|=(utility&SkillUtility.Dispel)!=0; }
+                priority*=100;
+                if(foe.Charged) priority+=interrupt?120:30;
+                if(foe.Shield>0 && dispel) priority+=170;
+                if(battle.EnemyProtected(i) && hero.Identity.Class!=HeroClass.Rogue) priority-=70;
+                if(foe.Definition.Role==EnemyRole.Healer && interrupt) priority+=35;
+                priority+=foe.Definition.Multiplier(hero.Identity.Affinity)*.1;
+                priority+=System.Math.Min(35,10000.0/(foe.Health+1));
                 if(target<0 || priority>bestPriority || (priority==bestPriority && foe.Health<battle.Enemies[target].Health)) {
                     target=i; bestPriority=priority;
                 }
@@ -69,6 +78,7 @@ namespace Ashlight {
                     foreach(var ally in battle.Party) if(ally!=hero && ally.Health>0 && ally.Health<ally.Definition.MaxHealth*.35f) wounded=true;
                     score+=hero.Health<hero.Definition.MaxHealth*.6f?-25:threats>1 && !wounded?-25:wounded?12:3;
                 }
+                if(battle.WaveIndex<battle.WaveCount-1 && foe.Health+foe.Shield<=best && skill.Healing==0 && skill.Guard==0 && skill.Utility==SkillUtility.None) score=best-1;
                 if (score>best) { best=score; choice=slot; }
             }
             return choice;
