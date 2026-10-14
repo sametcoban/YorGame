@@ -443,12 +443,13 @@ namespace Ashlight {
                 var visual = actor.GetComponent<HeroVisual>();
                 presentation.Warning(skill.Action!=EnemyAction.Interrupted,skill.Element);
                 if(bossCue!=null && skill.Action!=EnemyAction.Interrupted) effects.BossWarning(actor.position,bossCue,BossCue.WarningSeconds);
-                if (visual != null) visual.Play(skill.Action==EnemyAction.Interrupted?"Hit":"Windup");
+                float warningDuration=skill.Action==EnemyAction.Interrupted?.25f:bossCue!=null?BossCue.WarningSeconds:autoPlay && (art==null || !art.IsBoss)?.65f:1.2f;
+                if (visual != null) visual.PlayAction(skill.Action==EnemyAction.Interrupted?"Hit":"Windup",warningDuration);
                 if (skill.Action!=EnemyAction.Interrupted && art != null && art.SourceModel == "AshHound") sounds.Play("HoundGrowl",.7f);
                 else if (skill.Action!=EnemyAction.Interrupted && art != null && art.IsRanged) sounds.Play("Charge",.6f);
                 message = skill.Action!=EnemyAction.Attack ? actor.name+" prepares "+skill.Name+"." : actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + AttackTargetLabel(skill) + ".";
                 if(bossCue!=null) message=bossCue.Heading+" · "+AttackTargetLabel(skill)+"\n"+bossCue.Counter;
-                yield return new WaitForSeconds(skill.Action==EnemyAction.Interrupted?.25f:bossCue!=null?BossCue.WarningSeconds:autoPlay && (art==null || !art.IsBoss)?.65f:1.2f);
+                yield return new WaitForSeconds(warningDuration);
                 if (!battle.BeginStrike()) break;
                 if(skill.Action!=EnemyAction.Attack) {
                     if(visual!=null && skill.Action!=EnemyAction.Interrupted) visual.Play("Cast");
@@ -479,7 +480,7 @@ namespace Ashlight {
                 }
                 strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " uses " + skill.Name + " on " + AttackTargetLabel(skill) + "!";
                 presentation.Warning(true,skill.Element);
-                if (visual != null) visual.Play(bossCue!=null && bossCue.Casting?"Cast":"Attack");
+                if (visual != null) visual.PlayAction(bossCue!=null && bossCue.Casting?"Cast":"Attack",.85f);
                 if (skill.Element != Element.Physical || skill.PartyWide) effects.Ring(actor.position,skill.Element);
                 var defenses = new DefenseOutcome[battle.Party.Count];
                 for(int i=0;i<defenses.Length;i++) defenses[i] = battle.Party[i].Health>0 && (skill.PartyWide || i==battle.ActiveIndex) ? AutoBattlePlanner.RollDefense(battle.Party[i].Identity.Class,combatRandom.NextDouble()) : DefenseOutcome.Miss;
@@ -610,7 +611,7 @@ namespace Ashlight {
             actionMotion = CombatMotion.WithAutoRecovery(profile.Motion(members[actingIndex].Identity.Class),autoPlay);
             presentingAction = true; actionTarget = target;
             attacker = allies[actingIndex]; attackTime = Time.time;
-            var visual = attacker.GetComponent<HeroVisual>(); if (visual != null) visual.Play(casting ? "Cast" : "Attack");
+            var visual = attacker.GetComponent<HeroVisual>(); if (visual != null) visual.PlayAction(casting ? "Cast" : "Attack",actionMotion.Duration);
             actionPresentation = StartCoroutine(PresentAction(actingIndex,target,casting,healing,name,profile));
         }
         IEnumerator PresentAction(int actingIndex, int target, bool casting, int[] healing, string name, SkillPresentation profile) {
@@ -659,7 +660,7 @@ namespace Ashlight {
                 var ultimateMotion=ultimateProfile.Motion(kind); float ultimateAt=Time.time;
                 effects.UltimateCharge(actor.position,ultimate.Affinity,ultimateMotion.Impact);
                 actionMotion=ultimateMotion; attackTime=ultimateAt; actionTarget=battle.UltimateTarget;
-                var actorVisual=actor.GetComponent<HeroVisual>(); if(actorVisual!=null) actorVisual.Play(ultimateCast?"Cast":"Attack");
+                var actorVisual=actor.GetComponent<HeroVisual>(); if(actorVisual!=null) actorVisual.PlayAction(ultimateCast?"Cast":"Attack",ultimateMotion.Duration);
                 effects.SkillWindup(ultimateProfile,actor.position,ultimate.Affinity,ultimateMotion.Impact);
                 while(Time.time<ultimateAt+ultimateMotion.Impact-.10f) yield return null;
                 for(int i=0;i<battle.Enemies.Count;i++) if(battle.LastUltimateDamage[i]>0)

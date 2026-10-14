@@ -57,20 +57,23 @@ namespace Ashlight {
             stageCamera=camera;
             Frame(camera); camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = Tint(theme.Sky);
             camera.allowHDR = false; camera.allowMSAA = true;
-            // One shadow-casting sun plus two small, shadowless torch lights.
+            // One shadow-casting key; vertex fill/rim lights add separation without extra pixel-light slots.
             QualitySettings.pixelLightCount = 3; QualitySettings.shadowDistance = 18;
             QualitySettings.shadows = ShadowQuality.All; QualitySettings.shadowResolution = ShadowResolution.Medium;
             QualitySettings.antiAliasing = 2;
             RenderSettings.ambientMode = AmbientMode.Trilight;
             RenderSettings.ambientSkyColor = Color.Lerp(Tint(theme.Moon),Color.black,.64f);
-            RenderSettings.ambientEquatorColor = new Color(.10f,.12f,.16f);
-            RenderSettings.ambientGroundColor = new Color(.035f,.04f,.05f);
+            RenderSettings.ambientEquatorColor = new Color(.13f,.145f,.18f);
+            RenderSettings.ambientGroundColor = new Color(.045f,.05f,.065f);
             RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Exponential;
             RenderSettings.fogColor = camera.backgroundColor; RenderSettings.fogDensity = theme.Fog;
             var sun = new GameObject("Cold moonlight").AddComponent<Light>(); sun.transform.SetParent(transform, false);
+            sun.cullingMask=~(1<<31); sun.renderMode=LightRenderMode.ForcePixel;
             sun.type = LightType.Directional; sun.color = Tint(theme.Moon); sun.intensity = 1.05f;
             sun.shadows = LightShadows.Soft; sun.shadowStrength = .7f; sun.shadowBias = .045f;
             sun.transform.localRotation = Quaternion.Euler(40,-28,0);
+            CharacterLight("Warm character fill",new Vector3(-1,3.8f,-3.8f),new Color(1,.82f,.68f),.65f,12);
+            CharacterLight("Moonlit character rim",new Vector3(0,4.4f,4.2f),Color.Lerp(Tint(theme.Moon),Color.white,.25f),1.6f,13);
             Stone(new Vector3(0,-.20f,0),new Vector3(14,.25f,11));
             // Deterministic flagstones: no random state shared with summon rolls.
             var random = new System.Random(2401+chapter*71);
@@ -122,6 +125,11 @@ namespace Ashlight {
                 if (batch.Key == "Ember") obj.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
             batches.Clear();
+        }
+        void CharacterLight(string name,Vector3 position,Color color,float intensity,float range) {
+            var light=new GameObject(name).AddComponent<Light>(); light.transform.SetParent(transform,false);
+            light.transform.localPosition=position; light.type=LightType.Point; light.color=color; light.intensity=intensity; light.range=range;
+            light.shadows=LightShadows.None; light.renderMode=LightRenderMode.ForceVertex; light.cullingMask=~(1<<31);
         }
         void ChapterMonument() {
             // A distinct constellation of ruins for each chapter, outside combat lanes.

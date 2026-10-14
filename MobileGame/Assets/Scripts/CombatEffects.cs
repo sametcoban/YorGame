@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ashlight {
     // Reuses up to 48 simple effect objects. No downloaded art or particle dependencies.
     public sealed class CombatEffects : MonoBehaviour {
-        enum Mode { Spark, Ring, GroundRing, Beam, Text, Slash, Charge, Projectile, Sigil, Shield, Cleave, Arrow, Meteor, Crest }
+        enum Mode { Spark, Ring, GroundRing, Beam, Text, Slash, Charge, Projectile, Sigil, Shield, Cleave, Arrow, Meteor, Crest, Trail, Shard, Lightning }
         sealed class Effect {
             public GameObject Root;
             public Renderer Mesh;
@@ -19,16 +19,18 @@ namespace Ashlight {
         readonly Dictionary<Element, Material> materials = new Dictionary<Element, Material>();
         readonly LineRenderer[] targetMarkers=new LineRenderer[Battle.MaxPartySize];
         Material targetMaterial;
+        MaterialPropertyBlock meshTint;
         Camera view;
         Font font;
         Vector3 cameraOffset;
         float shakeLeft, focusLeft, focusDuration, focusStrength, restingFov;
         const int Limit = 48;
         public void Initialize(Camera camera) {
-            view = camera; restingFov=camera.fieldOfView;
+            view = camera; restingFov=camera.fieldOfView; meshTint=new MaterialPropertyBlock();
             font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             var template = Resources.Load<Material>("CombatEffects");
-            var shader = template != null ? template.shader : Shader.Find("Unlit/Color");
+            var shader = Resources.Load<Shader>("CombatGlow");
+            if(shader==null || !shader.isSupported) shader=template != null ? template.shader : Shader.Find("Unlit/Color");
             if (shader == null) { Debug.LogError("Combat effect shader is missing. Run Ashlight > Prepare Mobile Project before building."); enabled = false; return; }
             foreach (Element element in System.Enum.GetValues(typeof(Element))) {
                 var material = new Material(shader); material.color = Tint(element); materials.Add(element, material);
@@ -56,9 +58,11 @@ namespace Ashlight {
         }
         Effect Get(Mode mode, Vector3 position, Element element, float duration, float size) {
             if (!enabled || !materials.ContainsKey(element)) return null;
-            if(AccessibilityOptions.ReducedEffects && (mode==Mode.Spark || mode==Mode.Slash || mode==Mode.Crest || mode==Mode.Meteor)) return null;
-            Effect effect = null;
-            foreach (var item in pool) if (!item.Root.activeSelf) { effect = item; break; }
+            if(AccessibilityOptions.ReducedEffects && (mode==Mode.Spark || mode==Mode.Slash || mode==Mode.Crest || mode==Mode.Meteor || mode==Mode.Trail || mode==Mode.Shard || mode==Mode.Lightning)) return null;
+            Effect effect = null; int active=0;
+            foreach (var item in pool) { if(item.Root.activeSelf) active++; else if(effect==null) effect=item; }
+            // Reserve room for five-target damage and healing numbers before decorative effects.
+            if(mode!=Mode.Text && active>=Limit-12) return null;
             if(effect==null && pool.Count>=Limit) {
                 if(mode!=Mode.Text) return null;
                 // Keep damage/healing readable when several area effects fill the pool.
@@ -88,11 +92,14 @@ namespace Ashlight {
             effect.Kind = mode; effect.Element = element; effect.Start = position; effect.Age = 0; effect.Duration = duration; effect.Size = size; effect.Velocity = Vector3.zero; effect.Destination=Vector3.zero;
             effect.Mesh.gameObject.SetActive(mode == Mode.Spark || mode == Mode.Projectile || mode == Mode.Arrow || mode == Mode.Meteor);
             effect.Text.gameObject.SetActive(mode == Mode.Text);
-            effect.Line.enabled = mode == Mode.Crest || mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam || mode == Mode.Slash || mode == Mode.Charge || mode == Mode.Sigil || mode == Mode.Shield || mode == Mode.Cleave;
+            effect.Line.enabled = mode == Mode.Trail || mode == Mode.Shard || mode == Mode.Lightning || mode == Mode.Crest || mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Beam || mode == Mode.Slash || mode == Mode.Charge || mode == Mode.Sigil || mode == Mode.Shield || mode == Mode.Cleave;
             effect.Mesh.sharedMaterial = materials[element]; effect.Line.sharedMaterial = materials[element]; effect.Text.color = Tint(element);
-            effect.Line.loop = mode == Mode.Crest || mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Sigil;
-            effect.Line.startWidth = effect.Line.endWidth = size;
-            effect.Line.positionCount = (mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Slash || mode == Mode.Shield || mode == Mode.Cleave) ? 24 : mode == Mode.Sigil ? 10 : 2;
+            effect.Line.loop = mode == Mode.Shard || mode == Mode.Crest || mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Sigil;
+            effect.Line.startWidth = size; effect.Line.endWidth = mode==Mode.Trail?size*.15f:size;
+            effect.Line.startColor=effect.Line.endColor=Color.white;
+            meshTint.SetFloat("_UseVertexColor",0); meshTint.SetColor("_Color",Tint(element)); effect.Mesh.SetPropertyBlock(meshTint);
+            effect.Line.positionCount = mode==Mode.Trail?12:mode==Mode.Shard?4:mode==Mode.Lightning?7:(mode == Mode.Ring || mode == Mode.GroundRing || mode == Mode.Charge || mode == Mode.Slash || mode == Mode.Shield || mode == Mode.Cleave) ? 24 : mode == Mode.Sigil ? 10 : 2;
+            if(effect.Line.enabled) for(int i=0;i<effect.Line.positionCount;i++) effect.Line.SetPosition(i,Vector3.zero);
             if (mode == Mode.Spark || mode == Mode.Projectile || mode == Mode.Arrow || mode == Mode.Meteor) effect.Mesh.transform.localScale = Vector3.one * size;
             return effect;
         }
@@ -182,7 +189,7 @@ namespace Ashlight {
             shakeLeft = Mathf.Max(shakeLeft,area?.20f:.24f);
         }
         public void SkillWindup(SkillPresentation profile,Vector3 actor,Element element,float duration) {
-            if(profile.Casting) Get(Mode.Charge,actor,element,duration,.065f);
+            if(profile.Casting) { Get(Mode.Charge,actor+Vector3.up*.7f,element,duration,.065f); if(!AccessibilityOptions.ReducedEffects) Get(Mode.GroundRing,new Vector3(actor.x,.065f,actor.z),element,duration,.045f); }
             if(profile.Style==SkillEffectStyle.Heal || profile.Style==SkillEffectStyle.HolyStrike)
                 Get(Mode.Sigil,new Vector3(actor.x,.06f,actor.z),Element.Light,duration,.05f);
             if(profile.Style==SkillEffectStyle.Barrier) Get(Mode.Shield,actor,element,duration,.08f);
@@ -207,6 +214,7 @@ namespace Ashlight {
         }
         public void SkillImpact(SkillEffectStyle style,Vector3 from,Vector3 to,Element element,bool ultimate=false) {
             float size=ultimate?.14f:.08f;
+            ElementAccent(to+Vector3.up*.65f,element,ultimate?1.25f:1);
             switch(style) {
                 case SkillEffectStyle.Cleave: Get(Mode.Cleave,to,element,.4f,size); break;
                 case SkillEffectStyle.HeavyStrike: case SkillEffectStyle.ShieldBash:
@@ -226,9 +234,17 @@ namespace Ashlight {
                     for(int i=0;i<3;i++) Spark(to,element,new Vector3(i-1,.45f,0),.24f,.65f); break;
             }
         }
+        void ElementAccent(Vector3 position,Element element,float scale) {
+            if(AccessibilityOptions.ReducedEffects) return;
+            if(element==Element.Cold) for(int i=0;i<3;i++) { var shard=Get(Mode.Shard,position+Vector3.right*(i-1)*.2f,element,.45f,.28f*scale); if(shard!=null) shard.Destination=new Vector3(0,0,(i-1)*24); }
+            else if(element==Element.Lightning) { var bolt=Get(Mode.Lightning,position+Vector3.down*.55f,element,.28f,.2f*scale); if(bolt!=null) bolt.Destination=Vector3.up*1.3f; }
+            else if(element==Element.Fire) for(int i=0;i<3;i++) Spark(position+Vector3.right*(i-1)*.1f,element,new Vector3((i-1)*.35f,1.5f,0),.12f*scale,.4f);
+            else if(element==Element.Poison) Get(Mode.GroundRing,new Vector3(position.x,.07f,position.z),element,.8f,.08f*scale);
+            else if(element==Element.Light) Get(Mode.Sigil,new Vector3(position.x,.075f,position.z),element,.5f,.055f*scale);
+        }
         public void WeaponTrail(Vector3 from,Vector3 to,Element element,HeroClass kind) {
             int count=kind==HeroClass.Rogue?2:1;
-            for(int i=0;i<count;i++) { var trail=Get(Mode.Beam,from+Vector3.up*(.6f+i*.15f),element,.14f,kind==HeroClass.Knight || kind==HeroClass.Paladin?.045f:.025f); if(trail!=null) { trail.Line.SetPosition(0,Vector3.zero); trail.Line.SetPosition(1,(to-from)*.75f); } }
+            for(int i=0;i<count;i++) { var trail=Get(Mode.Trail,from+Vector3.up*(.7f+i*.15f),element,.22f,kind==HeroClass.Knight || kind==HeroClass.Paladin?.085f:.05f); if(trail!=null) trail.Destination=(to-from)*.8f; }
         }
         public void BossWarning(Vector3 position,BossCue cue,float duration) {
             var ground=new Vector3(position.x,.06f,position.z);
@@ -283,6 +299,23 @@ namespace Ashlight {
                 float progress = effect.Age / effect.Duration;
                 if (progress >= 1) { effect.Root.SetActive(false); continue; }
                 effect.Root.transform.position = effect.Start + effect.Velocity * effect.Age;
+                float alpha=1-Mathf.SmoothStep(0,1,progress);
+                if(effect.Line.enabled) { effect.Line.startColor=new Color(1,1,1,alpha); effect.Line.endColor=new Color(1,1,1,alpha*(effect.Line.loop?1:.7f)); }
+                if(effect.Mesh.gameObject.activeSelf) { var tint=Tint(effect.Element); tint.a=alpha; meshTint.SetFloat("_UseVertexColor",0); meshTint.SetColor("_Color",tint); effect.Mesh.SetPropertyBlock(meshTint); }
+                if(effect.Kind==Mode.Trail) {
+                    for(int i=0;i<12;i++) { float t=Mathf.Lerp(Mathf.Max(0,progress-.5f),progress,i/11f); effect.Line.SetPosition(i,effect.Destination*t+Vector3.up*Mathf.Sin(t*Mathf.PI)*.35f); }
+                    effect.Line.startWidth=effect.Size*(1-progress); effect.Line.endWidth=effect.Line.startWidth*.12f;
+                }
+                if(effect.Kind==Mode.Shard) {
+                    effect.Root.transform.rotation=view.transform.rotation*Quaternion.Euler(0,0,effect.Destination.z);
+                    float height=effect.Size*(1+progress*.5f);
+                    effect.Line.SetPosition(0,Vector3.up*height); effect.Line.SetPosition(1,Vector3.right*height*.3f); effect.Line.SetPosition(2,Vector3.down*height); effect.Line.SetPosition(3,Vector3.left*height*.3f);
+                    effect.Line.startWidth=effect.Line.endWidth=.035f*(1-progress);
+                }
+                if(effect.Kind==Mode.Lightning) {
+                    for(int i=0;i<7;i++) { float t=i/6f; float jitter=i==0 || i==6?0:Mathf.Sin(i*13+effect.Age*55)*effect.Size; effect.Line.SetPosition(i,effect.Destination*t+Vector3.right*jitter); }
+                    effect.Line.startWidth=effect.Line.endWidth=.065f*(1-progress);
+                }
                 if (effect.Kind == Mode.Spark) effect.Mesh.transform.localScale = (effect.Element == Element.Cold ? new Vector3(.5f,1.8f,.5f) : Vector3.one) * effect.Size * (1-progress);
                 if(effect.Kind==Mode.Arrow || effect.Kind==Mode.Meteor) {
                     effect.Root.transform.position=Vector3.Lerp(effect.Start,effect.Destination,progress);
