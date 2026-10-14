@@ -6,3 +6,7 @@
 /UserSettings/
 *.csproj
 *.sln
+
+# Android upload/signing keys must stay private.
+*.keystore
+*.jks

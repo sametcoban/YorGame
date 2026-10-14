@@ -923,3 +923,7 @@ Copy the entire **`Assets/Scripts` and `Assets/Editor` folders**, plus **`Assets
 - Effects keep the 48-object cap and 12-object prewarm. Decorative requests stop at 36 active objects, leaving room for damage/healing text; existing numbers are not replaced by decoration. Reused line geometry is cleared before drawing another effect. Reduced Effects suppresses new trails, ice shards and lightning decorations while preserving damage text, targeting and warnings. Still camera behavior is retained.
 
 Cloud validation: 86,638 existing pure regression assertions passed. A temporary API-stub harness compiled the real animation wrapper and exercised action/windup holds, missing-state handling, controller caching, contact-pause recovery and defeat/revival. A full-source syntax scan found no syntax errors but cannot provide a native Unity compile. **Shader compilation, rendered animation blending, lighting appearance, phone layout and device frame time remain pending.**
+
+## Google Play release build
+
+**Ashlight → Android → Build Google Play Bundle** builds a signed, non-development ARM64/IL2CPP `Builds/Android/Ashlight.aab`, using a privately configured upload keystore. The existing **Build Test APK** remains a development APK option. Building is separate from Play Console upload/publication. See [Google Play release preparation](Validation/GooglePlayRelease.md) for Windows build, signing, internal testing and listing steps. No AAB or store release has been generated in the cloud; Unity and account-owned Play Console work remain required.
