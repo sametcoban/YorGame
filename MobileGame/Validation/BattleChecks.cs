@@ -416,6 +416,15 @@ class BattleChecks {
   }
  }
  static void Main() {
+  for(int stage=4;stage<ChapterDefinition.TotalStages;stage+=5) foreach(var bossFoe in ChapterDefinition.EnemiesAt(stage)) for(int move=0;move<3;move++) {
+   var bossMove=EnemySkills.ForRole(stage,bossFoe,move); var bossCueCheck=BossCue.For(stage,bossFoe,bossMove);
+   Check(bossCueCheck!=null && bossCueCheck.Heading.Contains(bossFoe.Name) && bossCueCheck.Heading.Contains(bossMove.Name) && bossCueCheck.Counter.Length>10 && bossCueCheck.Element==bossMove.Element);
+   if(stage>=60) Check((int)bossCueCheck.Style==stage/5-12);
+   if(bossMove.Action==EnemyAction.HealPartner) Check(bossCueCheck.Counter.Contains("healer"));
+   if(bossMove.Action==EnemyAction.Shield) Check(bossCueCheck.Counter.Contains("Dispel"));
+   if(bossMove.PartyWide) Check(bossCueCheck.Casting && bossCueCheck.Heading.Contains("PARTY ATTACK"));
+  }
+  Check(BossCue.For(0,ChapterDefinition.EnemyAt(0),EnemySkills.For(0,false,0))==null);
   JourneyChecks();
   SeasonalChecks();
   BetaPreparationChecks();

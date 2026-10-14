@@ -222,6 +222,33 @@ namespace Ashlight {
                     for(int i=0;i<3;i++) Spark(to,element,new Vector3(i-1,.45f,0),.24f,.65f); break;
             }
         }
+        public void BossWarning(Vector3 position,BossCue cue,float duration) {
+            var ground=new Vector3(position.x,.06f,position.z);
+            Get(Mode.GroundRing,ground,cue.Element,duration,.075f);
+            if(cue.Style==BossEffectStyle.Bell || cue.Style==BossEffectStyle.Eclipse) Get(Mode.Sigil,ground,cue.Element,duration,.07f);
+            else if(cue.Style==BossEffectStyle.Forge) Get(Mode.Shield,position+Vector3.up*.5f,cue.Element,duration,.075f);
+            else if(cue.Style==BossEffectStyle.Stars) Get(Mode.Charge,position+Vector3.up*.8f,cue.Element,duration,.08f);
+            else for(int i=0;i<3;i++) Get(Mode.Ring,position+Vector3.up*(i*.25f),cue.Element,duration,.04f+i*.015f);
+        }
+        public void BossSupport(Vector3 actor,Vector3 recipient,BossCue cue,bool healing) {
+            var beam=Get(Mode.Beam,actor+Vector3.up*.6f,healing?Element.Light:cue.Element,.45f,.045f);
+            if(beam!=null) { beam.Line.SetPosition(0,Vector3.zero); beam.Line.SetPosition(1,recipient-actor); }
+            Get(healing?Mode.Sigil:Mode.Shield,recipient,healing?Element.Light:cue.Element,.7f,.10f);
+            Get(Mode.GroundRing,new Vector3(recipient.x,.06f,recipient.z),cue.Element,.7f,.09f);
+        }
+        public void BossSignatureImpact(Vector3 position,BossCue cue,bool area) {
+            var ground=new Vector3(position.x,.065f,position.z);
+            switch(cue.Style) {
+                case BossEffectStyle.Bell: for(int i=0;i<3;i++) Get(Mode.Ring,position+Vector3.up*(i*.25f),cue.Element,.45f+i*.12f,.06f+i*.02f); break;
+                case BossEffectStyle.Tide: for(int i=0;i<3;i++) Get(Mode.GroundRing,ground+Vector3.up*(i*.012f),cue.Element,.55f+i*.13f,.07f+i*.035f); break;
+                case BossEffectStyle.Thorns: for(int i=0;i<5;i++) { float angle=i*Mathf.PI*2/5; Spark(ground,cue.Element,new Vector3(Mathf.Cos(angle)*.65f,1.8f,Mathf.Sin(angle)*.65f),.09f,.5f); } break;
+                case BossEffectStyle.Stars: var meteor=Get(Mode.Meteor,position+Vector3.up*2,cue.Element,.4f,.08f); if(meteor!=null) meteor.Destination=position; Get(Mode.Sigil,ground,cue.Element,.6f,.10f); break;
+                case BossEffectStyle.Forge: Get(Mode.Cleave,position,cue.Element,.35f,.13f); Get(Mode.GroundRing,ground,cue.Element,.6f,.12f); break;
+                default: Get(Mode.Charge,position+Vector3.up*.5f,cue.Element,.6f,.09f); Get(Mode.Sigil,ground,cue.Element,.65f,.11f); break;
+            }
+            // Area effects are local to affected heroes; one bounded camera shake per volley.
+            shakeLeft=Mathf.Max(shakeLeft,area?.14f:.18f);
+        }
         public void BossImpact(Vector3 position, Element element) {
             var ground = new Vector3(position.x,.055f,position.z);
             Get(Mode.GroundRing,ground,element,.6f,.09f);

@@ -435,14 +435,17 @@ namespace Ashlight {
                 var skill = battle.IncomingSkill;
                 var actor = foes[foeIndex];
                 var art = EnemyVisualDefinition.For(battle.Enemies[foeIndex].Definition.Name);
+                var bossCue=BossCue.For(battle.EnemyEncounter,battle.Enemies[foeIndex].Definition,skill);
                 var presentation = actor.GetComponent<EnemyPresentation>();
                 var visual = actor.GetComponent<HeroVisual>();
-                presentation.Warning(skill.Action!=EnemyAction.Interrupted);
+                presentation.Warning(skill.Action!=EnemyAction.Interrupted,skill.Element);
+                if(bossCue!=null && skill.Action!=EnemyAction.Interrupted) effects.BossWarning(actor.position,bossCue,BossCue.WarningSeconds);
                 if (visual != null) visual.Play(skill.Action==EnemyAction.Interrupted?"Hit":"Windup");
                 if (skill.Action!=EnemyAction.Interrupted && art != null && art.SourceModel == "AshHound") sounds.Play("HoundGrowl",.7f);
                 else if (skill.Action!=EnemyAction.Interrupted && art != null && art.IsRanged) sounds.Play("Charge",.6f);
                 message = skill.Action!=EnemyAction.Attack ? actor.name+" prepares "+skill.Name+"." : actor.name + " prepares " + skill.Name + " (" + skill.Element + ", " + skill.Damage + " damage" + (skill.Status == Debuff.None ? "" : ", " + skill.Status) + ") on " + AttackTargetLabel(skill) + ".";
-                yield return new WaitForSeconds(skill.Action==EnemyAction.Interrupted?.25f:autoPlay && (art==null || !art.IsBoss)?.65f:1.2f);
+                if(bossCue!=null) message=bossCue.Heading+" · "+AttackTargetLabel(skill)+"\n"+bossCue.Counter;
+                yield return new WaitForSeconds(skill.Action==EnemyAction.Interrupted?.25f:bossCue!=null?BossCue.WarningSeconds:autoPlay && (art==null || !art.IsBoss)?.65f:1.2f);
                 if (!battle.BeginStrike()) break;
                 if(skill.Action!=EnemyAction.Attack) {
                     if(visual!=null && skill.Action!=EnemyAction.Interrupted) visual.Play("Cast");
@@ -456,10 +459,14 @@ namespace Ashlight {
                         effects.Floating(actor.position,"CHARGING · DEAL 60 DAMAGE",Element.Fire);
                         message="Interrupt Cinder Sovereign: deal 60 damage before his next attack!";
                     } else if(skill.Action==EnemyAction.HealPartner) {
-                        effects.Heal(foes[recipient].position,battle.LastEnemyHealing); sounds.Play("Heal");
+                        effects.Heal(foes[recipient].position,battle.LastEnemyHealing);
+                        if(bossCue!=null) effects.BossSupport(actor.position,foes[recipient].position,bossCue,true);
+                        sounds.Play("Heal");
                         message=battle.Enemies[foeIndex].Definition.Name+" restores "+battle.LastEnemyHealing+" HP to "+battle.Enemies[recipient].Definition.Name+".";
                     } else {
-                        effects.Guard(foes[recipient].position); sounds.Play("Guard");
+                        effects.Guard(foes[recipient].position);
+                        if(bossCue!=null) effects.BossSupport(actor.position,foes[recipient].position,bossCue,false);
+                        sounds.Play("Guard");
                         effects.Floating(foes[recipient].position,"SHIELD "+battle.Enemies[recipient].Shield,Element.Light);
                         message=skill.Name+" protects "+battle.Enemies[recipient].Definition.Name+".";
                     }
@@ -468,8 +475,8 @@ namespace Ashlight {
                     continue;
                 }
                 strikeTime = Time.time; foeAttackAt[foeIndex] = Time.time; foeAttackTarget[foeIndex] = homes[battle.ActiveIndex]+Vector3.right*.85f; message = "FLASH! " + actor.name + " uses " + skill.Name + " on " + AttackTargetLabel(skill) + "!";
-                presentation.Warning(true);
-                if (visual != null) visual.Play("Attack");
+                presentation.Warning(true,skill.Element);
+                if (visual != null) visual.Play(bossCue!=null && bossCue.Casting?"Cast":"Attack");
                 if (skill.Element != Element.Physical || skill.PartyWide) effects.Ring(actor.position,skill.Element);
                 var defenses = new DefenseOutcome[battle.Party.Count];
                 for(int i=0;i<defenses.Length;i++) defenses[i] = battle.Party[i].Health>0 && (skill.PartyWide || i==battle.ActiveIndex) ? AutoBattlePlanner.RollDefense(battle.Party[i].Identity.Class,combatRandom.NextDouble()) : DefenseOutcome.Miss;
@@ -505,7 +512,10 @@ namespace Ashlight {
                     } else if(battle.Enemies[foeIndex].Health>0 && (skill.PartyWide || i==target) && !strikeDefended[i] && battle.Party[i].Health>0) { effects.Floating(allies[i].position,"BLOCKED",Element.Light); sounds.Play("Guard"); }
                     if(battle.LastStatusDamage[i]>0) effects.Floating(allies[i].position,"DEBUFF −"+battle.LastStatusDamage[i],skill.Element);
                 }
-                if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { effects.BossImpact(allies[target].position,skill.Element); sounds.PlayBoss(skill.Element,.75f); }
+                if (art != null && art.IsBoss && battle.Enemies[foeIndex].Health > 0) { if(bossCue!=null) {
+                        for(int i=0;i<battle.Party.Count;i++) if(battle.LastIncomingDamage[i]>0) effects.BossSignatureImpact(allies[i].position,bossCue,skill.PartyWide);
+                    } else effects.BossImpact(allies[target].position,skill.Element);
+                    sounds.PlayBoss(skill.Element,.75f); }
                 PresentPassiveHealing();
                 presentation.Warning(false);
                 if (battle.Current == Phase.Player) message = defended ? "Defense succeeded. Your turn." : "Hit! Your turn.";
