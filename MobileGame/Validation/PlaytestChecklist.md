@@ -109,3 +109,16 @@ Safari is an initial iPhone browser test. It does not validate a native iOS app;
 - Complete and miss each stage-3 objective; both victories advance campaign. Reload pending victory for both cases: only the actual completed objective pays once, including rear-target-first tracking.
 - Inspect role crests on male/female rigs, melee trails, debuff colors, all six audio themes, mute, app pause/resume and a single AudioListener. Music should remain quieter than action cues.
 - Phone/browser layout, animation playback and performance remain pending until the user can playtest.
+
+## Beta prep 6: company tools and accessibility (pending Unity/device execution)
+
+- Import all Scripts/Editor files into the existing project. Confirm compilation without adding Particle System or an AudioListener.
+- Load a version-22 account: original presets occupy Campaign slots; Tower/Challenge slots start empty. Test nine independent names/order lists, invalid names, save/reload, early party caps and five-slot Tower teams. Modes require explicit Load; no automatic team switching.
+- Compare two owned heroes; scroll each column independently. Check equipment, own/shared/mastery stats, utilities and faction/named passive text. Preview upgrades and compare actual stat changes after a purchase made outside practice.
+- Train against an early and a late reached boss. Swap heroes/front/back and two skills before attacking; verify campaign formation and skills return unchanged afterward. Test victory, defeat, early exit and application pause. No resources, quests, bonds, rewards or campaign progress should change. Test training after all 24 chapters are completed.
+- Check all six daily practice modifiers with a controlled UTC clock. Weekly rewards and relic raid quotas must remain independent. Confirm standard training has no modifier.
+- Compare support reports against observable health loss, ward increases/absorption, status removal and successful interrupts. Inspect victory, defeat and challenges. Save a pending victory, restart and verify support counters; legacy pending victories show zero new counters.
+- Toggle large text repeatedly; ensure sizes do not compound, scroll readers remain legible and bottom buttons fit at phone aspect ratios. Check preset rename fields and all dynamically refreshed combat labels. The cloud cannot verify clipping or touch targets.
+- Toggle reduced effects and still camera mid-session. Damage/target/warning text remains; debris, atmospheric motes, warning/torch pulses, shake, zoom and entrance movement follow the appropriate setting. Restart and verify settings persist without affecting account saves.
+- View paired-boss entrances in final waves and chapter monuments from both phone orientations. Verify entrance text disappears, does not hide the next wave banner, and cannot delay or desynchronise attacks. Check animation origins for all 148 enemy variants.
+- Inspect first multi-target attack and steady combat performance with the warmed 12-object/48-cap effect pool. No allocation/performance claim is established until profiling on target hardware.

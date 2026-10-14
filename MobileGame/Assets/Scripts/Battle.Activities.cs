@@ -44,7 +44,7 @@ namespace Ashlight {
             string gear="GEAR · All equipped types are +10. Compare stronger loot in Equipment.";
             for(int slot=0;slot<3;slot++) { var item=hero.EquipmentStats((GearSlot)slot); if(item==null) { gear="GEAR · Empty "+(GearSlot)slot+" slot. Equip owned loot, or earn gear from victories."; break; } if(item.Enhancement<10) { gear="FORGE · "+item.Name+" → +"+(item.Enhancement+1)+" costs "+item.EnhanceCost+" materials (you have "+ForgeMaterials+"). Earn materials from victories and Idle Rewards."; break; } }
             level+="\nMASTERY · "+hero.MasteryRank+"/5 · Own Lv 20 and chapter 13 unlock +2 combat levels per upgrade. Next cost: "+MasteryCost(id)+" materials.";
-            return level+"\n\n"+ascension+"\n\n"+talents+"\n\n"+gear;
+            return UpgradeBenefits(id)+"\n\n"+level+"\n\n"+ascension+"\n\n"+talents+"\n\n"+gear;
         }
         public const int DailyBossRoundLimit=8, DailyBossCrystals=35, DailyBossMaterials=30;
         long bossClockDay,bossClaimDay;
@@ -74,6 +74,7 @@ namespace Ashlight {
         }
         public bool FinishDailyBoss(Battle run,out bool rewarded) {
             rewarded=false;
+            if(run!=null && run.IsTraining) { if(run.bossOwner!=this || run.runClaimed || (run.Current!=Phase.Won && run.Current!=Phase.Lost)) return false; run.runClaimed=true; return true; }
             if(run!=null && run.IsRelicRaid) return FinishRelicRaid(run,out rewarded);
             if(run!=null && run.IsFormationPuzzle) return FinishFormationPuzzle(run,out rewarded);
             if(run!=null && run.IsWeeklyTrial) return FinishWeeklyTrial(run,out rewarded);

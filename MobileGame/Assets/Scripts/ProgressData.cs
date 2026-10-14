@@ -10,14 +10,16 @@ namespace Ashlight {
         public int[] talents={-1,-1,-1};
     }
     [Serializable]
-    public sealed class TeamPresetData { public string[] heroes=new string[0]; }
+    public sealed class TeamPresetData { public string name=""; public string[] heroes=new string[0]; }
     [Serializable]
     public sealed class GearStackData { public string id; public int count; }
     [Serializable]
     public sealed class GearEnhancementData { public string id; public int level; }
     [Serializable]
     public sealed class ProgressData {
-        public int version = 22;
+        public const int CurrentVersion=23;
+        public int version = CurrentVersion;
+        public TeamPresetData[] modePresets=new TeamPresetData[0];
         public string[] lockedGear=new string[0];
         public int objectiveClaims, relicEssence, relicRaidClaims;
         public long relicRaidDay;

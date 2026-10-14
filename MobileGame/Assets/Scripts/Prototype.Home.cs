@@ -50,7 +50,7 @@ namespace Ashlight {
         void CloseHubPanels() {
             ShowWaveBanner(false);
             managementHero=null;
-            foreach(var root in new[]{homeRoot,relicRaidRoot,puzzlesRoot,goalsRoot,setGuideRoot,bondsRoot,weeklyRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
+            foreach(var root in new[]{supportReportRoot,polishRoot,compareRoot,trainingRoot,homeRoot,relicRaidRoot,puzzlesRoot,goalsRoot,setGuideRoot,bondsRoot,weeklyRoot,activitiesRoot,guideRoot,guidanceRoot,bossReportRoot,recommendationRoot,storyRoot,betaRoot,feedbackRoot,summonLobbyRoot,wishlistRoot,idleRoot,milestonesRoot,milestoneStoryRoot,advancementRoot,forgeRoot,recruitRoot,heroDetailsRoot,collectionRoot,dailyRoot,equipmentRoot,selectionRoot,formationRoot,progressionRoot,teamPresetRoot}) if(root!=null) root.SetActive(false);
         }
         void OpenHome() {
             if(!atChapters) return;
@@ -216,7 +216,7 @@ namespace Ashlight {
             advanceAscension.text=ascended==null?"ASCENSION · MAXIMUM REACHED":"ASCENSION · "+hero.RarityLabel+" → "+ascended.RarityLabel+"\n"+StatChange(hero,ascended)+"\nCOST "+hero.UpgradeCost+" hero shards · OWNED "+hero.Shards+"\n"+(hero.Shards>=hero.UpgradeCost?"Ready to ascend.":"Need "+(hero.UpgradeCost-hero.Shards)+" more · Earn shards from duplicates, quests, milestones and Tower.");
             string equipment="EQUIPMENT · Compare items before equipping\n"; for(int i=0;i<3;i++) { var item=hero.EquipmentStats((GearSlot)i); equipment+=(i==0?"":" · ")+((GearSlot)i)+": "+(item==null?"Empty":item.Name); }
             advanceEquipment.text=equipment+"\nTalents unlock at own levels 5, 10 and 15. Shared levels do not unlock talents.";
-            advanceConfirm.interactable=CanManageHeroes && ascended!=null && hero.Shards>=hero.UpgradeCost;
+            advanceConfirm.interactable=CanManageHeroes && !battle.IsTraining && ascended!=null && hero.Shards>=hero.UpgradeCost;
             advanceConfirm.GetComponentInChildren<Text>().text=ascended==null?"ASCENSION MAX":"ASCEND · "+hero.UpgradeCost+" SHARDS";
             advanceMastery.interactable=battle.CanMasterHero(advancementHero);
             advanceMastery.GetComponentInChildren<Text>().text=hero.MasteryRank==PartyHero.MaxMasteryRank?"MASTERY MAX":"MASTERY "+hero.MasteryRank+"/5\n"+battle.MasteryCost(advancementHero)+" MATERIALS";

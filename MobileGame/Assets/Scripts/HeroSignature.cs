@@ -29,7 +29,7 @@ namespace Ashlight {
                 bool heal=sig.Effect==SignatureEffect.PartyHeal || sig.Effect==SignatureEffect.SelfHeal && self || sig.Effect==SignatureEffect.LowestHeal && i==lowest;
                 if(heal) { int amount=Math.Min(sig.Amount,hero.Definition.MaxHealth-hero.Health); hero.Health+=amount; Active.EncounterHealing=Math.Min(1000000,Active.EncounterHealing+amount); }
                 if(sig.Effect==SignatureEffect.SelfEnergy && self || sig.Effect==SignatureEffect.PartyEnergy) hero.Energy=Math.Min(PartyHero.MaxEnergy,hero.Energy+sig.Amount);
-                if(sig.Effect==SignatureEffect.SelfCleanse && self || sig.Effect==SignatureEffect.BackCleanse && !front) { hero.Status=Debuff.None; hero.StatusRounds=0; LastSkillCleanse[i]=true; hero.Guard+=sig.Amount; LastSkillGuard[i]+=sig.Amount; }
+                if(sig.Effect==SignatureEffect.SelfCleanse && self || sig.Effect==SignatureEffect.BackCleanse && !front) { bool removed=hero.Status!=Debuff.None; hero.Status=Debuff.None; hero.StatusRounds=0; LastSkillCleanse[i]|=removed; hero.Guard+=sig.Amount; LastSkillGuard[i]+=sig.Amount; }
             }
             if(sig.Effect==SignatureEffect.Expose && enemies[SelectedEnemyIndex].Health>0) enemies[SelectedEnemyIndex].ExposedRounds=1;
             if(sig.Effect==SignatureEffect.Expose) { Active.Guard+=sig.Amount; LastSkillGuard[ActiveIndex]+=sig.Amount; }

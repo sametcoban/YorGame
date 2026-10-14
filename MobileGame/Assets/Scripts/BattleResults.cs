@@ -6,11 +6,14 @@ namespace Ashlight {
         public string lootId;
         public bool objectiveMet;
         public int[] damage, healing;
+        public int[] support;
     }
     public sealed class HeroBattleResult {
         public readonly string Name;
+        public readonly int DamageTaken, WardGranted, WardAbsorbed, Cleanses, Interrupts;
         public readonly int Damage, Healing, LevelBefore, LevelAfter, ExperienceAfter;
         public HeroBattleResult(PartyHero member,int xp) {
+            DamageTaken=member.DamageTaken; WardGranted=member.WardGranted; WardAbsorbed=member.WardAbsorbed; Cleanses=member.Cleanses; Interrupts=member.Interrupts;
             Name=member.Identity.Name; Damage=member.EncounterDamage; Healing=member.EncounterHealing;
             LevelBefore=member.Level; int level=member.Level,experience=member.Experience;
             if(level<PartyHero.MaxLevel) {

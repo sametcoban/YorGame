@@ -13,6 +13,7 @@ namespace Ashlight {
         Mesh atmosphereMesh;
         Vector3[] motePositions, moteVertices;
         Camera stageCamera;
+        GameObject atmosphereObject;
         ChapterStageDefinition theme;
         int chapter;
         static Color Tint(string hex) { Color color; ColorUtility.TryParseHtmlString(hex,out color); return color; }
@@ -111,6 +112,7 @@ namespace Ashlight {
                 torches[i] = light;
             }
             ChapterLandmarks();
+            ChapterMonument();
             Atmosphere();
             foreach (var batch in batches) {
                 var mesh = new Mesh { name = "Courtyard " + batch.Key, indexFormat = IndexFormat.UInt32 };
@@ -120,6 +122,18 @@ namespace Ashlight {
                 if (batch.Key == "Ember") obj.GetComponent<MeshRenderer>().shadowCastingMode = ShadowCastingMode.Off;
             }
             batches.Clear();
+        }
+        void ChapterMonument() {
+            // A distinct constellation of ruins for each chapter, outside combat lanes.
+            int teeth=3+chapter%5; float span=2.1f+(chapter/6)*.28f;
+            Stone(new Vector3(-3.8f,.3f,5.2f),new Vector3(span,.6f,1),true);
+            for(int i=0;i<teeth;i++) {
+                float angle=(i+.5f)*Mathf.PI/teeth;
+                var position=new Vector3(-3.8f+Mathf.Cos(angle)*span*.5f,1.1f+Mathf.Sin(angle)*(1+chapter*.025f),5.2f);
+                Piece("Iron",PrimitiveType.Cylinder,position,new Vector3(.12f,.55f+chapter*.012f,.12f),new Vector3(0,0,-angle*Mathf.Rad2Deg));
+                Piece("Ember",PrimitiveType.Sphere,position+Vector3.up*.15f,Vector3.one*.11f);
+            }
+            for(int i=0;i<chapter/6+1;i++) Stone(new Vector3(-3.8f,.75f+i*.17f,4.65f),new Vector3(span*.65f,.09f,.08f),true);
         }
         void ChapterLandmarks() {
             // Landmarks stay at the perimeter, outside party/boss movement lanes.
@@ -170,7 +184,7 @@ namespace Ashlight {
             }
         }
         void Atmosphere() {
-            var obj=new GameObject("Chapter atmosphere",typeof(MeshFilter),typeof(MeshRenderer)); obj.transform.SetParent(transform,false);
+            var obj=new GameObject("Chapter atmosphere",typeof(MeshFilter),typeof(MeshRenderer)); atmosphereObject=obj; obj.transform.SetParent(transform,false);
             int count=chapter==1?40:24;
             motePositions=new Vector3[count]; moteVertices=new Vector3[count*4];
             var triangles=new int[count*6]; var uv=new Vector2[count*4]; var colors=new Color[count*4];
@@ -207,9 +221,10 @@ namespace Ashlight {
             atmosphereMesh.vertices=moteVertices;
         }
         void Update() {
-            UpdateAtmosphere(Time.deltaTime);
+            if(atmosphereObject!=null) atmosphereObject.SetActive(!AccessibilityOptions.ReducedEffects);
+            if(!AccessibilityOptions.ReducedEffects) UpdateAtmosphere(Time.deltaTime);
             if (torches == null) return;
-            for (int i = 0; i < torches.Length; i++) torches[i].intensity = 2.7f + Mathf.Sin(Time.time*3.1f+i*1.6f)*.08f;
+            for (int i = 0; i < torches.Length; i++) torches[i].intensity = 2.7f + (AccessibilityOptions.ReducedEffects?0:Mathf.Sin(Time.time*3.1f+i*1.6f)*.08f);
         }
         void OnDestroy() {
             foreach (var mesh in ownedMeshes) Destroy(mesh);

@@ -24,8 +24,8 @@ namespace Ashlight {
         void PrepareFormationTechniques() { if(techniquesApplied || !TechniquesUnlocked || (!IsDailyBoss && !CanChangeParty)) return; techniquesApplied=true; ApplyFormationTechniques(); }
         void ApplyFormationTechniques() {
             if(!TechniquesUnlocked) return;
-            if(PairInRows(HeroClass.Knight,HeroClass.Paladin,true)) for(int i=0;i<party.Count;i++) if(IsFrontRow(i)) party[i].Guard+=25;
-            if(PairInRows(HeroClass.Ranger,HeroClass.Rogue,false)) for(int i=0;i<party.Count;i++) if(!IsFrontRow(i) && (party[i].Identity.Class==HeroClass.Ranger || party[i].Identity.Class==HeroClass.Rogue)) party[i].Guard+=15;
+            if(PairInRows(HeroClass.Knight,HeroClass.Paladin,true)) for(int i=0;i<party.Count;i++) if(IsFrontRow(i)) { party[i].Guard+=25; party[i].WardGranted=Math.Min(1000000,party[i].WardGranted+25); }
+            if(PairInRows(HeroClass.Ranger,HeroClass.Rogue,false)) for(int i=0;i<party.Count;i++) if(!IsFrontRow(i) && (party[i].Identity.Class==HeroClass.Ranger || party[i].Identity.Class==HeroClass.Rogue)) { party[i].Guard+=15; party[i].WardGranted=Math.Min(1000000,party[i].WardGranted+15); }
             if(PairInRows(HeroClass.Sorceress,HeroClass.Cleric,false)) foreach(var hero in party) hero.Energy=Math.Min(PartyHero.MaxEnergy,hero.Energy+10);
         }
     }

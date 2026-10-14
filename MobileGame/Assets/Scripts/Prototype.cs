@@ -273,7 +273,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateWaveBanner(); CreateExpansionScreens(); CreateTutorial();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateWaveBanner(); CreateExpansionScreens(); CreatePolishScreens(); CreateTutorial(); ApplyAccessibleText();
             if(battle.Current==Phase.Won) { sounds.PlayChapter(battle.ChapterIndex);
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
@@ -417,7 +417,7 @@ namespace Ashlight {
                 message="WAVE "+(battle.WaveIndex+1)+"/"+battle.WaveCount+" — health and energy carried over.";
                 nextAutoAction=Time.time+.8f;
             }
-            ShowWaveBanner(false); transitioningWave=false;
+            ShowWaveBanner(false); transitioningWave=false; StartCoroutine(BossEntrance());
         }
         void PresentPassiveHealing() {
             for(int i=0;i<battle.Party.Count;i++) {
@@ -888,7 +888,7 @@ namespace Ashlight {
             resultsRewards=Label(resultsRoot.transform,"",new Vector2(.08f,.64f),new Vector2(.46f,.76f),30);
             resultsLoot=Label(resultsRoot.transform,"",new Vector2(.54f,.64f),new Vector2(.92f,.76f),23);
             resultsExtra=Label(resultsRoot.transform,"",new Vector2(.06f,.55f),new Vector2(.94f,.62f),20);
-            Label(resultsRoot.transform,"PARTY CONTRIBUTIONS · GOLD: DAMAGE SHARE · GREEN: HEALING SHARE",new Vector2(.06f,.49f),new Vector2(.94f,.54f),18);
+            Label(resultsRoot.transform,"PARTY CONTRIBUTIONS · GOLD: DAMAGE · GREEN: HEALING",new Vector2(.06f,.49f),new Vector2(.70f,.54f),18);
             for(int i=0;i<resultsHeroes.Length;i++) {
                 float bottom=.414f-i*.067f;
                 Panel(resultsRoot.transform,new Vector2(.06f,bottom),new Vector2(.94f,bottom+.061f),new Color(.055f,.065f,.085f));
@@ -983,7 +983,7 @@ namespace Ashlight {
             if(!onPage) gearSelected=gearCandidates.Count>0?gearCandidates[gearPage*6].Id:null;
             var equipped=member.Gear(browsingSlot);
             var equippedStats=member.EquipmentStats(browsingSlot);
-            forgeButton.GetComponentInChildren<Text>().text="FORGE\n"+battle.ForgeMaterials+" MATERIALS"; forgeButton.interactable=CanManageHeroes && gearCandidates.Count>0;
+            forgeButton.GetComponentInChildren<Text>().text="FORGE\n"+battle.ForgeMaterials+" MATERIALS"; forgeButton.interactable=CanManageHeroes && !battle.IsTraining && gearCandidates.Count>0;
             equipmentTitle.text=member.Identity.Name+" · EQUIPMENT · HP "+member.Definition.MaxHealth+" · Attack "+member.Definition.AttackDamage+"\n"+browsingSlot+": "+(equipped==null?"Empty":equippedStats.Description)+"\n"+(gearNotice!=""?gearNotice:gearCandidates.Count==0?"Win battles and press Continue to collect gear.":"Page "+(gearPage+1)+" · Select an item to compare, then Equip.");
             var selected=gearSelected==null?null:GearDefinition.Find(gearSelected);
             var selectedStats=selected==null?null:battle.EnhancedGear(selected.Id);
@@ -1056,16 +1056,16 @@ namespace Ashlight {
             var rect=teamPresetRoot.GetComponent<RectTransform>(); rect.anchorMin=Vector2.zero; rect.anchorMax=Vector2.one; rect.offsetMin=rect.offsetMax=Vector2.zero; teamPresetRoot.GetComponent<Image>().color=MenuPalette.Surface;
             teamPresetTitle=Label(teamPresetRoot.transform,"",new Vector2(.05f,.83f),new Vector2(.95f,.98f),23); teamPresetLabels=new Text[3]; teamPresetLoads=new Button[3]; teamPresetClears=new Button[3];
             for(int i=0;i<3;i++) { int index=i; float y=.61f-i*.22f; teamPresetLabels[i]=Label(teamPresetRoot.transform,"",new Vector2(.05f,y+.09f),new Vector2(.95f,y+.20f),20);
-                var save=MakeButton(teamPresetRoot.transform,"SAVE CURRENT",.05f,.28f,()=> { if(battle.SaveTeamPreset(index)) { presetNotice="Preset "+(index+1)+" saved."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(save,.05f,y,.28f,y+.08f); save.GetComponentInChildren<Text>().fontSize=18;
-                teamPresetLoads[i]=MakeButton(teamPresetRoot.transform,"LOAD",.31f,.65f,()=> { if(battle.LoadTeamPreset(index)) { formationSelected=-1; presetNotice="Preset "+(index+1)+" loaded for "+battle.PartyLimit+" available slots."; RefreshAppearance(); SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(teamPresetLoads[i],.31f,y,.65f,y+.08f);
-                teamPresetClears[i]=MakeButton(teamPresetRoot.transform,"CLEAR",.68f,.95f,()=> { if(battle.ClearTeamPreset(index)) { presetNotice="Preset "+(index+1)+" cleared."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(teamPresetClears[i],.68f,y,.95f,y+.08f);
+                var save=MakeButton(teamPresetRoot.transform,"SAVE CURRENT",.05f,.28f,()=> { if(battle.SaveTeamPreset(presetMode*3+index)) { presetNotice="Preset "+(index+1)+" saved."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(save,.05f,y,.28f,y+.08f); save.GetComponentInChildren<Text>().fontSize=18;
+                teamPresetLoads[i]=MakeButton(teamPresetRoot.transform,"LOAD",.31f,.65f,()=> { if(battle.LoadTeamPreset(presetMode*3+index)) { formationSelected=-1; presetNotice="Preset "+(index+1)+" loaded for "+battle.PartyLimit+" available slots."; RefreshAppearance(); SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(teamPresetLoads[i],.31f,y,.65f,y+.08f);
+                teamPresetClears[i]=MakeButton(teamPresetRoot.transform,"CLEAR",.68f,.95f,()=> { if(battle.ClearTeamPreset(presetMode*3+index)) { presetNotice="Preset "+(index+1)+" cleared."; SaveProgress(); RefreshTeamPresets(); } }); PlaceGearControl(teamPresetClears[i],.68f,y,.95f,y+.08f);
             }
             var done=MakeButton(teamPresetRoot.transform,"BACK TO FORMATION",.25f,.75f,()=> { teamPresetRoot.SetActive(false); formationRoot.transform.SetAsLastSibling(); formationRoot.SetActive(true); RefreshFormation(); }); PlaceGearControl(done,.25f,.025f,.75f,.11f); teamPresetRoot.SetActive(false);
         }
-        void OpenTeamPresets() { if(!battle.CanChangeParty) return; formationRoot.SetActive(false); presetNotice="Load uses unlocked slots; remaining spaces fill from your roster."; teamPresetRoot.transform.SetAsLastSibling(); teamPresetRoot.SetActive(true); RefreshTeamPresets(); }
+        void OpenTeamPresets() { if(!battle.CanChangeParty || battle.IsTraining) return; presetMode=battle.InTower?1:0; formationRoot.SetActive(false); presetNotice="Load uses unlocked slots; remaining spaces fill from your roster."; teamPresetRoot.transform.SetAsLastSibling(); teamPresetRoot.SetActive(true); RefreshTeamPresets(); }
         void RefreshTeamPresets() {
-            teamPresetTitle.text="TEAM PRESETS · "+battle.PartyLimit+" available slots\n"+presetNotice;
-            for(int i=0;i<3;i++) { var ids=battle.TeamPreset(i); string text="PRESET "+(i+1)+" · "+ids.Length+" heroes\n";
+            teamPresetTitle.text=Battle.PresetMode(presetMode)+" PRESETS · "+battle.PartyLimit+" available slots\n"+presetNotice;
+            for(int i=0;i<3;i++) { var ids=battle.TeamPreset(presetMode*3+i); if(presetInputs[i]!=null) presetInputs[i].SetTextWithoutNotify(battle.PresetName(presetMode*3+i)); string text=battle.PresetName(presetMode*3+i)+" · "+ids.Length+" heroes\n";
                 for(int slot=0;slot<ids.Length;slot++) text+=(slot<2?"F: ":"B: ")+battle.HeroProgress(ids[slot]).Identity.Name+(slot<ids.Length-1?" · ":"");
                 teamPresetLabels[i].text=text+(ids.Length==0?"Empty · Save your current party here.":""); teamPresetLoads[i].interactable=ids.Length>0 && battle.CanChangeParty; teamPresetClears[i].interactable=ids.Length>0;
             }
@@ -1134,7 +1134,7 @@ namespace Ashlight {
             ScreenButton(heroDetailsRoot.transform,"NEXT UPGRADES",.77f,.915f,.96f,.975f,()=>OpenUpgradeGuidance(detailsHero));
             ScreenButton(heroDetailsRoot.transform,"BONDS",.77f,.845f,.96f,.905f,OpenBonds);
             var previewFrame=new GameObject("Preview Frame",typeof(RectTransform)); previewFrame.transform.SetParent(heroDetailsRoot.transform,false);
-            var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.81f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
+            var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.725f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
             var previewRoot=new GameObject("Model Preview",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter)); previewRoot.transform.SetParent(previewFrame.transform,false);
             previewRoot.GetComponent<RawImage>().raycastTarget=false;
             var fitter=previewRoot.GetComponent<AspectRatioFitter>(); fitter.aspectMode=AspectRatioFitter.AspectMode.FitInParent; fitter.aspectRatio=.75f;
@@ -1172,7 +1172,7 @@ namespace Ashlight {
             detailsUltimate.text="UNIQUE ULTIMATE · "+(hero.Ultimate.AreaDamage?"ALL ENEMIES":"SINGLE TARGET")+"\n"+hero.Ultimate.Description;
             bool manage=CanManageHeroes;
             detailsSkillsButton.interactable=detailsGearButton.interactable=detailsTalentsButton.interactable=manage;
-            detailsAscendButton.interactable=CanManageHeroes;
+            detailsAscendButton.interactable=CanManageHeroes && !battle.IsTraining;
             detailsHelp.text=manage?"Manage this hero’s skills, equipment and talents · Upgrades previews level and ascension benefits.":"Loadouts lock during combat. Finish or leave the battle to manage this hero.";
             if(!heroPreview.Show(hero.Identity)) detailsHelp.text+=" · Model preview unavailable.";
         }
@@ -1399,6 +1399,7 @@ namespace Ashlight {
             }
             DarkFantasyStage.Frame(battleCamera);
             CreateEnemy();
+            StartCoroutine(BossEntrance());
             message=(battle.InTower?"Tower floor "+battle.TowerFloor:"Chapter "+(battle.ChapterIndex+1)+", stage "+(battle.StageIndex+1))+": choose your heroes, then attack.";
             if(!battle.IsDailyBoss) {
                 System.Action prepare=()=> { OpenStagePreview(); ShowTutorial(1); };
@@ -1608,6 +1609,7 @@ namespace Ashlight {
                 var actor = foes[i]; var art = EnemyVisualDefinition.For(battle.Enemies[i].Definition.Name);
                 float lunge = VisibleEnemyHealth(i) > 0 ? CombatMotion.EnemyAdvance(Time.time-foeAttackAt[i]) : 0;
                 actor.position = art == null || !art.IsRanged ? Vector3.Lerp(FoeHome(i),foeAttackTarget[i],lunge) : FoeHome(i);
+                if(battle.Enemies[i].Definition.IsBoss && !AccessibilityOptions.ReducedMotion && !presentingAction && enemyTurn==null) actor.position+=Vector3.right*.8f*(1-Mathf.Clamp01((Time.time-bossEntranceAt)/1.2f));
                 actor.position+=enemyHitDirection[i]*(.25f*CombatMotion.Recoil(Time.time-enemyHitAt[i]));
                 var visual = actor.GetComponent<HeroVisual>();
                 bool dead = VisibleEnemyHealth(i) == 0;

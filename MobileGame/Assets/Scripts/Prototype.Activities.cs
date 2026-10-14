@@ -33,13 +33,13 @@ namespace Ashlight {
             guideNext=ScreenButton(guideRoot.transform,">",.8f,.025f,.95f,.12f,()=> { guidePage++; RefreshGuide(); }); guideRoot.SetActive(false);
             guidanceRoot=ScreenRoot("Next Hero Upgrades");
             guidanceTitle=Label(guidanceRoot.transform,"",new Vector2(.05f,.84f),new Vector2(.95f,.98f),30);
-            guidanceBody=Label(guidanceRoot.transform,"",new Vector2(.06f,.25f),new Vector2(.94f,.81f),25);
+            guidanceBody=ScrollingText(guidanceRoot.transform,new Vector2(.06f,.25f),new Vector2(.94f,.81f),24);
             ScreenButton(guidanceRoot.transform,"EQUIPMENT",.05f,.135f,.32f,.225f,()=> { guidanceRoot.SetActive(false); detailsHero=guidanceHero; OpenDetailsManagement(1); });
             ScreenButton(guidanceRoot.transform,"TALENTS",.365f,.135f,.635f,.225f,()=> { guidanceRoot.SetActive(false); detailsHero=guidanceHero; OpenDetailsManagement(2); });
             ScreenButton(guidanceRoot.transform,"UPGRADES",.68f,.135f,.95f,.225f,()=> { guidanceRoot.SetActive(false); OpenAdvancement(guidanceHero); });
             ScreenButton(guidanceRoot.transform,"BACK",.25f,.025f,.75f,.115f,()=>guidanceRoot.SetActive(false)); guidanceRoot.SetActive(false);
             bossReportRoot=ScreenRoot("Daily Boss Results");
-            bossReport=Label(bossReportRoot.transform,"",new Vector2(.07f,.22f),new Vector2(.93f,.92f),29);
+            bossReport=ScrollingText(bossReportRoot.transform,new Vector2(.07f,.22f),new Vector2(.93f,.92f),25);
             ScreenButton(bossReportRoot.transform,"RETURN HOME",.25f,.045f,.75f,.17f,CloseBossChallenge); bossReportRoot.SetActive(false);
         }
         void OpenActivities() {
@@ -80,6 +80,11 @@ namespace Ashlight {
             if(bossReported || campaignBattle==null) return;
             bool rewarded; if(!campaignBattle.FinishDailyBoss(battle,out rewarded)) return;
             bossReported=true; autoPlay=false; Time.timeScale=1; SaveProgress();
+            if(battle.IsTraining) {
+                bossReport.text="TRAINING COMPLETE · "+battle.Enemy.Name+"\nDamage · "+battle.DailyBossScore+"\nNo resources or account progress changed.";
+                foreach(var hero in battle.Party) bossReport.text+="\n"+hero.Identity.Name+" · "+hero.EncounterDamage+" damage · "+hero.EncounterHealing+" healing\n"+Battle.SupportReport(hero);
+                bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling(); return;
+            }
             if(battle.IsRelicRaid) {
                 bossReport.text=(battle.RelicRaidGoalMet?"RELIC CLEAR":"RELIC ATTEMPT")+"\n"+battle.Enemy.Name+"\n\n"+(rewarded?"+5 RELIC ESSENCE · +75 MATERIALS":battle.RelicRaidGoalMet?"Daily reward limit reached or day changed":"Goal not met · No reward")+"\n\nDamage · "+battle.DailyBossScore+"\nReturn to Forge to refine your relics.\n"+saveNotice;
                 bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling(); return;
@@ -90,7 +95,7 @@ namespace Ashlight {
             }
             bool weekly=battle.IsWeeklyTrial; string rewardText=rewarded?(weekly?"+150 CRYSTALS · +150 MATERIALS · +5 HERO SHARDS EACH":"+35 CRYSTALS · +30 MATERIALS"):weekly?(!battle.WeeklyGoalMet?"Goal not met · Survive 8 rounds or defeat the boss":"Weekly reward already claimed"):battle.DailyBossScore==0?"No damage · No reward":"Daily reward already claimed";
             bossReport.text=(weekly?(battle.WeeklyGoalMet?"WEEKLY CLEAR":"WEEKLY ATTEMPT COMPLETE"):"DAILY BOSS COMPLETE")+"\n"+battle.Enemy.Name+"\n\nDAMAGE · "+battle.DailyBossScore+"\nPersonal best · "+(weekly?campaignBattle.WeeklyBest(battle.TrialIndex):campaignBattle.DailyBossBest(battle.RunBossIndex))+"\nEnemy rounds completed · "+battle.DailyBossRounds+" / 8\n\n"+rewardText+"\n"+saveNotice;
-            foreach(var hero in battle.Party) bossReport.text+="\n"+hero.Identity.Name+" · "+hero.EncounterDamage+" damage · "+hero.EncounterHealing+" healing";
+            foreach(var hero in battle.Party) bossReport.text+="\n"+hero.Identity.Name+" · "+hero.EncounterDamage+" damage · "+hero.EncounterHealing+" healing\n"+Battle.SupportReport(hero);
             bossReportRoot.SetActive(true); bossReportRoot.transform.SetAsLastSibling();
         }
         void CloseBossChallenge() {
@@ -110,6 +115,7 @@ namespace Ashlight {
             }
         }
         void RefreshBattleReadability() {
+            if(lossReportButton!=null) lossReportButton.gameObject.SetActive(!atChapters && !battle.IsDailyBoss && battle.Current==Phase.Lost && !presentingAction);
             actionCue.gameObject.SetActive(!atChapters); actionCue.text=message;
             actionCue.color=presentingAction && battle.LastUltimate!=null?new Color(1,.8f,.25f):new Color(.95f,.9f,.8f);
             for(int i=0;i<statusBadges.Length;i++) {

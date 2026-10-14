@@ -18,7 +18,7 @@ namespace Ashlight {
                     if (material == null) continue;
                     renderer.GetPropertyBlock(block,i);
                     if (material.HasProperty("_EmissionColor"))
-                        block.SetColor("_EmissionColor",active ? CombatEffects.Tint(warningElement)*(.4f+.25f*Mathf.Sin(Time.time*7)) : material.GetColor("_EmissionColor"));
+                        block.SetColor("_EmissionColor",active ? CombatEffects.Tint(warningElement)*(AccessibilityOptions.ReducedEffects?.4f:.4f+.25f*Mathf.Sin(Time.time*7)) : material.GetColor("_EmissionColor"));
                     renderer.SetPropertyBlock(block,i); block.Clear();
                 }
             }

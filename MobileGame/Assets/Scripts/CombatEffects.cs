@@ -33,6 +33,9 @@ namespace Ashlight {
             foreach (Element element in System.Enum.GetValues(typeof(Element))) {
                 var material = new Material(shader); material.color = Tint(element); materials.Add(element, material);
             }
+            // Warm a small reusable pool before the first multi-target attack.
+            for(int i=0;i<12;i++) { var effect=Get(Mode.Text,Vector3.zero,Element.Physical,.1f,.1f); if(effect!=null) { effect.Age=0; } }
+            foreach(var effect in pool) effect.Root.SetActive(false);
             targetMaterial=new Material(shader); targetMaterial.color=new Color(1,.12f,.08f);
             for(int i=0;i<targetMarkers.Length;i++) {
                 var marker=new GameObject("Enemy Target "+i); marker.transform.SetParent(transform,false);
@@ -53,6 +56,7 @@ namespace Ashlight {
         }
         Effect Get(Mode mode, Vector3 position, Element element, float duration, float size) {
             if (!enabled || !materials.ContainsKey(element)) return null;
+            if(AccessibilityOptions.ReducedEffects && (mode==Mode.Spark || mode==Mode.Slash || mode==Mode.Crest || mode==Mode.Meteor)) return null;
             Effect effect = null;
             foreach (var item in pool) if (!item.Root.activeSelf) { effect = item; break; }
             if(effect==null && pool.Count>=Limit) {
@@ -332,6 +336,7 @@ namespace Ashlight {
         void LateUpdate() {
             if (view == null) return;
             view.transform.position -= cameraOffset; cameraOffset = Vector3.zero;
+            if(AccessibilityOptions.ReducedMotion) { focusLeft=0; shakeLeft=0; }
             if(focusLeft>0) { focusLeft=Mathf.Max(0,focusLeft-Time.deltaTime); view.fieldOfView=restingFov-Mathf.Sin(focusLeft/focusDuration*Mathf.PI)*focusStrength; }
             else view.fieldOfView=restingFov;
             if (shakeLeft > 0) {

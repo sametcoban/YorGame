@@ -134,8 +134,9 @@ public static class SaveSerializationChecks {
         for(int i=0;i<teamSave.loadouts.Length;i++) teamSave.loadouts[i]=new HeroLoadoutData{id=teamSave.recruited[i],firstSkill=0,secondSkill=1,level=15,upgradeRank=1};
         if(!team.RestoreProgress(teamSave) || !team.SwapFormation(0,4)) throw new InvalidOperationException("Could not prepare five-hero formation.");
         foreach(var hero in team.Party) for(int tier=0;tier<3;tier++) if(!team.ChooseTalent(hero.Identity.Id,tier,tier%2)) throw new InvalidOperationException("Could not prepare saved progression choices.");
-        if(!team.SaveTeamPreset(0)) throw new InvalidOperationException("Could not prepare team preset fixture.");
+        if(!team.SaveTeamPreset(0) || !team.SaveTeamPreset(3) || !team.SaveTeamPreset(6) || !team.RenamePreset(3,"Tower vanguard") || !team.RenamePreset(6,"Ward breakers")) throw new InvalidOperationException("Could not prepare team preset fixture.");
         var teamRoundTrip=RoundTrip(team);
+        if(teamRoundTrip.PresetName(3)!="Tower vanguard" || teamRoundTrip.PresetName(6)!="Ward breakers" || teamRoundTrip.TeamPreset(6).Length!=5) throw new InvalidOperationException("Named mode teams changed during Unity serialization.");
         for(int i=0;i<5;i++) if(teamRoundTrip.TeamPreset(0)[i]!=team.Party[i].Identity.Id) throw new InvalidOperationException("Team preset order changed during Unity serialization.");
         foreach(var hero in team.Party) if(teamRoundTrip.HeroProgress(hero.Identity.Id).RarityLabel!=hero.RarityLabel) throw new InvalidOperationException("Ascension rarity changed during Unity serialization.");
         if(team.TeamFactionBonus!=20 || teamRoundTrip.TeamFactionBonus!=20 || teamRoundTrip.TeamPower!=team.TeamPower || team.Party[0].Definition.MaxHealth!=teamRoundTrip.Party[0].Definition.MaxHealth) throw new InvalidOperationException("Faction bonus changed during Unity serialization.");
@@ -159,7 +160,7 @@ public static class SaveSerializationChecks {
         var teamResults=RoundTrip(team);
         if(teamResults.Results==null || teamResults.Results.Heroes.Count!=5 || teamResults.Results.Loot.Id!=team.Results.Loot.Id)
             throw new InvalidOperationException("Five-hero results changed during Unity serialization.");
-        for(int i=0;i<5;i++) if(teamResults.Results.Heroes[i].Damage!=team.Results.Heroes[i].Damage || teamResults.Results.Heroes[i].Healing!=team.Results.Heroes[i].Healing)
+        for(int i=0;i<5;i++) if(teamResults.Results.Heroes[i].Damage!=team.Results.Heroes[i].Damage || teamResults.Results.Heroes[i].Healing!=team.Results.Heroes[i].Healing || teamResults.Results.Heroes[i].DamageTaken!=team.Results.Heroes[i].DamageTaken || teamResults.Results.Heroes[i].WardGranted!=team.Results.Heroes[i].WardGranted || teamResults.Results.Heroes[i].WardAbsorbed!=team.Results.Heroes[i].WardAbsorbed || teamResults.Results.Heroes[i].Cleanses!=team.Results.Heroes[i].Cleanses || teamResults.Results.Heroes[i].Interrupts!=team.Results.Heroes[i].Interrupts)
             throw new InvalidOperationException("Five-hero contributions changed during Unity serialization.");
         var continued=team.ExportProgress(); continued.encounter=30; continued.pendingVictory=false; continued.results=null;
         var continuation=new Battle(true,enableWaves:true,enableFactions:true);

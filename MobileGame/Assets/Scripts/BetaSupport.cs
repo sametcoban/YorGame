@@ -71,7 +71,7 @@ namespace Ashlight {
         }
     }
     public static class BetaSupport {
-        public const string BuildTag="ashlight-beta-prep-5";
+        public const string BuildTag="ashlight-beta-prep-6";
         public static string Feedback(ProgressData progress,string category,string notes,string runtime,DateTime time) {
             var report=new StringBuilder();
             report.AppendLine("ASHLIGHT PLAYTEST REPORT · "+BuildTag).AppendLine("UTC: "+time.ToUniversalTime().ToString("u"));
