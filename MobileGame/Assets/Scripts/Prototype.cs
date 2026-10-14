@@ -273,7 +273,7 @@ namespace Ashlight {
             CreateFormationPanel(); CreateProgressionPanel(); CreateStagePreview(); CreateCollection(); CreateHeroDetails(); CreateDaily(); CreateSummonResults(); CreateTeamPresets();
             formationButton=MakeButton(safe,"FORMATION",.78f,.95f,OpenFormation);
             PlaceGearControl(formationButton,.78f,.52f,.95f,.62f);
-            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateWaveBanner(); CreateExpansionScreens(); CreatePolishScreens(); CreateTutorial(); ApplyAccessibleText();
+            CreateResultsPanel(); CreateHomeScreens(); CreateForgeScreens(); CreateActivitiesScreens(); CreateBattleReadability(); CreateBetaScreens(); CreateSeasonScreens(); CreateJourneyScreens(); CreateWaveBanner(); CreateExpansionScreens(); CreatePolishScreens(); CreateInventoryScreens(); CreateTutorial(); ApplyAccessibleText();
             if(battle.Current==Phase.Won) { sounds.PlayChapter(battle.ChapterIndex);
             atChapters=false; chapterRoot.SetActive(false); battleStage.gameObject.SetActive(true); ShowResults(); } else EnterChapters();
             if (tutorialPending >= 0) ShowTutorial(tutorialPending); else ShowTutorial(0);
@@ -1134,7 +1134,7 @@ namespace Ashlight {
             ScreenButton(heroDetailsRoot.transform,"NEXT UPGRADES",.77f,.915f,.96f,.975f,()=>OpenUpgradeGuidance(detailsHero));
             ScreenButton(heroDetailsRoot.transform,"BONDS",.77f,.845f,.96f,.905f,OpenBonds);
             var previewFrame=new GameObject("Preview Frame",typeof(RectTransform)); previewFrame.transform.SetParent(heroDetailsRoot.transform,false);
-            var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.725f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
+            var frameRect=previewFrame.GetComponent<RectTransform>(); frameRect.anchorMin=new Vector2(.04f,.25f); frameRect.anchorMax=new Vector2(.32f,.63f); frameRect.offsetMin=frameRect.offsetMax=Vector2.zero;
             var previewRoot=new GameObject("Model Preview",typeof(RectTransform),typeof(RawImage),typeof(AspectRatioFitter)); previewRoot.transform.SetParent(previewFrame.transform,false);
             previewRoot.GetComponent<RawImage>().raycastTarget=false;
             var fitter=previewRoot.GetComponent<AspectRatioFitter>(); fitter.aspectMode=AspectRatioFitter.AspectMode.FitInParent; fitter.aspectRatio=.75f;

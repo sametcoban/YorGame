@@ -656,7 +656,7 @@ namespace Ashlight {
         }
         public ProgressData ExportProgress() {
             RefreshDaily();
-            var data = new ProgressData { modePresets=ExportModePresets(), lockedGear=new List<string>(lockedGear).ToArray(), objectiveClaims=objectiveClaims, relicEssence=RelicEssence, relicRaidDay=relicRaidDay, relicRaidClaims=relicRaidClaims, relicRefinements=ExportRefinements(), claimedRelics=claimedRelics, seenLaterStories=seenLaterStories, puzzleClears=puzzleClears, weeklyClock=weeklyClock, weeklyClaim=weeklyClaim, weeklyRecords=(int[])weeklyRecords.Clone(), seenStories=seenStories, discoveredEnemies=DiscoveredEnemies, bossClockDay=bossClockDay, bossClaimDay=bossClaimDay, bossRecords=(int[])bossRecords.Clone(), wishlist=Wishlist, presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
+            var data = new ProgressData { heroBuilds=ExportHeroBuilds(), modePresets=ExportModePresets(), lockedGear=new List<string>(lockedGear).ToArray(), objectiveClaims=objectiveClaims, relicEssence=RelicEssence, relicRaidDay=relicRaidDay, relicRaidClaims=relicRaidClaims, relicRefinements=ExportRefinements(), claimedRelics=claimedRelics, seenLaterStories=seenLaterStories, puzzleClears=puzzleClears, weeklyClock=weeklyClock, weeklyClaim=weeklyClaim, weeklyRecords=(int[])weeklyRecords.Clone(), seenStories=seenStories, discoveredEnemies=DiscoveredEnemies, bossClockDay=bossClockDay, bossClaimDay=bossClaimDay, bossRecords=(int[])bossRecords.Clone(), wishlist=Wishlist, presets=new[]{new TeamPresetData{heroes=TeamPreset(0)},new TeamPresetData{heroes=TeamPreset(1)},new TeamPresetData{heroes=TeamPreset(2)}}, inTower=InTower, towerFloor=TowerFloor, towerCampaignParty=(string[])towerCampaignParty.Clone(), dailyDay=dailyDay, dailyProgress=(int[])dailyProgress.Clone(), dailyClaimed=(bool[])dailyClaimed.Clone(), sharedHeroes=sharedHeroes.ToArray(), idleClaimTicks=idleClaimTicks, idleCrystalRemainder=idleCrystalRemainder, claimedMilestones=claimedMilestones, forgeMaterials=ForgeMaterials, furthestStage=FurthestStage, crystals = Crystals, rareMisses = RareMisses, legendaryMisses = LegendaryMisses, encounter = encounter, pendingVictory = Current == Phase.Won, activeIndex = ActiveIndex,
                 recruited = new string[recruits.Count], party = new string[party.Count], loadouts = new HeroLoadoutData[recruits.Count] };
             data.enhancements=new GearEnhancementData[enhancements.Count]; int improvement=0; foreach(var entry in enhancements) data.enhancements[improvement++]=new GearEnhancementData{id=entry.Key,level=entry.Value};
             data.inventory=new GearStackData[inventory.Count]; int stack=0; foreach(var item in inventory) data.inventory[stack++]=new GearStackData{id=item.Key,count=item.Value};
@@ -777,6 +777,7 @@ namespace Ashlight {
                 member.Equip(0, loadout.firstSkill); member.Equip(1, loadout.secondSkill);
                 restored.Add(member.Identity.Id, member);
             }
+            if(data.version>=24 && !ValidateHeroBuilds(data.heroBuilds,restored)) return false;
             var restoredPresets=EmptyPresets();
             if(data.version>=23 && !ValidateModePresets(data,restored)) return false;
             if(data.version>=12) {
@@ -818,6 +819,7 @@ namespace Ashlight {
                     (data.results.healing!=null && data.results.healing.Length>0) ||
                     (data.version>=23 && data.results.support!=null && data.results.support.Length>0))) return false;
             }
+            heroBuilds.Clear(); if(data.version>=24) foreach(var build in data.heroBuilds) heroBuilds.Add(BuildKey(build.heroId,build.slot),CopyBuild(build));
             for(int preset=0;preset<9;preset++) { teamPresets[preset]=preset<3?restoredPresets[preset]:new string[0]; presetNames[preset]=null; }
             if(data.version>=23) for(int preset=0;preset<9;preset++) { teamPresets[preset]=(string[])data.modePresets[preset].heroes.Clone(); presetNames[preset]=data.modePresets[preset].name; }
             InTower=restoringTower; TowerFloor=data.version>=11?data.towerFloor:1; towerCampaignParty=restoringTower?(string[])data.towerCampaignParty.Clone():new string[0];

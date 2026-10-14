@@ -17,8 +17,9 @@ namespace Ashlight {
     public sealed class GearEnhancementData { public string id; public int level; }
     [Serializable]
     public sealed class ProgressData {
-        public const int CurrentVersion=23;
+        public const int CurrentVersion=24;
         public int version = CurrentVersion;
+        public HeroBuildData[] heroBuilds=new HeroBuildData[0];
         public TeamPresetData[] modePresets=new TeamPresetData[0];
         public string[] lockedGear=new string[0];
         public int objectiveClaims, relicEssence, relicRaidClaims;

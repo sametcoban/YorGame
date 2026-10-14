@@ -257,7 +257,7 @@ class BattleChecks {
   var fresh=new Battle(true); var bad=fresh.ExportProgress(); bad.seenStories=1<<12; Check(!fresh.RestoreProgress(bad) && !fresh.StorySeen(0,false));
   Check(fresh.OpeningChecklist.Contains("[NEXT] Claim your first stage victory") && !fresh.MarkStorySeen(1,false));
   var report=BetaSupport.Feedback(fresh.ExportProgress(),"Bug","Attack button overlaps", "Test runtime",new DateTime(2026,10,16,0,0,0,DateTimeKind.Utc));
-  Check(report.Contains(BetaSupport.BuildTag) && report.Contains("Attack button overlaps") && report.Contains("Knight_Common") && report.Contains("Stage index: 0") && report.Contains("Save version: 23"));
+  Check(report.Contains(BetaSupport.BuildTag) && report.Contains("Attack button overlaps") && report.Contains("Knight_Common") && report.Contains("Stage index: 0") && report.Contains("Save version: 24"));
   Check(fresh.Crystals==300 && fresh.Encounter==0);
  }
  static void SeasonalChecks() {
@@ -356,7 +356,7 @@ class BattleChecks {
   Check(owner.RestoreProgress(old) && owner.Encounter==60 && !owner.CampaignComplete && owner.ChapterIndex==12 && owner.Crystals==old.crystals);
   for(int chapter=0;chapter<12;chapter++) Check(owner.StorySeen(chapter,false) && owner.StorySeen(chapter,true));
   Check(!owner.StorySeen(12,false) && owner.MarkStorySeen(12,false) && owner.StorySeen(12,false));
-  var saved=owner.ExportProgress(); Check(saved.seenLaterStories==1 && saved.seenStories==old.seenStories && saved.version==23);
+  var saved=owner.ExportProgress(); Check(saved.seenLaterStories==1 && saved.seenStories==old.seenStories && saved.version==24);
   var restored=new Battle(true); Check(restored.RestoreProgress(saved) && restored.StorySeen(12,false));
   var invalid=owner.ExportProgress(); invalid.seenLaterStories=1<<6; Check(!restored.RestoreProgress(invalid));
   invalid=owner.ExportProgress(); invalid.seenLaterStories=1<<12; Check(!restored.RestoreProgress(invalid));
@@ -481,7 +481,7 @@ class BattleChecks {
   bad=loaded.ExportProgress(); bad.objectiveClaims=1<<23; Check(!loaded.RestoreProgress(bad));
  }
  static void PolishChecks() {
-  var owner=new Battle(true); Check(owner.ExportProgress().version==23);
+  var owner=new Battle(true); Check(owner.ExportProgress().version==24);
   for(int i=0;i<9;i++) Check(owner.SaveTeamPreset(i) && owner.RenamePreset(i,"Team "+i));
   Check(!owner.RenamePreset(9,"Invalid") && !owner.RenamePreset(0,"<b>name</b>") && !owner.RenamePreset(0,new string('a',25)) && !owner.RenamePreset(0,"bad\nname"));
   var reload=new Battle(true); Check(reload.RestoreProgress(owner.ExportProgress()));
@@ -542,7 +542,61 @@ class BattleChecks {
   Console.WriteLine("Polish checks: modes, names, v1–22 migration, training isolation, rotating rules, factions and pending support reports passed.");
  }
 
+
+ static Battle InventoryFixture() {
+  var battle=FactionBattle(new[]{"Knight_Common","Paladin_Common"},20); var data=battle.ExportProgress(); data.forgeMaterials=1000;
+  data.inventory=new[]{new GearStackData{id="Weapon_Common_Physical",count=3},new GearStackData{id="Armor_Uncommon_Cold",count=1},new GearStackData{id="Accessory_Rare_Light",count=1},new GearStackData{id="Weapon_Rare_Cold",count=1},new GearStackData{id="BossRelic_0",count=1}};
+  Check(battle.RestoreProgress(data)); return battle;
+ }
+ static void InventoryChecks() {
+  var b=InventoryFixture(); Check(b.InventoryItems().Count==5 && b.InventoryItems(quality:HeroQuality.Rare).Count==3 && b.InventoryItems(slot:GearSlot.Armor).Count==1 && b.InventoryItems(element:Element.Cold).Count==2);
+  Check(b.EquipGear("Knight_Common",GearSlot.Weapon,"Weapon_Common_Physical") && b.EquipGear("Rogue_Common",GearSlot.Weapon,"Weapon_Common_Physical"));
+  var rows=b.InventoryItems(view:InventoryView.Equipped); Check(rows.Count==1 && rows[0].Owned==3 && rows[0].Available==1 && rows[0].Equipped==2);
+  Check(!b.RecycleGear(null,1) && !b.RecycleGear("unknown",1) && !b.RecycleGear("Weapon_Common_Physical",0) && !b.RecycleGear("Weapon_Common_Physical",-1) && !b.RecycleGear("Weapon_Common_Physical",2));
+  Check(b.SetGearLocked("Weapon_Common_Physical",true) && b.InventoryItems(view:InventoryView.Locked).Count==1 && !b.RecycleGear("Weapon_Common_Physical",1));
+  Check(b.SetGearLocked("Weapon_Common_Physical",false) && b.RecycleGear("Weapon_Common_Physical",1) && b.GearCount("Weapon_Common_Physical")==2 && b.ForgeMaterials==1005 && !b.RecycleGear("Weapon_Common_Physical",1));
+  Check(b.HeroProgress("Rogue_Common").Gear(GearSlot.Weapon).Id=="Weapon_Common_Physical" && b.Party[0].Gear(GearSlot.Weapon).Id=="Weapon_Common_Physical");
+  Check(!b.RecycleGear("BossRelic_0",1) && b.EnhanceGear("Weapon_Rare_Cold") && !b.RecycleGear("Weapon_Rare_Cold",1));
+  Check(b.RecycleGear("Armor_Uncommon_Cold",1) && b.GearCount("Armor_Uncommon_Cold")==0);
+  var loaded=new Battle(true); Check(loaded.RestoreProgress(b.ExportProgress()) && loaded.InventoryItems().Count==4);
+  var capped=InventoryFixture(); var cap=capped.ExportProgress(); cap.forgeMaterials=999996; Check(capped.RestoreProgress(cap) && !capped.RecycleGear("Weapon_Common_Physical",1) && capped.GearCount("Weapon_Common_Physical")==3 && capped.ForgeMaterials==999996);
+  cap.forgeMaterials=999990; Check(capped.RestoreProgress(cap) && capped.RecycleGear("Weapon_Common_Physical",2) && capped.ForgeMaterials==1000000 && !capped.RecycleGear("Weapon_Common_Physical",1));
+  var builds=InventoryFixture(); const string hero="Knight_Common";
+  Check(builds.EquipGear(hero,GearSlot.Weapon,"Weapon_Common_Physical") && builds.EquipGear(hero,GearSlot.Armor,"Armor_Uncommon_Cold") && builds.EquipGear(hero,GearSlot.Accessory,"Accessory_Rare_Light"));
+  Check(builds.EquipHeroSkill(hero,0,2) && builds.EquipHeroSkill(hero,1,4) && builds.SaveHeroBuild(hero,0,"Ward bearer"));
+  var copy=builds.HeroBuild(hero,0); copy.name="changed"; copy.gear[0]=null; Check(builds.HeroBuild(hero,0).name=="Ward bearer" && builds.HeroBuild(hero,0).gear[0]!=null);
+  Check(!builds.SaveHeroBuild(hero,3,"x") && !builds.SaveHeroBuild(hero,1,"<b>x</b>") && !builds.SaveHeroBuild("unknown",1,"x"));
+  for(int i=0;i<3;i++) Check(builds.EquipGear(hero,(GearSlot)i,null));
+  Check(builds.EquipHeroSkill(hero,0,0) && builds.EquipHeroSkill(hero,1,1) && builds.SaveHeroBuild(hero,1,"Unarmed"));
+  Check(builds.EquipGear("Paladin_Common",GearSlot.Accessory,"Accessory_Rare_Light") && !builds.LoadHeroBuild(hero,0) && builds.HeroBuildBlock(hero,0).Contains("unavailable"));
+  Check(builds.Party[0].Gear(GearSlot.Weapon)==null && builds.Party[0].Gear(GearSlot.Armor)==null && builds.Party[0].SkillIndex(0)==0 && builds.Party[1].Gear(GearSlot.Accessory)!=null);
+  Check(builds.EquipGear("Paladin_Common",GearSlot.Accessory,null) && builds.SetGearLocked("Accessory_Rare_Light",true) && builds.LoadHeroBuild(hero,0) && builds.Party[0].SkillIndex(0)==2 && builds.Party[0].SkillIndex(1)==4);
+  Check(builds.LoadHeroBuild(hero,0)); // The hero's currently equipped copy remains usable.
+  Check(builds.EnhanceGear("Weapon_Common_Physical") && builds.LoadHeroBuild(hero,1) && builds.LoadHeroBuild(hero,0) && builds.Party[0].GearEnhancement(GearSlot.Weapon)==1);
+  Check(loaded.RestoreProgress(builds.ExportProgress()) && loaded.HeroBuild(hero,0).name=="Ward bearer" && loaded.LoadHeroBuild(hero,1) && loaded.Party[0].Gear(GearSlot.Weapon)==null);
+  Check(loaded.SetGearLocked("Accessory_Rare_Light",false) && loaded.RecycleGear("Accessory_Rare_Light",1) && !loaded.LoadHeroBuild(hero,0) && loaded.HeroBuild(hero,0)!=null);
+  Check(new Battle(true).RestoreProgress(loaded.ExportProgress())); // A template can reference a removed copy.
+  var jsonEmpty=builds.ExportProgress(); foreach(var profile in jsonEmpty.heroBuilds) if(profile.slot==1) profile.gear=new[]{"","",""}; Check(loaded.RestoreProgress(jsonEmpty) && loaded.LoadHeroBuild(hero,1) && loaded.Party[0].Gear(GearSlot.Weapon)==null);
+  Check(loaded.RestoreProgress(builds.ExportProgress()) && loaded.LoadHeroBuild(hero,1) && loaded.SetGearLocked("Accessory_Rare_Light",false) && loaded.RecycleGear("Accessory_Rare_Light",1));
+  var valid=builds.ExportProgress(); var bad=builds.ExportProgress(); bad.heroBuilds=null; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds[0].heroId="unknown"; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds[0].slot=3; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds[0].name="bad\nname"; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds[0].secondSkill=bad.heroBuilds[0].firstSkill; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds[0].gear[0]="Armor_Common_Physical"; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds[0].gear[0]="unknown"; Check(!loaded.RestoreProgress(bad));
+  bad=builds.ExportProgress(); bad.heroBuilds=new[]{bad.heroBuilds[0],bad.heroBuilds[0]}; Check(!loaded.RestoreProgress(bad));
+  Check(loaded.HeroBuild(hero,0).name=="Ward bearer" && loaded.GearCount("Accessory_Rare_Light")==0);
+  Check(loaded.RestoreProgress(valid)); for(int version=1;version<=23;version++) { var legacy=new Battle(true).ExportProgress(); legacy.version=version; legacy.heroBuilds=null; Check(loaded.RestoreProgress(legacy) && loaded.HeroBuild(hero,0)==null); }
+  Check(builds.Attack() && !builds.SaveHeroBuild(hero,2,"Late") && !builds.LoadHeroBuild(hero,1) && !builds.ClearHeroBuild(hero,0) && !builds.RecycleGear("Weapon_Rare_Cold",1));
+  var account=InventoryFixture(); Check(account.SaveHeroBuild(hero,0,"Practice")); var practice=account.StartTraining(0,false);
+  Check(practice.LoadHeroBuild(hero,0) && !practice.SaveHeroBuild(hero,1,"Temporary") && !practice.ClearHeroBuild(hero,0) && !practice.RecycleGear("Weapon_Common_Physical",1));
+  var finished=InventoryFixture(); var end=finished.ExportProgress(); end.encounter=ChapterDefinition.TotalStages; Check(finished.RestoreProgress(end) && finished.SaveHeroBuild(hero,2,"Post campaign") && finished.LoadHeroBuild(hero,2) && finished.RecycleGear("Weapon_Common_Physical",1));
+  Console.WriteLine("Inventory checks: filters, off-party equipment, protected recycling, cap, atomic profiles, migrations and challenge isolation passed.");
+ }
+
  static void Main() {
+  InventoryChecks();
   PolishChecks();
   ExpansionChecks();
   AdvancedChecks();
@@ -846,7 +900,7 @@ class BattleChecks {
   Check(!funded.RestoreProgress(funds));
   var legacy=winner.ExportProgress();legacy.version=1;legacy.crystals=0;
   var migrated=new Battle(true);
-  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==23);
+  Check(migrated.RestoreProgress(legacy) && migrated.Crystals==300 && migrated.ExportProgress().version==24);
   var rewarded=new Battle(true);int beforeCurrency=rewarded.Crystals;
   while(rewarded.Current!=Phase.Won) {
    if(rewarded.Current==Phase.Player) rewarded.Attack();
@@ -1594,7 +1648,7 @@ class BattleChecks {
   Check(criticalTalent.Party[0].CriticalMultiplier==2 && criticalTalent.Party[0].CriticalChance==.25);
   // Version 6 saves talents per named hero; v1–5 migrate with all choices unset.
   var talentSave=talentedKnight.ExportProgress(); var talentLoad=new Battle(true,enableClassPassives:true);
-  Check(talentSave.version==23 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
+  Check(talentSave.version==24 && talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(0)==1 && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave.loadouts[0].talents[1]=0; talentSave.loadouts[0].level=5;
   Check(!talentLoad.RestoreProgress(talentSave) && talentLoad.Party[0].TalentChoice(2)==1);
   talentSave=talentedKnight.ExportProgress(); talentSave.loadouts[0].talents[0]=2; Check(!talentLoad.RestoreProgress(talentSave));
@@ -1700,7 +1754,7 @@ class BattleChecks {
   Check(idle.FurthestStage==30 && idle.IdleCrystalRate==7 && idle.IdleExperienceRate==8);
   var replayIdle=new Battle(true,utcNow:()=>idleNow); Check(replayIdle.RestoreProgress(idle.ExportProgress()) && replayIdle.FurthestStage==30);
   var oldIdle=idle.ExportProgress(); oldIdle.version=6; oldIdle.idleClaimTicks=0; oldIdle.furthestStage=0;
-  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==23);
+  Check(replayIdle.RestoreProgress(oldIdle) && replayIdle.IdleMinutes==0 && replayIdle.ExportProgress().version==24);
   var badIdle=idle.ExportProgress(); int preservedIdleCrystals=replayIdle.Crystals;
   foreach(long invalidTicks in new[]{0L,-1L,DateTime.MaxValue.Ticks+1}) { badIdle.idleClaimTicks=invalidTicks; Check(!replayIdle.RestoreProgress(badIdle) && replayIdle.Crystals==preservedIdleCrystals); }
   badIdle=idle.ExportProgress(); badIdle.furthestStage=ChapterDefinition.TotalStages+1; Check(!replayIdle.RestoreProgress(badIdle));
@@ -2184,7 +2238,7 @@ class BattleChecks {
   invalidMilestones.claimedMilestones=-1; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   invalidMilestones.claimedMilestones=4096; Check(!chapterRewardReload.RestoreProgress(invalidMilestones));
   var previousMilestones=chapterRewards.ExportProgress(); previousMilestones.version=13; previousMilestones.claimedMilestones=4096;
-  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==23 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
+  Check(chapterRewardReload.RestoreProgress(previousMilestones) && chapterRewardReload.ExportProgress().version==24 && chapterRewardReload.CanClaimMilestone(0) && chapterRewardReload.Crystals==400);
   Check(chapterRewardReload.Attack() && !chapterRewardReload.ClaimMilestone(0));
   var completeRewards=FactionBattle(new[]{"Knight_Common","Paladin_Common","Sorceress_Common","Ranger_Common","Cleric_Common"},59);
   var completeRewardSave=completeRewards.ExportProgress(); completeRewardSave.encounter=60; completeRewardSave.claimedRelics&=(1<<Math.Max(0,completeRewardSave.encounter/5))-1; completeRewardSave.objectiveClaims&=Battle.AllowedObjectives(Math.Max(0,completeRewardSave.encounter)); completeRewardSave.crystals=999999;

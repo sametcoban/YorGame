@@ -13,6 +13,13 @@ public static class SaveSerializationChecks {
     public static void Run() {
         // Isolated test battles: never read or overwrite the player's PlayerPrefs.
         var battle=new Battle(true); var fresh=RoundTrip(battle);
+        if(!battle.SaveHeroBuild("Knight_Common",0,"Unarmed")) throw new InvalidOperationException("Could not prepare hero profile fixture.");
+        var profileReload=RoundTrip(battle);
+        if(profileReload.HeroBuild("Knight_Common",0).name!="Unarmed" || !profileReload.LoadHeroBuild("Knight_Common",0) || profileReload.Party[0].Gear(GearSlot.Weapon)!=null) throw new InvalidOperationException("Empty gear slots or named hero profile changed during Unity serialization.");
+        var recycleFixture=new Battle(true); var recycleSave=recycleFixture.ExportProgress(); recycleSave.inventory=new[]{new GearStackData{id="Weapon_Common_Physical",count=3}};
+        if(!recycleFixture.RestoreProgress(recycleSave) || !recycleFixture.EquipGear("Knight_Common",GearSlot.Weapon,"Weapon_Common_Physical") || !recycleFixture.SaveHeroBuild("Knight_Common",0,"Armed") || !recycleFixture.SetGearLocked("Weapon_Common_Physical",true) || recycleFixture.RecycleGear("Weapon_Common_Physical",1) || !recycleFixture.SetGearLocked("Weapon_Common_Physical",false) || !recycleFixture.RecycleGear("Weapon_Common_Physical",2)) throw new InvalidOperationException("Recycling fixture did not protect equipped or locked gear.");
+        var recycledReload=RoundTrip(recycleFixture);
+        if(recycledReload.GearCount("Weapon_Common_Physical")!=1 || recycledReload.ForgeMaterials!=10 || !recycledReload.LoadHeroBuild("Knight_Common",0) || recycledReload.Party[0].Gear(GearSlot.Weapon)==null) throw new InvalidOperationException("Recycled quantities, materials or profiles changed during Unity serialization.");
         var seasonal=new Battle(true); var seasonalSave=seasonal.ExportProgress(); seasonalSave.loadouts[0].bondBattles=10;
         seasonalSave.weeklyClock=new DateTime(2026,10,19,0,0,0,DateTimeKind.Utc).Ticks; seasonalSave.weeklyClaim=seasonalSave.weeklyClock; seasonalSave.weeklyRecords=new[]{123,234,345};
         if(!seasonal.RestoreProgress(seasonalSave)) throw new InvalidOperationException("Could not prepare weekly/bond fixture.");

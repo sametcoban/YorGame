@@ -186,3 +186,13 @@ Verified in the cloud with Mono:
 - The Editor save fixture compiles against a separately compiled runtime core with minimal Unity API stubs. This checks public assembly access, **not execution of Unity JsonUtility**. A full-source syntax scan finds no syntax errors; missing Unity assemblies prevent a native compile.
 
 A repeatable runner is now `Tools/run_checks.sh` (battle/balance/combined/mastery). No Unity Editor, phone rendering, touch layout, animation placement, accessibility clipping, audio playback or pool frame-time profiling was tested here. Those checks remain pending in PlaytestChecklist.md. No campaign restart, account reset or paid features were added.
+
+## Beta prep 7: inventory, recycling and hero profiles
+
+This update changes inventory management and save persistence; combat formulas, loot odds and existing progression rewards are unchanged. Ordinary unupgraded, unlocked and unequipped copies recycle for 5/10/20/40/80 materials by rarity. Boss relics and upgraded types cannot be recycled. Conversion is explicit, quantity-based and rejected when it would exceed the material cap. No automated recycling policy is added to the progression audit.
+
+- **86,638 pure regression assertions passed**, including all inventory filters, equipped counts across reserve heroes, lock/equipment/relic/upgrade protection, exact quantities and material-cap behavior, last-copy removal, three named build slots, deep-copy isolation, unavailable gear without partial changes, current Forge ranks, empty-string/null slot compatibility, stale saved references, malformed profile rejection before mutation, versions 1–23 migration, combat/challenge restrictions and management after campaign completion.
+- **48 combined 28-day earned-reward profiles passed** with version-24 saves and repeated reloads. Both login cohorts report zero losses; the two-login cohort completes 24/24 campaigns. These retain the existing audit's equipment and upgrade policy and do not exercise a new recycling strategy, so they establish save/progression compatibility rather than long-term recycling economy balance.
+- Editor save fixtures compile against the separate pure core using minimal Unity API stubs. New fixtures cover actual JsonUtility round trips for empty and armed profiles and recycled copy/material counts when executed in Unity. **Unity JSON execution was not run in the cloud.** Full-source scanning found no syntax errors; missing Unity references prevent a native build.
+
+Device layout, touch confirmation/cancellation, large text and native scene behavior remain pending. No native playtest or release-readiness claim is made.
