@@ -89,8 +89,12 @@ namespace Ashbound
                     Label(new Rect(470f, 126f, 340f, 42f), combat.Combo + "  CHAIN", 29, Paper, TextAnchor.MiddleCenter, true);
                     Label(new Rect(490f, 167f, 300f, 24f), "SOUL MULTIPLIER  x" + combat.Multiplier, 11, ArenaBuilder.Gold);
                 }
+                Color powerColor = combat.IsComboPowered ? ArenaBuilder.Soul : Muted;
+                Label(new Rect(420f, 195f, 440f, 20f), combat.IsComboPowered ? "ASHEN EDGE  /  SHORT WAVES ACTIVE" :
+                    "SHORT WAVES AT " + CombatSession.ComboPowerThreshold + " CHAIN  /  " + combat.Combo +
+                    " OF " + CombatSession.ComboPowerThreshold, 10, powerColor);
                 if (messageLife > 0f)
-                    Label(new Rect(390f, 224f - (0.85f - messageLife) * 16f, 500f, 35f), message, 20,
+                    Label(new Rect(390f, 240f - (0.85f - messageLife) * 16f, 500f, 35f), message, 20,
                         WithAlpha(messageColor, Mathf.Min(1f, messageLife * 3f)), TextAnchor.MiddleCenter, true);
 
                 DrawControl(new Rect(42f, 595f, 360f, 82f), "<", "STRIKE LEFT", "A / LEFT ARROW");
@@ -167,7 +171,8 @@ namespace Ashbound
             Label(new Rect(500f, 614f, 280f, 42f), "Tap left / right, or press A / D.\nHolding does not repeat attacks.", 12, Muted);
             Label(new Rect(830f, 581f, 280f, 24f), "03   KEEP YOUR OATH", 12, Paper, TextAnchor.MiddleCenter, true);
             Label(new Rect(830f, 614f, 280f, 42f), "Misses and delays cost health.\nThree wounds end the night.", 12, Muted);
-            Label(new Rect(270f, 683f, 740f, 20f), "ULTIMATE: +2.5 PER KILL. AT 100, Q CLEARS LEFT / E CLEARS RIGHT.", 10, ArenaBuilder.Gold);
+            Label(new Rect(190f, 678f, 900f, 16f), "10 CHAIN: SHORT WAVES ON EVERY STRIKE. A MISS OR WOUND BREAKS THE POWER.", 10, ArenaBuilder.Soul);
+            Label(new Rect(270f, 701f, 740f, 16f), "ULTIMATE: +2.5 PER KILL. AT 100, Q CLEARS LEFT / E CLEARS RIGHT.", 9, ArenaBuilder.Gold);
         }
 
         private void DrawControl(Rect rect, string arrow, string title, string key)

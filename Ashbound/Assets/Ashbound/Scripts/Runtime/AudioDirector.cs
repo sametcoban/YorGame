@@ -46,6 +46,12 @@ namespace Ashbound
         }
 
         internal void Swing() { source.PlayOneShot(swing, 0.23f); }
+        internal void PowerSwing()
+        {
+            source.PlayOneShot(swing, 0.3f);
+            source.PlayOneShot(perfect, 0.1f);
+        }
+        internal void PowerUp() { source.PlayOneShot(perfect, 0.5f); }
         internal void Impact(bool precise)
         {
             source.PlayOneShot(impact, 0.5f);

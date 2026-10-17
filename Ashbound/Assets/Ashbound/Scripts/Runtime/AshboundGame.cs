@@ -25,6 +25,8 @@ namespace Ashbound
             internal Side Side;
             internal float Age;
             internal float TravelDistance;
+            internal float Duration;
+            internal float Size;
         }
 
         private readonly Dictionary<int, CharacterView> enemies = new Dictionary<int, CharacterView>();
@@ -158,7 +160,12 @@ namespace Ashbound
                     case CombatEventKind.Strike:
                         lastStrike = e.Side;
                         knight.Strike(e.Side, e.Style);
-                        audioDirector.Swing();
+                        if (e.IsPowered)
+                        {
+                            LaunchWave(e.Side, true);
+                            audioDirector.PowerSwing();
+                        }
+                        else audioDirector.Swing();
                         break;
                     case CombatEventKind.Kill:
                         Burst(new Vector3((int)e.Side * e.Distance, 1.2f, 0f),
@@ -166,7 +173,14 @@ namespace Ashbound
                         if (e.IsUltimate) break; // Preserve the wave's sound, shake, and banner.
                         shake = e.Perfect ? 0.48f : 0.26f;
                         audioDirector.Impact(e.Perfect);
-                        ShowMessage(e.Perfect ? "PERFECT" : "SOUL CLAIMED", e.Perfect ? ArenaBuilder.Gold : ArenaBuilder.Soul);
+                        ShowMessage(e.IsPowered ? (e.Perfect ? "PERFECT WAVE" : "WAVE HIT") :
+                            e.Perfect ? "PERFECT" : "SOUL CLAIMED", e.Perfect ? ArenaBuilder.Gold : ArenaBuilder.Soul);
+                        break;
+                    case CombatEventKind.PowerUp:
+                        Burst(new Vector3(0f, 1.2f, -0.2f), ArenaBuilder.Soul, 18, true);
+                        shake = Mathf.Max(shake, 0.5f);
+                        audioDirector.PowerUp();
+                        ShowMessage("ASHEN EDGE  /  SHORT WAVES", ArenaBuilder.Soul);
                         break;
                     case CombatEventKind.Ultimate:
                         lastStrike = e.Side;
@@ -328,11 +342,11 @@ namespace Ashbound
             return mesh;
         }
 
-        private void LaunchWave(Side side)
+        private void LaunchWave(Side side, bool combo = false)
         {
-            var root = new GameObject("Oathbreaker wave").transform;
+            var root = new GameObject(combo ? "Ashen Edge short wave" : "Oathbreaker wave").transform;
             root.SetParent(transform, false);
-            for (int layer = 0; layer < 3; layer++)
+            for (int layer = 0; layer < (combo ? 2 : 3); layer++)
             {
                 var ribbon = new GameObject("Crescent trail " + layer, typeof(MeshFilter), typeof(MeshRenderer));
                 ribbon.transform.SetParent(root, false);
@@ -340,12 +354,19 @@ namespace Ashbound
                 ribbon.transform.localScale = new Vector3(1f - layer * 0.15f, 1f - layer * 0.12f, 1f);
                 ribbon.GetComponent<MeshFilter>().sharedMesh = slashMesh;
                 var renderer = ribbon.GetComponent<MeshRenderer>();
-                renderer.sharedMaterial = ArenaBuilder.Material(layer == 0 ? ArenaBuilder.Gold : ArenaBuilder.Soul * (1f - layer * 0.15f), true);
+                Color color = combo ? (layer == 0 ? ArenaBuilder.Soul : ArenaBuilder.Gold * 0.65f) :
+                    layer == 0 ? ArenaBuilder.Gold : ArenaBuilder.Soul * (1f - layer * 0.15f);
+                renderer.sharedMaterial = ArenaBuilder.Material(color, true);
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             var wave = new SlashWave {
                 Root = root, Side = side,
-                TravelDistance = Mathf.Max(CombatSession.SpawnDistance + 3f, arenaCamera.orthographicSize * arenaCamera.aspect + 3f)
+                Duration = combo ? 0.24f : 0.5f,
+                Size = combo ? 0.55f : 1f,
+                // Account for the crescent's leading edge so the small wave ends
+                // at its actual hit range instead of crossing the entire lane.
+                TravelDistance = combo ? CombatSession.PoweredStrikeRange - 1.12f * 0.55f * 1.7f :
+                    Mathf.Max(CombatSession.SpawnDistance + 3f, arenaCamera.orthographicSize * arenaCamera.aspect + 3f)
             };
             PositionWave(wave);
             waves.Add(wave);
@@ -353,9 +374,9 @@ namespace Ashbound
 
         private static void PositionWave(SlashWave wave)
         {
-            float t = Mathf.Clamp01(wave.Age / 0.5f);
+            float t = Mathf.Clamp01(wave.Age / wave.Duration);
             wave.Root.localPosition = new Vector3((int)wave.Side * Mathf.Lerp(0.45f, wave.TravelDistance, t), 1.5f, -0.3f);
-            wave.Root.localScale = new Vector3((int)wave.Side * (1f + t * 0.7f), 1f + t * 0.45f, 1f);
+            wave.Root.localScale = new Vector3((int)wave.Side * (1f + t * 0.7f), 1f + t * 0.45f, 1f) * wave.Size;
         }
 
         private void UpdateWaves(float dt)
@@ -365,7 +386,7 @@ namespace Ashbound
             {
                 var wave = waves[i];
                 wave.Age += dt;
-                if (wave.Age >= 0.5f)
+                if (wave.Age >= wave.Duration)
                 {
                     Destroy(wave.Root.gameObject);
                     waves.RemoveAt(i);

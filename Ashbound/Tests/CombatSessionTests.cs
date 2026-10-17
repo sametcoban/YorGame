@@ -45,6 +45,14 @@ internal static class CombatSessionTests
         Run("Clearing the entire queue cannot stall the run", EmptyQueueRecovery);
         Run("Cooldown rejects repeated miss punishment and a correct attack recovers", MissCooldownRecovery);
         Run("Three wrong-side strikes end the run exactly once", MissDefeat);
+        Run("Ten consecutive kills unlock short waves for following attacks", ComboPowerUnlock);
+        Run("Distant enemies remain outside unpowered sword range", UnpoweredRange);
+        Run("Powered left wave hits nearby enemies and stops before distant ones", PoweredLeft);
+        Run("Powered right wave hits nearby enemies and stops before distant ones", PoweredRight);
+        Run("Short wave can hit beyond the sword without harming the opposite side", PoweredDistantTarget);
+        Run("Every powered strike requests a short wave without spending ultimate", PoweredEveryStrike);
+        Run("A missed wave loses the power and retains miss punishment", ComboPowerMiss);
+        Run("Timeout and restart remove combo power", ComboPowerReset);
         Console.WriteLine("\n" + passed + " passed; " + failed + " failed.");
         return failed == 0 ? 0 : 1;
     }
@@ -311,7 +319,7 @@ internal static class CombatSessionTests
             Check(game.UltimateCharge == Math.Min(100f, game.Kills * 2.5f), "Wrong per-kill charge or charge exceeded 100.");
             Check(game.IsUltimateReady == (game.Kills >= 40), "Readiness did not change at exactly forty kills.");
         }
-        Check(game.Kills == 45 && game.UltimateCharge == 100f, "Did not exercise the full charge cap.");
+        Check(game.Kills >= 45 && game.UltimateCharge == 100f, "Did not exercise the full charge cap.");
     }
 
     private static void PerfectCharge()
@@ -478,11 +486,14 @@ internal static class CombatSessionTests
     private static void AttackStyleUltimate()
     {
         var game = ChargeTo(40);
+        game.Tick(0.2f);
+        AttackStyle previous = StrikeStyle(game, game.Enemies[0].Side);
         Check(game.ActivateUltimate(Side.Left), "Could not prepare ultimate animation.");
         var events = game.DrainEvents();
         Check(events[0].Kind == CombatEventKind.Ultimate && events[0].IsUltimate, "Ultimate did not request its own presentation.");
         game.Tick(0.2f);
-        Check(StrikeStyle(game, Side.Right) == AttackStyle.Cleave, "Ultimate advanced the normal four-strike sequence.");
+        Check(StrikeStyle(game, Side.Right) == (AttackStyle)(((int)previous + 1) % 4),
+            "Ultimate advanced the normal four-strike sequence.");
     }
 
     private static Dictionary<int, float> Positions(CombatSession game)
@@ -576,8 +587,8 @@ internal static class CombatSessionTests
                 "Ultimate left gaps, crossed the hero, or repopulated its cleared side immediately.");
         game.Tick(0.2f);
         game.Attack(game.Enemies[0].Side);
-        Check(game.Enemies.Count == 6 && game.Health == 3 && game.Kills == 41 + waveKills &&
-            game.UltimateCharge == (waveKills + 1) * 2.5f, "Combat did not resume correctly after an ultimate.");
+        Check(game.Enemies.Count == 6 && game.Health == 3 && game.Kills == 42 + waveKills &&
+            game.UltimateCharge == (waveKills + 2) * 2.5f, "Powered combat did not resume correctly after an ultimate.");
     }
 
     private static void EmptyQueueRecovery()
@@ -629,5 +640,145 @@ internal static class CombatSessionTests
         Check(game.IsOver && game.Health == 0 && wounds == 3 && ends == 1 && game.Kills == 0,
             "Repeated misses did not end the run exactly once without kill credit.");
         Check(!game.Attack(Side.Left) && game.DrainEvents().Length == 0, "Dead player can cause extra miss damage.");
+    }
+
+    private static void ComboPowerUnlock()
+    {
+        var game = ChargeTo(9);
+        Check(!game.IsComboPowered && game.CurrentStrikeRange == 2.65f, "Power unlocked before ten consecutive kills.");
+        game.Tick(0.2f);
+        game.Attack(game.Enemies[0].Side);
+        Check(game.Combo == 10 && game.IsComboPowered && game.CurrentStrikeRange == 4.5f,
+            "Tenth consecutive kill did not unlock extended reach.");
+        int unlocks = 0;
+        foreach (var e in game.DrainEvents())
+        {
+            if (e.Kind == CombatEventKind.PowerUp) unlocks++;
+            if (e.Kind == CombatEventKind.Strike) Check(!e.IsPowered, "Unlocking hit used power before reaching the threshold.");
+        }
+        Check(unlocks == 1, "Power unlock feedback was missing or duplicated.");
+    }
+
+    private static void UnpoweredRange()
+    {
+        var game = new CombatSession(31);
+        OpenQueue(game);
+        game.Enemies[0].Side = Side.Left;
+        game.Enemies[1].Side = Side.Right;
+        game.DrainEvents();
+        game.Attack(Side.Right);
+        Check(game.Kills == 0 && game.Health == 2 && !game.IsComboPowered,
+            "A normal sword attack reached the second slot before unlocking power.");
+        foreach (var e in game.DrainEvents())
+            Check(!e.IsPowered && e.Kind != CombatEventKind.PowerUp, "Unpowered attack emitted power feedback.");
+    }
+
+    private static void PoweredLeft() { PoweredSide(Side.Left); }
+    private static void PoweredRight() { PoweredSide(Side.Right); }
+
+    private static void PoweredSide(Side side)
+    {
+        var game = ChargeTo(10);
+        game.Tick(0.2f);
+        var near = new List<Enemy> { game.Enemies[0], game.Enemies[1] };
+        var far = game.Enemies[2];
+        for (int i = 0; i < 3; i++) game.Enemies[i].Side = side;
+        var untouched = new List<Enemy>();
+        for (int i = 3; i < game.Enemies.Count; i++)
+        {
+            game.Enemies[i].Side = side == Side.Left ? Side.Right : Side.Left;
+            untouched.Add(game.Enemies[i]);
+        }
+        int score = game.Score;
+        Check(near[1].Distance > 2.65f && far.Distance > 4.5f, "Range fixture did not span sword and wave boundaries.");
+        game.DrainEvents();
+        game.Attack(side);
+        var survivors = new List<Enemy>(game.Enemies);
+        Check(!survivors.Contains(near[0]) && !survivors.Contains(near[1]) && survivors.Contains(far),
+            "Short wave failed to hit the second enemy or chained beyond its original range.");
+        foreach (var enemy in untouched) Check(survivors.Contains(enemy), "Short wave harmed the opposite side.");
+        Check(game.Kills == 12 && game.Combo == 12 && game.Health == 3 && game.Enemies.Count == 6 &&
+            game.UltimateCharge == 30f && game.Score == score + 600, "Short-wave kills lost normal combo, score, or charge rewards.");
+        int strikes = 0, kills = 0;
+        foreach (var e in game.DrainEvents())
+        {
+            if (e.Kind == CombatEventKind.Strike)
+            {
+                strikes++;
+                Check(e.IsPowered && e.Side == side && !e.IsUltimate, "Short wave received invalid presentation flags.");
+            }
+            if (e.Kind == CombatEventKind.Kill)
+            {
+                kills++;
+                Check(e.IsPowered && !e.IsUltimate && e.Side == side, "Powered kill feedback was incorrect.");
+            }
+        }
+        Check(strikes == 1 && kills == 2, "A short wave did not resolve as one strike and two kills.");
+    }
+
+    private static void PoweredDistantTarget()
+    {
+        var game = ChargeTo(10);
+        game.Tick(0.2f);
+        var front = game.Enemies[0];
+        var second = game.Enemies[1];
+        var third = game.Enemies[2];
+        front.Side = Side.Left;
+        second.Side = third.Side = Side.Right;
+        game.Attack(Side.Right);
+        var survivors = new List<Enemy>(game.Enemies);
+        Check(game.Kills == 11 && game.Health == 3 && survivors.Contains(front) && !survivors.Contains(second) &&
+            survivors.Contains(third) && front.Distance == 2.25f,
+            "Extended reach failed or caused a surviving enemy to cross the hero.");
+    }
+
+    private static void PoweredEveryStrike()
+    {
+        var game = ChargeTo(10);
+        int previousKills = game.Kills;
+        for (int i = 0; i < 3; i++)
+        {
+            game.Tick(0.2f);
+            game.Attack(game.Enemies[0].Side);
+            int waves = 0;
+            foreach (var e in game.DrainEvents())
+            {
+                if (e.Kind == CombatEventKind.Strike && e.IsPowered) waves++;
+                Check(e.Kind != CombatEventKind.PowerUp && e.Kind != CombatEventKind.Ultimate,
+                    "Normal powered strike retriggered unlock or spent the ultimate.");
+            }
+            Check(waves == 1 && game.IsComboPowered && game.Kills > previousKills &&
+                game.UltimateCharge == game.Kills * 2.5f, "Power did not persist on each normal attack.");
+            previousKills = game.Kills;
+            Check(!game.Attack(Side.Left) && game.DrainEvents().Length == 0, "Cooldown-rejected input created an extra short wave.");
+        }
+    }
+
+    private static void ComboPowerMiss()
+    {
+        var game = ChargeTo(10);
+        game.Tick(0.2f);
+        game.Enemies[0].Side = game.Enemies[1].Side = Side.Left;
+        game.Attack(Side.Right);
+        Check(game.Combo == 0 && !game.IsComboPowered && game.CurrentStrikeRange == 2.65f &&
+            game.Health == 2 && game.Kills == 10 && game.UltimateCharge == 25f,
+            "A missed wave retained power or bypassed miss punishment.");
+        game.DrainEvents();
+        game.Tick(0.2f);
+        game.Attack(game.Enemies[0].Side);
+        foreach (var e in game.DrainEvents()) Check(!e.IsPowered, "Power remained on the follow-up strike after a miss.");
+        Check(game.Combo == 1 && game.Kills == 11 && !game.IsComboPowered, "Power did not require rebuilding the chain.");
+    }
+
+    private static void ComboPowerReset()
+    {
+        var game = ChargeTo(10);
+        game.Tick(game.TimeToStrike + 0.01f);
+        Check(game.Health == 2 && game.Combo == 0 && !game.IsComboPowered && game.CurrentStrikeRange == 2.65f,
+            "Timeout retained combo power.");
+        game = ChargeTo(10);
+        game.Reset(31);
+        Check(game.Combo == 0 && !game.IsComboPowered && game.CurrentStrikeRange == 2.65f,
+            "Restart retained combo power.");
     }
 }

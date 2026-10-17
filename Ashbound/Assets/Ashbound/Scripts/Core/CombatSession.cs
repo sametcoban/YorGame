@@ -6,7 +6,7 @@ namespace Ashbound.Core
     public enum Side { Left = -1, Right = 1 }
     public enum EnemyKind { Skeleton, Wraith }
     public enum AttackStyle { Cleave, RisingCut, Thrust, Spin }
-    public enum CombatEventKind { Spawn, Strike, Kill, Miss, Hurt, GameOver, Ultimate }
+    public enum CombatEventKind { Spawn, Strike, Kill, Miss, Hurt, GameOver, Ultimate, PowerUp }
 
     public sealed class Enemy
     {
@@ -26,6 +26,7 @@ namespace Ashbound.Core
         public bool Perfect;
         public bool IsUltimate;
         public AttackStyle Style;
+        public bool IsPowered;
     }
 
     // This model has no Unity dependencies so the rules can be tested separately.
@@ -43,6 +44,8 @@ namespace Ashbound.Core
         public const int MaxHealth = 3;
         public const float UltimateMaxCharge = 100f;
         public const float UltimateChargePerKill = 2.5f;
+        public const int ComboPowerThreshold = 10;
+        public const float PoweredStrikeRange = 4.5f;
 
         private readonly List<Enemy> enemies = new List<Enemy>();
         private readonly List<CombatEvent> events = new List<CombatEvent>();
@@ -70,6 +73,8 @@ namespace Ashbound.Core
         public bool IsOver { get { return Health == 0; } }
         public int Wave { get { return 1 + (int)(Elapsed / 20f); } }
         public int Multiplier { get { return 1 + Math.Min(4, Combo / 10); } }
+        public bool IsComboPowered { get { return !IsOver && Combo >= ComboPowerThreshold; } }
+        public float CurrentStrikeRange { get { return IsComboPowered ? PoweredStrikeRange : StrikeRange; } }
 
         public CombatSession(int seed) { Reset(seed); }
 
@@ -189,14 +194,17 @@ namespace Ashbound.Core
                 throw new ArgumentOutOfRangeException("side");
             if (IsOver || attackTimer > 0f) return false;
             attackTimer = AttackCooldown;
-            events.Add(new CombatEvent { Kind = CombatEventKind.Strike, Side = side, Style = (AttackStyle)nextAttackStyle });
+            bool powered = IsComboPowered;
+            float range = CurrentStrikeRange;
+            events.Add(new CombatEvent { Kind = CombatEventKind.Strike, Side = side,
+                Style = (AttackStyle)nextAttackStyle, IsPowered = powered });
             nextAttackStyle = (nextAttackStyle + 1) % 4;
 
             Enemy target = null;
             for (int i = 0; i < enemies.Count; i++)
             {
                 var candidate = enemies[i];
-                if (candidate.Side == side && candidate.Distance <= StrikeRange &&
+                if (candidate.Side == side && candidate.Distance <= range &&
                     (target == null || candidate.Distance < target.Distance))
                     target = candidate;
             }
@@ -221,7 +229,17 @@ namespace Ashbound.Core
                 return true;
             }
 
-            DefeatEnemy(target, StrikeTimeLimit - TimeToStrike <= PerfectWindow, false);
+            bool perfect = StrikeTimeLimit - TimeToStrike <= PerfectWindow;
+            if (powered)
+            {
+                // Resolve only the enemies within this swing's original range.
+                // Compact and replenish afterward, so a short wave never chains
+                // through newly advanced targets or becomes an infinite clear.
+                for (int i = enemies.Count - 1; i >= 0; i--)
+                    if (enemies[i].Side == side && enemies[i].Distance <= range)
+                        DefeatEnemy(enemies[i], perfect, false, true);
+            }
+            else DefeatEnemy(target, perfect, false, false);
             AdvanceQueue();
             FillQueue();
             ResetStrikeClock();
@@ -242,7 +260,7 @@ namespace Ashbound.Core
             int previousCount = enemies.Count;
             for (int i = enemies.Count - 1; i >= 0; i--)
                 if (enemies[i].Side == side)
-                    DefeatEnemy(enemies[i], false, true);
+                    DefeatEnemy(enemies[i], false, true, false);
             if (enemies.Count != previousCount)
             {
                 AdvanceQueue();
@@ -253,7 +271,7 @@ namespace Ashbound.Core
             return true;
         }
 
-        private void DefeatEnemy(Enemy target, bool perfect, bool ultimate)
+        private void DefeatEnemy(Enemy target, bool perfect, bool ultimate, bool powered)
         {
             enemies.Remove(target);
             Combo++;
@@ -264,7 +282,10 @@ namespace Ashbound.Core
             var killed = Event(CombatEventKind.Kill, target);
             killed.Perfect = perfect;
             killed.IsUltimate = ultimate;
+            killed.IsPowered = powered;
             events.Add(killed);
+            if (Combo == ComboPowerThreshold)
+                events.Add(new CombatEvent { Kind = CombatEventKind.PowerUp, Side = target.Side });
         }
 
         private static CombatEvent Event(CombatEventKind kind, Enemy enemy)
