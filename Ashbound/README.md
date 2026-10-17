@@ -64,6 +64,8 @@ bash Tools/test-combat.sh
 
 The script also supports the cloud environment's Mono installation automatically. Its output and compiled runner go into ignored `Artifacts/CombatTests/`. The dependency-free suite covers opening grace, range, perfect strikes, incorrect-side attacks, cooldowns, defeat, reset, deterministic encounters, wraith introduction, three minutes of automated survival and score scaling, frame hitches, and invalid inputs.
 
+With Python 3, run `python3 Tools/check-asset-guids.py` to check the length and format of asset GUIDs, duplicate identities, and serialized references in materials, scenes, and settings. This catches malformed built-in shader references that a C# compilation cannot detect.
+
 **Verified in the cloud:** all 12 combat regression tests passed. Runtime C# also compiled against Unity 2022.3 reference assemblies as an API compatibility check. No Unity Editor was available here, so Unity 6 import, Play mode rendering / audio / touch input, the Editor build menus, and actual desktop / Android builds still need validation on your machine. The compatibility compile does not replace those checks.
 
 For the first Editor check, confirm the title appears without Console errors, start a run, kill enemies in each direction, try a premature strike, pause/resume, lose all three wounds, and retry. On a device, also test both touch halves, the sound / pause buttons, background/resume, and the safe-area layout.
