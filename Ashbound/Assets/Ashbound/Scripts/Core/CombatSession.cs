@@ -113,7 +113,7 @@ namespace Ashbound.Core
             if (spawnTimer <= 0f)
             {
                 Spawn();
-                spawnTimer += Math.Max(0.55f, 1.8f - Elapsed * 0.009f);
+                spawnTimer += Math.Max(0.28f, 0.7f - Elapsed * 0.007f);
             }
 
             for (int i = enemies.Count - 1; i >= 0; i--)

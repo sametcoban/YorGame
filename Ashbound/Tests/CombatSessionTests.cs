@@ -21,6 +21,7 @@ internal static class CombatSessionTests
         Run("Equal seeds produce equal encounters", Deterministic);
         Run("Wraiths unlock after the opening phase", Wraiths);
         Run("Long-run combat scales the multiplier and remains survivable", LongRun);
+        Run("Denser waves sustain action and ramp up within the first minute", EncounterPacing);
         Run("A large tick agrees with normal frame updates", FrameHitch);
         Run("Invalid time and attack input are rejected", InvalidInput);
         Run("Every kill grants exactly 2.5 ultimate charge and forty fill it", UltimateCharge);
@@ -219,6 +220,32 @@ internal static class CombatSessionTests
         if (nearest != null && nearest.Distance <= 2.3f) game.Attack(nearest.Side);
     }
 
+    private static void EncounterPacing()
+    {
+        var game = new CombatSession(31);
+        int openingKills = 0, lateKills = 0;
+        float previousKill = -1f, longestGap = 0f;
+        for (int frame = 0; frame < 90 * 120; frame++)
+        {
+            game.Tick(1f / 120f);
+            AttackNearest(game);
+            foreach (var e in game.DrainEvents())
+            {
+                if (e.Kind != CombatEventKind.Kill) continue;
+                if (game.Elapsed < 20f) openingKills++;
+                if (game.Elapsed >= 60f && game.Elapsed < 80f) lateKills++;
+                if (previousKill >= 10f) longestGap = Math.Max(longestGap, game.Elapsed - previousKill);
+                previousKill = game.Elapsed;
+            }
+        }
+        Check(openingKills >= 20, "Opening night still has too few enemies: " + openingKills);
+        Check(lateKills >= 60, "Spawn pressure did not ramp up after one minute: " + lateKills);
+        Check(longestGap <= 0.9f, "Excessive downtime between reachable enemies: " + longestGap + " seconds.");
+        Check(game.Health == 3, "Denser waves became unavoidable for a correctly timed player.");
+        Console.WriteLine("  Pacing: " + openingKills + " kills in first 20s; " + lateKills +
+            " kills from 60-80s; longest gap after 10s " + longestGap.ToString("0.00") + "s.");
+    }
+
     private static void FrameHitch()
     {
         var a = new CombatSession(18);
@@ -378,25 +405,15 @@ internal static class CombatSessionTests
     private static void EmptyUltimate()
     {
         var game = ChargeTo(40);
-        // A lane may be empty naturally. Defend the opposite lane until one is.
-        Side empty = Side.Left;
-        bool found = false;
-        for (int frame = 0; frame < 120 * 60 && !found; frame++)
-        {
-            bool left = false, right = false;
-            foreach (var enemy in game.Enemies)
-                if (enemy.Side == Side.Left) left = true; else right = true;
-            if (!left || !right) { empty = !left ? Side.Left : Side.Right; found = true; break; }
-            game.Tick(1f / 120f);
-            AttackNearest(game);
-            game.DrainEvents();
-        }
-        Check(found && !game.IsOver, "Could not prepare an empty lane.");
+        // Arrange the empty-left-lane edge case explicitly. The denser encounter
+        // stream intentionally keeps both lanes populated during normal play.
+        foreach (var enemy in game.Enemies) enemy.Side = Side.Right;
+        int enemyCount = game.Enemies.Count;
         int kills = game.Kills, score = game.Score;
         game.DrainEvents();
-        Check(game.ActivateUltimate(empty) && game.UltimateCharge == 0f, "Empty cast failed to spend its charge.");
+        Check(game.ActivateUltimate(Side.Left) && game.UltimateCharge == 0f, "Empty cast failed to spend its charge.");
         var events = game.DrainEvents();
-        Check(game.Kills == kills && game.Score == score && events.Length == 1 &&
+        Check(game.Enemies.Count == enemyCount && game.Kills == kills && game.Score == score && events.Length == 1 &&
             events[0].Kind == CombatEventKind.Ultimate, "Empty cast awarded kills or lost its wave effect.");
     }
 
