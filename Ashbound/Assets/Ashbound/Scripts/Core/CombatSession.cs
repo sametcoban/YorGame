@@ -14,7 +14,6 @@ namespace Ashbound.Core
         public Side Side { get; internal set; }
         public EnemyKind Kind { get; internal set; }
         public float Distance { get; internal set; }
-        public float Speed { get; internal set; }
     }
 
     public struct CombatEvent
@@ -35,8 +34,10 @@ namespace Ashbound.Core
     {
         public const float SpawnDistance = 10.5f;
         public const float StrikeRange = 2.65f;
-        public const float PerfectRange = 1.65f;
-        public const float ContactDistance = 0.85f;
+        public const float FrontDistance = 2.25f;
+        public const float AdvanceDistance = 1.65f;
+        public const int QueueSize = 6;
+        public const float PerfectWindow = 0.3f;
         public const float AttackCooldown = 0.17f;
         public const int MaxHealth = 3;
         public const float UltimateMaxCharge = 100f;
@@ -46,9 +47,9 @@ namespace Ashbound.Core
         private readonly List<CombatEvent> events = new List<CombatEvent>();
         private static readonly CombatEvent[] noEvents = new CombatEvent[0];
         private Random random;
-        private float spawnTimer;
+        private float openingTimer;
         private float attackTimer;
-        private float invulnerability;
+        private bool queueStarted;
         private int nextId;
         private int nextAttackStyle;
         private Side lastSpawn;
@@ -63,6 +64,8 @@ namespace Ashbound.Core
         public float UltimateCharge { get; private set; }
         public bool IsUltimateReady { get { return UltimateCharge >= UltimateMaxCharge; } }
         public float Elapsed { get; private set; }
+        public float TimeToStrike { get; private set; }
+        public float StrikeTimeLimit { get; private set; }
         public bool IsOver { get { return Health == 0; } }
         public int Wave { get { return 1 + (int)(Elapsed / 20f); } }
         public int Multiplier { get { return 1 + Math.Min(4, Combo / 10); } }
@@ -77,9 +80,10 @@ namespace Ashbound.Core
             Health = MaxHealth;
             Score = Combo = BestCombo = Kills = nextId = sameSideSpawns = 0;
             nextAttackStyle = 0;
-            Elapsed = attackTimer = invulnerability = 0f;
+            Elapsed = attackTimer = TimeToStrike = StrikeTimeLimit = 0f;
             UltimateCharge = 0f;
-            spawnTimer = 0.65f;
+            openingTimer = 0.65f;
+            queueStarted = false;
             lastSpawn = Side.Left;
         }
 
@@ -95,7 +99,7 @@ namespace Ashbound.Core
         {
             if (float.IsNaN(seconds) || float.IsInfinity(seconds) || seconds < 0f)
                 throw new ArgumentOutOfRangeException("seconds");
-            // Fixed steps make enemy contact and spawning consistent after frame hitches.
+            // Fixed steps keep the response deadline consistent after frame hitches.
             while (seconds > 0f && !IsOver)
             {
                 float step = Math.Min(seconds, 1f / 60f);
@@ -108,29 +112,56 @@ namespace Ashbound.Core
         {
             Elapsed += dt;
             attackTimer = Math.Max(0f, attackTimer - dt);
-            invulnerability = Math.Max(0f, invulnerability - dt);
-            spawnTimer -= dt;
-            if (spawnTimer <= 0f)
+            if (!queueStarted)
             {
-                Spawn();
-                spawnTimer += Math.Max(0.28f, 0.7f - Elapsed * 0.007f);
+                openingTimer -= dt;
+                if (openingTimer > 0f) return;
+                queueStarted = true;
+                FillQueue();
+                ResetStrikeClock();
+                return;
             }
+            if (enemies.Count == 0)
+            {
+                FillQueue();
+                ResetStrikeClock();
+                return;
+            }
+            // Enemies hold their positions until a kill. If the response window
+            // expires, the front enemy strikes once and the next takes its place.
+            TimeToStrike = Math.Max(0f, TimeToStrike - dt);
+            if (TimeToStrike > 0f) return;
+            var attacker = enemies[0];
+            enemies.RemoveAt(0);
+            Health--;
+            Combo = 0;
+            events.Add(Event(CombatEventKind.Hurt, attacker));
+            if (IsOver) events.Add(Event(CombatEventKind.GameOver, attacker));
+            else
+            {
+                AdvanceQueue();
+                FillQueue();
+                ResetStrikeClock();
+            }
+        }
 
-            for (int i = enemies.Count - 1; i >= 0; i--)
-            {
-                var enemy = enemies[i];
-                enemy.Distance -= enemy.Speed * dt;
-                if (enemy.Distance > ContactDistance) continue;
-                enemies.RemoveAt(i);
-                if (invulnerability > 0f) continue;
-                Health--;
-                Combo = 0;
-                invulnerability = 0.9f;
-                events.Add(Event(CombatEventKind.Hurt, enemy));
-                if (!IsOver) continue;
-                events.Add(Event(CombatEventKind.GameOver, enemy));
-                break;
-            }
+        private void ResetStrikeClock()
+        {
+            StrikeTimeLimit = Math.Max(0.55f, 1.6f - Elapsed * 0.012f);
+            TimeToStrike = StrikeTimeLimit;
+        }
+
+        private void AdvanceQueue()
+        {
+            // Insertion order is also approach order. Compact gaps once after a
+            // kill or ultimate so nobody crosses the hero or overtakes a survivor.
+            for (int i = 0; i < enemies.Count; i++)
+                enemies[i].Distance = FrontDistance + i * AdvanceDistance;
+        }
+
+        private void FillQueue()
+        {
+            while (enemies.Count < QueueSize) Spawn();
         }
 
         private void Spawn()
@@ -143,13 +174,9 @@ namespace Ashbound.Core
 
             EnemyKind kind = Elapsed >= 22f && random.Next(4) == 0
                 ? EnemyKind.Wraith : EnemyKind.Skeleton;
-            // All enemies within a lane use the same speed: no overtaking or hidden threats.
-            float speed = Math.Min(5f, 2.6f + Elapsed * 0.012f);
-            for (int i = 0; i < enemies.Count; i++)
-                if (enemies[i].Side == side) { speed = enemies[i].Speed; break; }
             var enemy = new Enemy {
                 Id = ++nextId, Side = side, Kind = kind,
-                Distance = SpawnDistance, Speed = speed
+                Distance = FrontDistance + enemies.Count * AdvanceDistance
             };
             enemies.Add(enemy);
             events.Add(Event(CombatEventKind.Spawn, enemy));
@@ -179,7 +206,10 @@ namespace Ashbound.Core
                 return true;
             }
 
-            DefeatEnemy(target, target.Distance <= PerfectRange, false);
+            DefeatEnemy(target, StrikeTimeLimit - TimeToStrike <= PerfectWindow, false);
+            AdvanceQueue();
+            FillQueue();
+            ResetStrikeClock();
             return true;
         }
 
@@ -194,9 +224,17 @@ namespace Ashbound.Core
             UltimateCharge = 0f;
             attackTimer = AttackCooldown;
             events.Add(new CombatEvent { Kind = CombatEventKind.Ultimate, Side = side, IsUltimate = true });
+            int previousCount = enemies.Count;
             for (int i = enemies.Count - 1; i >= 0; i--)
                 if (enemies[i].Side == side)
                     DefeatEnemy(enemies[i], false, true);
+            if (enemies.Count != previousCount)
+            {
+                AdvanceQueue();
+                ResetStrikeClock();
+                // Keep the cleared side empty until the next normal kill refills
+                // the queue; the ultimate's wave should visibly clear its lane.
+            }
             return true;
         }
 

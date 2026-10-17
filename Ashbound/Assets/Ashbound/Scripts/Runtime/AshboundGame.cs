@@ -99,8 +99,8 @@ namespace Ashbound
 
             if (screen == GameScreen.Playing)
             {
-                // Advance before taking input, so the displayed last-frame position and
-                // this-frame attack window differ by at most one simulation step.
+                // Tick the response deadline; enemy positions advance only after
+                // a kill or after the front enemy lands a timeout attack.
                 combat.Tick(dt);
                 if (!combat.IsOver) ReadAttacks();
                 HandleEvents();
@@ -179,7 +179,7 @@ namespace Ashbound
                         ShowMessage(e.Side == Side.Left ? "OATHBREAKER  <" : "OATHBREAKER  >", ArenaBuilder.Gold);
                         break;
                     case CombatEventKind.Miss:
-                        ShowMessage("TOO EARLY", new Color(0.62f, 0.62f, 0.61f));
+                        ShowMessage(combat.Enemies.Count == 0 ? "GET READY" : "WRONG SIDE", new Color(0.62f, 0.62f, 0.61f));
                         break;
                     case CombatEventKind.Hurt:
                         damageFlash = 0.65f;
@@ -214,7 +214,7 @@ namespace Ashbound
                     view = new CharacterView(actors, false, enemy.Kind == EnemyKind.Wraith);
                     enemies.Add(enemy.Id, view);
                 }
-                view.Animate(visualTime, dt, (int)enemy.Side * enemy.Distance, -(int)enemy.Side, true);
+                view.Animate(visualTime, dt, (int)enemy.Side * enemy.Distance, -(int)enemy.Side, false);
             }
             staleEnemies.Clear();
             foreach (var pair in enemies)

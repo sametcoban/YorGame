@@ -71,6 +71,12 @@ namespace Ashbound
                 Label(new Rect(380f, 48f, 155f, 42f), combat.Score.ToString("N0"), 31, ArenaBuilder.Gold, TextAnchor.MiddleCenter, true);
                 Label(new Rect(560f, 28f, 160f, 20f), "NIGHT " + combat.Wave.ToString("00"), 14, Paper, TextAnchor.MiddleCenter, true);
                 Label(new Rect(560f, 55f, 160f, 26f), TimeText(combat.Elapsed), 19, Muted);
+                float response = combat.StrikeTimeLimit > 0f ? Mathf.Clamp01(combat.TimeToStrike / combat.StrikeTimeLimit) : 0f;
+                Color urgency = response < 0.3f ? new Color(0.92f, 0.29f, 0.18f) : ArenaBuilder.Gold;
+                Fill(new Rect(560f, 84f, 160f, 5f), Line);
+                Fill(new Rect(560f, 84f, 160f * response, 5f), urgency);
+                Label(new Rect(550f, 92f, 180f, 14f), combat.Enemies.Count == 0 ? "GET READY" :
+                    "STRIKE IN " + combat.TimeToStrike.ToString("0.0") + "s", 9, urgency);
                 Label(new Rect(775f, 28f, 210f, 18f), "YOUR OATH", 10, Muted);
                 for (int i = 0; i < CombatSession.MaxHealth; i++)
                 {
@@ -103,7 +109,7 @@ namespace Ashbound
                 GUI.enabled = wasEnabled;
                 Label(new Rect(438f, 654f, 404f, 19f), combat.IsUltimateReady ? "CHOOSE A SIDE. CLEAR EVERY ENEMY." :
                     "+2.5 PER KILL  /  40 KILLS TO FILL", 10, combat.IsUltimateReady ? ArenaBuilder.Gold : Muted);
-                Label(new Rect(360f, 690f, 560f, 18f), combat.Elapsed < 10f ? "Strike after enemies cross the gold marks beside you" :
+                Label(new Rect(360f, 690f, 560f, 18f), combat.Elapsed < 10f ? "Strike the nearest enemy. Each kill advances the queue." :
                     "A / D TO STRIKE   •   Q / E FOR ULTIMATE", 10, Muted);
             }
             else
@@ -155,12 +161,12 @@ namespace Ashbound
         private void TitleGuide()
         {
             Fill(new Rect(170f, 559f, 940f, 1f), Line);
-            Label(new Rect(170f, 581f, 280f, 24f), "01   WATCH THE THRESHOLD", 12, Paper, TextAnchor.MiddleCenter, true);
-            Label(new Rect(170f, 614f, 280f, 42f), "Wait until the dead cross\nthe gold marks beside you.", 12, Muted);
+            Label(new Rect(170f, 581f, 280f, 24f), "01   READ THE NEAREST ENEMY", 12, Paper, TextAnchor.MiddleCenter, true);
+            Label(new Rect(170f, 614f, 280f, 42f), "Strike their side. Each kill\nbrings the next enemy forward.", 12, Muted);
             Label(new Rect(500f, 581f, 280f, 24f), "02   STRIKE THEIR SIDE", 12, Paper, TextAnchor.MiddleCenter, true);
             Label(new Rect(500f, 614f, 280f, 42f), "Tap left / right, or press A / D.\nHolding does not repeat attacks.", 12, Muted);
             Label(new Rect(830f, 581f, 280f, 24f), "03   KEEP YOUR OATH", 12, Paper, TextAnchor.MiddleCenter, true);
-            Label(new Rect(830f, 614f, 280f, 42f), "Chain kills to multiply souls.\nThree wounds end the night.", 12, Muted);
+            Label(new Rect(830f, 614f, 280f, 42f), "Keep ahead of the response clock.\nThree missed deadlines end the night.", 12, Muted);
             Label(new Rect(270f, 683f, 740f, 20f), "ULTIMATE: +2.5 PER KILL. AT 100, Q CLEARS LEFT / E CLEARS RIGHT.", 10, ArenaBuilder.Gold);
         }
 

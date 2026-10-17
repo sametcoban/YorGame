@@ -16,6 +16,11 @@ namespace Ashbound
         private float facing = 1f;
         private bool ultimateStrike;
         private AttackStyle attackStyle;
+        private bool positionInitialized;
+        private float displayedX;
+        private float stepFromX;
+        private float stepTargetX;
+        private float stepAge = 0.1f;
 
         internal CharacterView(Transform parent, bool isKnight, bool isWraith = false)
         {
@@ -109,9 +114,27 @@ namespace Ashbound
         {
             strikeAge += dt;
             if (!knight) facing = direction;
+            if (!knight)
+            {
+                if (!positionInitialized)
+                {
+                    displayedX = stepFromX = stepTargetX = x;
+                    positionInitialized = true;
+                }
+                if (Mathf.Abs(x - stepTargetX) > 0.001f)
+                {
+                    stepFromX = displayedX;
+                    stepTargetX = x;
+                    stepAge = 0f;
+                }
+                stepAge = Mathf.Min(0.1f, stepAge + dt);
+                displayedX = Mathf.Lerp(stepFromX, stepTargetX, Mathf.SmoothStep(0f, 1f, stepAge / 0.1f));
+                x = displayedX;
+                walking = stepAge < 0.1f;
+            }
             Root.localPosition = new Vector3(x, knight ? 0.25f : 0.13f, 0f);
             Root.localScale = new Vector3(facing, 1f, 1f);
-            float stride = Mathf.Sin(time * 9f + Mathf.Abs(x));
+            float stride = walking && !knight ? Mathf.Sin(stepAge / 0.1f * Mathf.PI * 2f) : Mathf.Sin(time * 9f + Mathf.Abs(x));
             body.localPosition = new Vector3(0f, wraith ? Mathf.Sin(time * 3f) * 0.12f : walking ? Mathf.Abs(stride) * 0.06f : Mathf.Sin(time * 2f) * 0.025f, 0f);
             leftLeg.localRotation = Quaternion.Euler(0f, 0f, walking ? stride * 22f : -4f);
             rightLeg.localRotation = Quaternion.Euler(0f, 0f, walking ? -stride * 22f : 4f);
