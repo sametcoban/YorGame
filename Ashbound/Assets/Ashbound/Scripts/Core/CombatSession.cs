@@ -35,6 +35,7 @@ namespace Ashbound.Core
         public const float SpawnDistance = 10.5f;
         public const float StrikeRange = 2.65f;
         public const float FrontDistance = 2.25f;
+        public const float ContactDistance = 0.85f;
         public const float AdvanceDistance = 1.65f;
         public const int QueueSize = 6;
         public const float PerfectWindow = 0.3f;
@@ -127,7 +128,7 @@ namespace Ashbound.Core
                 ResetStrikeClock();
                 return;
             }
-            // Enemies hold their positions until a kill. If the response window
+            // Enemies hold their positions between attacks. If the response window
             // expires, the front enemy strikes once and the next takes its place.
             TimeToStrike = Math.Max(0f, TimeToStrike - dt);
             if (TimeToStrike > 0f) return;
@@ -203,6 +204,20 @@ namespace Ashbound.Core
             {
                 Combo = 0;
                 events.Add(new CombatEvent { Kind = CombatEventKind.Miss, Side = side });
+                // A wrong strike advances the existing queue without rewards,
+                // reinforcements, or extra response time. Resolve contact now so
+                // an enemy cannot cross the hero or silently disappear on refill.
+                foreach (var enemy in enemies) enemy.Distance -= AdvanceDistance;
+                while (enemies.Count > 0 && enemies[0].Distance <= ContactDistance)
+                {
+                    var attacker = enemies[0];
+                    enemies.RemoveAt(0);
+                    Health--;
+                    events.Add(Event(CombatEventKind.Hurt, attacker));
+                    if (!IsOver) continue;
+                    events.Add(Event(CombatEventKind.GameOver, attacker));
+                    break;
+                }
                 return true;
             }
 

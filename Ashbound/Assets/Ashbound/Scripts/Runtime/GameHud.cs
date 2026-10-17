@@ -109,7 +109,7 @@ namespace Ashbound
                 GUI.enabled = wasEnabled;
                 Label(new Rect(438f, 654f, 404f, 19f), combat.IsUltimateReady ? "CHOOSE A SIDE. CLEAR EVERY ENEMY." :
                     "+2.5 PER KILL  /  40 KILLS TO FILL", 10, combat.IsUltimateReady ? ArenaBuilder.Gold : Muted);
-                Label(new Rect(360f, 690f, 560f, 18f), combat.Elapsed < 10f ? "Strike the nearest enemy. Each kill advances the queue." :
+                Label(new Rect(360f, 690f, 560f, 18f), combat.Elapsed < 10f ? "Every strike advances enemies. Misses cost health." :
                     "A / D TO STRIKE   •   Q / E FOR ULTIMATE", 10, Muted);
             }
             else
@@ -162,11 +162,11 @@ namespace Ashbound
         {
             Fill(new Rect(170f, 559f, 940f, 1f), Line);
             Label(new Rect(170f, 581f, 280f, 24f), "01   READ THE NEAREST ENEMY", 12, Paper, TextAnchor.MiddleCenter, true);
-            Label(new Rect(170f, 614f, 280f, 42f), "Strike their side. Each kill\nbrings the next enemy forward.", 12, Muted);
+            Label(new Rect(170f, 614f, 280f, 42f), "Strike the nearest enemy's side.\nMisses push the enemy into you.", 12, Muted);
             Label(new Rect(500f, 581f, 280f, 24f), "02   STRIKE THEIR SIDE", 12, Paper, TextAnchor.MiddleCenter, true);
             Label(new Rect(500f, 614f, 280f, 42f), "Tap left / right, or press A / D.\nHolding does not repeat attacks.", 12, Muted);
             Label(new Rect(830f, 581f, 280f, 24f), "03   KEEP YOUR OATH", 12, Paper, TextAnchor.MiddleCenter, true);
-            Label(new Rect(830f, 614f, 280f, 42f), "Keep ahead of the response clock.\nThree missed deadlines end the night.", 12, Muted);
+            Label(new Rect(830f, 614f, 280f, 42f), "Misses and delays cost health.\nThree wounds end the night.", 12, Muted);
             Label(new Rect(270f, 683f, 740f, 20f), "ULTIMATE: +2.5 PER KILL. AT 100, Q CLEARS LEFT / E CLEARS RIGHT.", 10, ArenaBuilder.Gold);
         }
 

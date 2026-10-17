@@ -99,8 +99,8 @@ namespace Ashbound
 
             if (screen == GameScreen.Playing)
             {
-                // Tick the response deadline; enemy positions advance only after
-                // a kill or after the front enemy lands a timeout attack.
+                // Tick the response deadline; attacks advance the queue, and
+                // wrong-side misses let the front enemy make contact.
                 combat.Tick(dt);
                 if (!combat.IsOver) ReadAttacks();
                 HandleEvents();

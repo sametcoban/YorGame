@@ -37,12 +37,14 @@ internal static class CombatSessionTests
         Run("Rejected cooldown inputs do not skip attack styles", AttackStyleCooldown);
         Run("Restart returns the attack sequence to cleave", AttackStyleReset);
         Run("Ultimate has its own animation without advancing normal styles", AttackStyleUltimate);
-        Run("Enemies hold their positions while no kill occurs", StationaryQueue);
+        Run("Enemies hold their positions between attacks", StationaryQueue);
         Run("Each normal kill advances survivors exactly one step", KillAdvancesQueue);
-        Run("Wrong-side attacks do not move the queue or reset its deadline", MissHoldsQueue);
+        Run("Wrong-side attacks advance enemies without resetting the deadline", MissAdvancesQueue);
         Run("Timeout wounds once and gives the next enemy a fresh deadline", TimeoutAdvance);
         Run("Ultimate compacts survivors safely and the next kill replenishes them", UltimateReplenishment);
         Run("Clearing the entire queue cannot stall the run", EmptyQueueRecovery);
+        Run("Cooldown rejects repeated miss punishment and a correct attack recovers", MissCooldownRecovery);
+        Run("Three wrong-side strikes end the run exactly once", MissDefeat);
         Console.WriteLine("\n" + passed + " passed; " + failed + " failed.");
         return failed == 0 ? 0 : 1;
     }
@@ -116,9 +118,11 @@ internal static class CombatSessionTests
         game.DrainEvents();
         game.Attack(game.Enemies[0].Side == Side.Left ? Side.Right : Side.Left);
         Check(game.Combo == 0 && game.BestCombo == 1, "Miss must break current chain and retain best.");
-        Check(game.Enemies.Count == count && game.Score == 100, "Out-of-range strike killed an enemy.");
+        Check(game.Enemies.Count == count - 1 && game.Health == 2 && game.Score == 100 && game.Kills == 1,
+            "Miss did not advance an enemy into uncredited contact damage.");
         var events = game.DrainEvents();
-        Check(events[events.Length - 1].Kind == CombatEventKind.Miss, "Miss event missing.");
+        Check(events.Length == 3 && events[1].Kind == CombatEventKind.Miss && events[2].Kind == CombatEventKind.Hurt,
+            "Miss or contact damage feedback was missing.");
     }
 
     private static void Cooldown()
@@ -323,9 +327,10 @@ internal static class CombatSessionTests
         var game = ChargeTo(1);
         game.Tick(0.2f);
         game.Attack(game.Enemies[0].Side == Side.Left ? Side.Right : Side.Left);
-        Check(game.UltimateCharge == 2.5f, "Miss changed charge.");
-        for (int i = 0; i < 2000 && game.Health == 3; i++) game.Tick(1f / 120f);
-        Check(game.Health < 3 && game.UltimateCharge == 2.5f, "Timeout granted charge or wound drained it.");
+        Check(game.UltimateCharge == 2.5f && game.Kills == 1 && game.Health == 2, "Miss changed charge or awarded a kill.");
+        game.Tick(game.TimeToStrike + 0.01f);
+        Check(game.Health == 1 && game.UltimateCharge == 2.5f && game.Kills == 1,
+            "Timeout granted charge or a kill, or wound drained charge.");
     }
 
     private static void UltimateUnavailable()
@@ -437,13 +442,18 @@ internal static class CombatSessionTests
     private static void AttackStyleCycle()
     {
         var game = new CombatSession(1);
+        OpenQueue(game);
+        bool left = false, right = false;
         var expected = new[] { AttackStyle.Cleave, AttackStyle.RisingCut, AttackStyle.Thrust, AttackStyle.Spin };
         for (int i = 0; i < 8; i++)
         {
-            Check(StrikeStyle(game, i % 2 == 0 ? Side.Left : Side.Right) == expected[i % 4],
+            Side side = game.Enemies[0].Side;
+            left |= side == Side.Left; right |= side == Side.Right;
+            Check(StrikeStyle(game, side) == expected[i % 4],
                 "Four-strike animation cycle was out of order.");
             game.Tick(0.2f);
         }
+        Check(left && right && game.Health == 3, "Animation cycle did not exercise both directions safely.");
     }
 
     private static void AttackStyleCooldown()
@@ -515,7 +525,7 @@ internal static class CombatSessionTests
         Check(game.Health == 3, "Advancing the opposite lane caused unavoidable damage.");
     }
 
-    private static void MissHoldsQueue()
+    private static void MissAdvancesQueue()
     {
         var game = new CombatSession(31);
         var target = OpenQueue(game);
@@ -523,11 +533,16 @@ internal static class CombatSessionTests
         float deadline = game.TimeToStrike;
         game.DrainEvents();
         game.Attack(target.Side == Side.Left ? Side.Right : Side.Left);
-        Check(game.Kills == 0 && game.TimeToStrike == deadline, "A miss moved combat forward or extended the response deadline.");
+        Check(game.Kills == 0 && game.Score == 0 && game.UltimateCharge == 0f && game.TimeToStrike == deadline,
+            "A miss awarded a kill or extended the response deadline.");
         foreach (var enemy in game.Enemies)
-            Check(enemy.Distance == before[enemy.Id], "A miss moved an enemy.");
+            Check(Math.Abs(enemy.Distance - (before[enemy.Id] - 1.65f)) < 0.001f,
+                "A surviving enemy did not advance one step on a miss.");
+        Check(game.Health == 2 && game.Enemies.Count == before.Count - 1, "Contact damage did not remove exactly the attacking enemy without refilling.");
         var events = game.DrainEvents();
-        Check(events.Length == 2 && events[1].Kind == CombatEventKind.Miss, "Miss did not retain normal animation feedback.");
+        Check(events.Length == 3 && events[0].Kind == CombatEventKind.Strike && events[1].Kind == CombatEventKind.Miss &&
+            events[2].Kind == CombatEventKind.Hurt && events[2].EnemyId == target.Id && events[2].Distance <= CombatSession.ContactDistance,
+            "Miss did not report the front enemy making contact.");
     }
 
     private static void TimeoutAdvance()
@@ -574,5 +589,45 @@ internal static class CombatSessionTests
         game.Tick(0.01f);
         Check(game.Enemies.Count == 6 && game.Enemies[0].Distance <= CombatSession.StrikeRange && game.TimeToStrike > 0f,
             "Cleared queue did not recover with a target and a response deadline.");
+    }
+
+    private static void MissCooldownRecovery()
+    {
+        var game = new CombatSession(31);
+        var target = OpenQueue(game);
+        Side wrong = target.Side == Side.Left ? Side.Right : Side.Left;
+        game.Attack(wrong);
+        var before = Positions(game);
+        game.DrainEvents();
+        Check(!game.Attack(wrong) && game.Health == 2 && game.DrainEvents().Length == 0,
+            "A cooldown-rejected click punished the player again.");
+        foreach (var enemy in game.Enemies) Check(enemy.Distance == before[enemy.Id], "Rejected click advanced an enemy.");
+        game.Tick(0.2f);
+        game.Attack(game.Enemies[0].Side);
+        Check(game.Kills == 1 && game.Health == 2 && game.Combo == 1 && game.UltimateCharge == 2.5f &&
+            game.Enemies.Count == 6 && game.TimeToStrike == game.StrikeTimeLimit,
+            "A correct follow-up failed to restore normal combat after a miss.");
+    }
+
+    private static void MissDefeat()
+    {
+        var game = new CombatSession(31);
+        OpenQueue(game);
+        game.DrainEvents();
+        for (int i = 0; i < 3; i++)
+        {
+            if (i > 0) game.Tick(0.2f);
+            Side side = game.Enemies[0].Side;
+            game.Attack(side == Side.Left ? Side.Right : Side.Left);
+        }
+        int wounds = 0, ends = 0;
+        foreach (var e in game.DrainEvents())
+        {
+            if (e.Kind == CombatEventKind.Hurt) wounds++;
+            if (e.Kind == CombatEventKind.GameOver) ends++;
+        }
+        Check(game.IsOver && game.Health == 0 && wounds == 3 && ends == 1 && game.Kills == 0,
+            "Repeated misses did not end the run exactly once without kill credit.");
+        Check(!game.Attack(Side.Left) && game.DrainEvents().Length == 0, "Dead player can cause extra miss damage.");
     }
 }
