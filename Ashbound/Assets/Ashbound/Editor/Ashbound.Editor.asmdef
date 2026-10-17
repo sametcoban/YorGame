@@ -1,0 +1,5 @@
+{
+  "name": "Ashbound.Editor",
+  "references": ["Ashbound.Runtime"],
+  "includePlatforms": ["Editor"]
+}

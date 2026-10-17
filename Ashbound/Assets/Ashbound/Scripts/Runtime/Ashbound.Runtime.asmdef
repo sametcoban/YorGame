@@ -1,0 +1,5 @@
+{
+  "name": "Ashbound.Runtime",
+  "rootNamespace": "Ashbound",
+  "references": ["Ashbound.Core"]
+}

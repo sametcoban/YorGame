@@ -1,0 +1,6 @@
+{
+  "name": "Ashbound.Core",
+  "rootNamespace": "Ashbound.Core",
+  "references": [],
+  "noEngineReferences": true
+}
