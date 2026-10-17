@@ -19,9 +19,18 @@ namespace Ashbound
             internal bool Soul;
         }
 
+        private sealed class SlashWave
+        {
+            internal Transform Root;
+            internal Side Side;
+            internal float Age;
+            internal float TravelDistance;
+        }
+
         private readonly Dictionary<int, CharacterView> enemies = new Dictionary<int, CharacterView>();
         private readonly List<int> staleEnemies = new List<int>();
         private readonly List<Mote> motes = new List<Mote>();
+        private readonly List<SlashWave> waves = new List<SlashWave>();
         private readonly HashSet<int> activeIds = new HashSet<int>();
         private CharacterView knight;
         private Camera arenaCamera;
@@ -34,6 +43,7 @@ namespace Ashbound
         private float visualTime;
         private float shake;
         private float damageFlash;
+        private float ultimateFlash;
         private float messageLife;
         private string message = "";
         private Color messageColor;
@@ -42,6 +52,8 @@ namespace Ashbound
         private int bestScore;
         private float screenAge;
         private bool initialized;
+        private Side? pendingUltimate;
+        private Mesh slashMesh;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Bootstrap()
@@ -68,6 +80,7 @@ namespace Ashbound
             knight = new CharacterView(actors, true);
             audioDirector = new AudioDirector(gameObject);
             hud = new GameHud();
+            slashMesh = BuildSlashMesh();
             screen = GameScreen.Title;
             initialized = true;
         }
@@ -99,7 +112,9 @@ namespace Ashbound
             if (screen == GameScreen.Playing)
                 knight.Animate(visualTime, dt, 0f, (int)lastStrike, false);
             UpdateMotes(dt);
+            UpdateWaves(dt);
             damageFlash = Mathf.Max(0f, damageFlash - dt * 1.6f);
+            ultimateFlash = Mathf.Max(0f, ultimateFlash - dt * 3.5f);
             messageLife = Mathf.Max(0f, messageLife - dt);
             shake = Mathf.Max(0f, shake - dt * 2.4f);
             Vector3 offset = shakeEnabled ? new Vector3(Mathf.Sin(visualTime * 91f), Mathf.Cos(visualTime * 113f), 0f) * shake * 0.16f : Vector3.zero;
@@ -108,16 +123,22 @@ namespace Ashbound
 
         private void ReadAttacks()
         {
+            Side? ultimate = pendingUltimate;
+            pendingUltimate = null;
+            if (Input.GetKeyDown(KeyCode.Q)) ultimate = Side.Left;
+            else if (Input.GetKeyDown(KeyCode.E)) ultimate = Side.Right;
+            if (ultimate.HasValue && combat.ActivateUltimate(ultimate.Value)) return;
+
             bool left = Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A);
             bool right = Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D);
             for (int i = 0; i < Input.touchCount; i++)
             {
                 Touch touch = Input.GetTouch(i);
-                if (touch.phase != TouchPhase.Began || hud.IsToolbar(touch.position)) continue;
+                if (touch.phase != TouchPhase.Began || hud.BlocksAttack(touch.position)) continue;
                 if (touch.position.x < Screen.width * 0.5f) left = true;
                 else right = true;
             }
-            if (Input.touchCount == 0 && Input.GetMouseButtonDown(0) && !hud.IsToolbar(Input.mousePosition))
+            if (Input.touchCount == 0 && Input.GetMouseButtonDown(0) && !hud.BlocksAttack(Input.mousePosition))
             {
                 if (Input.mousePosition.x < Screen.width * 0.5f) left = true;
                 else right = true;
@@ -136,14 +157,26 @@ namespace Ashbound
                 {
                     case CombatEventKind.Strike:
                         lastStrike = e.Side;
-                        knight.Strike(e.Side);
+                        knight.Strike(e.Side, e.Style);
                         audioDirector.Swing();
                         break;
                     case CombatEventKind.Kill:
-                        Burst(new Vector3((int)e.Side * e.Distance, 1.2f, 0f), e.Perfect ? ArenaBuilder.Gold : ArenaBuilder.Soul, 15, true);
+                        Burst(new Vector3((int)e.Side * e.Distance, 1.2f, 0f),
+                            e.Perfect || e.IsUltimate ? ArenaBuilder.Gold : ArenaBuilder.Soul, 15, true);
+                        if (e.IsUltimate) break; // Preserve the wave's sound, shake, and banner.
                         shake = e.Perfect ? 0.48f : 0.26f;
                         audioDirector.Impact(e.Perfect);
                         ShowMessage(e.Perfect ? "PERFECT" : "SOUL CLAIMED", e.Perfect ? ArenaBuilder.Gold : ArenaBuilder.Soul);
+                        break;
+                    case CombatEventKind.Ultimate:
+                        lastStrike = e.Side;
+                        knight.Ultimate(e.Side);
+                        LaunchWave(e.Side);
+                        Burst(new Vector3(0f, 1.4f, -0.2f), ArenaBuilder.Soul, 24, true);
+                        ultimateFlash = 0.65f;
+                        shake = 1.1f;
+                        audioDirector.Ultimate();
+                        ShowMessage(e.Side == Side.Left ? "OATHBREAKER  <" : "OATHBREAKER  >", ArenaBuilder.Gold);
                         break;
                     case CombatEventKind.Miss:
                         ShowMessage("TOO EARLY", new Color(0.62f, 0.62f, 0.61f));
@@ -199,14 +232,21 @@ namespace Ashbound
             enemies.Clear();
             foreach (var mote in motes) Destroy(mote.Transform.gameObject);
             motes.Clear();
+            ClearWaves();
             combat.Reset(Environment.TickCount);
-            messageLife = damageFlash = shake = 0f;
+            messageLife = damageFlash = ultimateFlash = shake = 0f;
+            pendingUltimate = null;
             lastStrike = Side.Right;
-            knight.Strike(lastStrike);
+            knight.ResetPose();
             SetScreen(GameScreen.Playing);
         }
 
-        private void SetScreen(GameScreen next) { screen = next; screenAge = 0f; }
+        private void SetScreen(GameScreen next)
+        {
+            screen = next;
+            screenAge = 0f;
+            pendingUltimate = null;
+        }
 
         private void TogglePause()
         {
@@ -259,17 +299,104 @@ namespace Ashbound
             }
         }
 
+        private static Mesh BuildSlashMesh()
+        {
+            const int segments = 32;
+            var vertices = new Vector3[(segments + 1) * 2];
+            var normals = new Vector3[vertices.Length];
+            var triangles = new int[segments * 12];
+            for (int i = 0; i <= segments; i++)
+            {
+                float t = i / (float)segments;
+                float angle = Mathf.Lerp(-1.25f, 1.25f, t);
+                float x = Mathf.Cos(angle) * 0.9f;
+                float y = Mathf.Sin(angle) * 1.65f;
+                float width = Mathf.Sin(t * Mathf.PI) * 0.2f + 0.015f;
+                vertices[i * 2] = new Vector3(x - width, y, 0f);
+                vertices[i * 2 + 1] = new Vector3(x + width, y, 0f);
+                normals[i * 2] = normals[i * 2 + 1] = Vector3.back;
+                if (i == segments) continue;
+                int v = i * 2;
+                int index = i * 12;
+                // Both windings keep the crescent visible when mirrored left.
+                int[] face = { v, v + 2, v + 1, v + 1, v + 2, v + 3,
+                    v + 1, v + 2, v, v + 3, v + 2, v + 1 };
+                Array.Copy(face, 0, triangles, index, face.Length);
+            }
+            var mesh = new Mesh { name = "Oathbreaker crescent", vertices = vertices, normals = normals, triangles = triangles };
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
+        private void LaunchWave(Side side)
+        {
+            var root = new GameObject("Oathbreaker wave").transform;
+            root.SetParent(transform, false);
+            for (int layer = 0; layer < 3; layer++)
+            {
+                var ribbon = new GameObject("Crescent trail " + layer, typeof(MeshFilter), typeof(MeshRenderer));
+                ribbon.transform.SetParent(root, false);
+                ribbon.transform.localPosition = new Vector3(-layer * 0.48f, 0f, -0.1f - layer * 0.02f);
+                ribbon.transform.localScale = new Vector3(1f - layer * 0.15f, 1f - layer * 0.12f, 1f);
+                ribbon.GetComponent<MeshFilter>().sharedMesh = slashMesh;
+                var renderer = ribbon.GetComponent<MeshRenderer>();
+                renderer.sharedMaterial = ArenaBuilder.Material(layer == 0 ? ArenaBuilder.Gold : ArenaBuilder.Soul * (1f - layer * 0.15f), true);
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            var wave = new SlashWave {
+                Root = root, Side = side,
+                TravelDistance = Mathf.Max(CombatSession.SpawnDistance + 3f, arenaCamera.orthographicSize * arenaCamera.aspect + 3f)
+            };
+            PositionWave(wave);
+            waves.Add(wave);
+        }
+
+        private static void PositionWave(SlashWave wave)
+        {
+            float t = Mathf.Clamp01(wave.Age / 0.5f);
+            wave.Root.localPosition = new Vector3((int)wave.Side * Mathf.Lerp(0.45f, wave.TravelDistance, t), 1.5f, -0.3f);
+            wave.Root.localScale = new Vector3((int)wave.Side * (1f + t * 0.7f), 1f + t * 0.45f, 1f);
+        }
+
+        private void UpdateWaves(float dt)
+        {
+            if (screen == GameScreen.Paused) return;
+            for (int i = waves.Count - 1; i >= 0; i--)
+            {
+                var wave = waves[i];
+                wave.Age += dt;
+                if (wave.Age >= 0.5f)
+                {
+                    Destroy(wave.Root.gameObject);
+                    waves.RemoveAt(i);
+                }
+                else PositionWave(wave);
+            }
+        }
+
+        private void ClearWaves()
+        {
+            foreach (var wave in waves) Destroy(wave.Root.gameObject);
+            waves.Clear();
+        }
+
         private void OnGUI()
         {
             if (!initialized) return;
             var action = hud.Draw(screen, combat, bestScore, message, messageColor,
-                messageLife, damageFlash, audioDirector.Muted, shakeEnabled);
+                messageLife, damageFlash, ultimateFlash, audioDirector.Muted, shakeEnabled);
             switch (action)
             {
                 case GameHud.Action.Begin: StartRun(); break;
                 case GameHud.Action.Pause: TogglePause(); break;
                 case GameHud.Action.Mute: ToggleMute(); break;
                 case GameHud.Action.Title: SetScreen(GameScreen.Title); break;
+                case GameHud.Action.UltimateLeft:
+                    if (screen == GameScreen.Playing && combat.IsUltimateReady) pendingUltimate = Side.Left;
+                    break;
+                case GameHud.Action.UltimateRight:
+                    if (screen == GameScreen.Playing && combat.IsUltimateReady) pendingUltimate = Side.Right;
+                    break;
                 case GameHud.Action.Shake:
                     shakeEnabled = !shakeEnabled;
                     PlayerPrefs.SetInt("Ashbound.Shake", shakeEnabled ? 1 : 0);
@@ -292,6 +419,8 @@ namespace Ashbound
         private void OnDestroy()
         {
             if (audioDirector != null) audioDirector.Dispose();
+            ClearWaves();
+            if (slashMesh != null) Destroy(slashMesh);
             ArenaBuilder.DisposeMaterials();
         }
     }

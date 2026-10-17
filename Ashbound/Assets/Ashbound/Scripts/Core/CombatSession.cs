@@ -5,7 +5,8 @@ namespace Ashbound.Core
 {
     public enum Side { Left = -1, Right = 1 }
     public enum EnemyKind { Skeleton, Wraith }
-    public enum CombatEventKind { Spawn, Strike, Kill, Miss, Hurt, GameOver }
+    public enum AttackStyle { Cleave, RisingCut, Thrust, Spin }
+    public enum CombatEventKind { Spawn, Strike, Kill, Miss, Hurt, GameOver, Ultimate }
 
     public sealed class Enemy
     {
@@ -24,6 +25,8 @@ namespace Ashbound.Core
         public EnemyKind EnemyKind;
         public float Distance;
         public bool Perfect;
+        public bool IsUltimate;
+        public AttackStyle Style;
     }
 
     // This model has no Unity dependencies so the rules can be tested separately.
@@ -36,6 +39,8 @@ namespace Ashbound.Core
         public const float ContactDistance = 0.85f;
         public const float AttackCooldown = 0.17f;
         public const int MaxHealth = 3;
+        public const float UltimateMaxCharge = 100f;
+        public const float UltimateChargePerKill = 2.5f;
 
         private readonly List<Enemy> enemies = new List<Enemy>();
         private readonly List<CombatEvent> events = new List<CombatEvent>();
@@ -45,6 +50,7 @@ namespace Ashbound.Core
         private float attackTimer;
         private float invulnerability;
         private int nextId;
+        private int nextAttackStyle;
         private Side lastSpawn;
         private int sameSideSpawns;
 
@@ -54,6 +60,8 @@ namespace Ashbound.Core
         public int Combo { get; private set; }
         public int BestCombo { get; private set; }
         public int Kills { get; private set; }
+        public float UltimateCharge { get; private set; }
+        public bool IsUltimateReady { get { return UltimateCharge >= UltimateMaxCharge; } }
         public float Elapsed { get; private set; }
         public bool IsOver { get { return Health == 0; } }
         public int Wave { get { return 1 + (int)(Elapsed / 20f); } }
@@ -68,7 +76,9 @@ namespace Ashbound.Core
             events.Clear();
             Health = MaxHealth;
             Score = Combo = BestCombo = Kills = nextId = sameSideSpawns = 0;
+            nextAttackStyle = 0;
             Elapsed = attackTimer = invulnerability = 0f;
+            UltimateCharge = 0f;
             spawnTimer = 0.65f;
             lastSpawn = Side.Left;
         }
@@ -151,7 +161,8 @@ namespace Ashbound.Core
                 throw new ArgumentOutOfRangeException("side");
             if (IsOver || attackTimer > 0f) return false;
             attackTimer = AttackCooldown;
-            events.Add(new CombatEvent { Kind = CombatEventKind.Strike, Side = side });
+            events.Add(new CombatEvent { Kind = CombatEventKind.Strike, Side = side, Style = (AttackStyle)nextAttackStyle });
+            nextAttackStyle = (nextAttackStyle + 1) % 4;
 
             Enemy target = null;
             for (int i = 0; i < enemies.Count; i++)
@@ -168,16 +179,39 @@ namespace Ashbound.Core
                 return true;
             }
 
-            bool perfect = target.Distance <= PerfectRange;
+            DefeatEnemy(target, target.Distance <= PerfectRange, false);
+            return true;
+        }
+
+        public bool ActivateUltimate(Side side)
+        {
+            if (side != Side.Left && side != Side.Right)
+                throw new ArgumentOutOfRangeException("side");
+            if (IsOver || !IsUltimateReady) return false;
+
+            // The ultimate can interrupt a normal swing. Spend its charge before
+            // awarding kills so every enemy, including wave kills, gives 2.5.
+            UltimateCharge = 0f;
+            attackTimer = AttackCooldown;
+            events.Add(new CombatEvent { Kind = CombatEventKind.Ultimate, Side = side, IsUltimate = true });
+            for (int i = enemies.Count - 1; i >= 0; i--)
+                if (enemies[i].Side == side)
+                    DefeatEnemy(enemies[i], false, true);
+            return true;
+        }
+
+        private void DefeatEnemy(Enemy target, bool perfect, bool ultimate)
+        {
             enemies.Remove(target);
             Combo++;
             BestCombo = Math.Max(BestCombo, Combo);
             Kills++;
+            UltimateCharge = Math.Min(UltimateMaxCharge, UltimateCharge + UltimateChargePerKill);
             Score += (perfect ? 150 : 100) * Multiplier;
             var killed = Event(CombatEventKind.Kill, target);
             killed.Perfect = perfect;
+            killed.IsUltimate = ultimate;
             events.Add(killed);
-            return true;
         }
 
         private static CombatEvent Event(CombatEventKind kind, Enemy enemy)

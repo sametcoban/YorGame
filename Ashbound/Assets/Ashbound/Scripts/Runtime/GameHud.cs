@@ -5,13 +5,15 @@ namespace Ashbound
 {
     internal sealed class GameHud
     {
-        internal enum Action { None, Begin, Pause, Mute, Title, Shake }
+        internal enum Action { None, Begin, Pause, Mute, Title, Shake, UltimateLeft, UltimateRight }
         private static readonly Color Paper = new Color(0.89f, 0.88f, 0.81f);
         private static readonly Color Muted = new Color(0.56f, 0.63f, 0.64f);
         private static readonly Color Ink = new Color(0.025f, 0.04f, 0.05f);
         private static readonly Color Line = new Color(0.31f, 0.35f, 0.33f);
         private readonly Rect pauseButton = new Rect(1180f, 28f, 56f, 42f);
         private readonly Rect muteButton = new Rect(1080f, 28f, 88f, 42f);
+        private readonly Rect ultimateLeftButton = new Rect(438f, 602f, 194f, 47f);
+        private readonly Rect ultimateRightButton = new Rect(648f, 602f, 194f, 47f);
         private GUIStyle text;
         private GUIStyle button;
         private Rect viewport;
@@ -27,16 +29,17 @@ namespace Ashbound
                 1280f * scale, 720f * scale);
         }
 
-        internal bool IsToolbar(Vector2 screenPoint)
+        internal bool BlocksAttack(Vector2 screenPoint)
         {
             Measure();
             var point = new Vector2((screenPoint.x - viewport.x) / scale,
                 (Screen.height - screenPoint.y - viewport.y) / scale);
-            return pauseButton.Contains(point) || muteButton.Contains(point);
+            return pauseButton.Contains(point) || muteButton.Contains(point)
+                || ultimateLeftButton.Contains(point) || ultimateRightButton.Contains(point);
         }
 
         internal Action Draw(AshboundGame.GameScreen screen, CombatSession combat, int best,
-            string message, Color messageColor, float messageLife, float damageFlash, bool muted, bool shake)
+            string message, Color messageColor, float messageLife, float damageFlash, float ultimateFlash, bool muted, bool shake)
         {
             Measure();
             if (text == null)
@@ -86,8 +89,22 @@ namespace Ashbound
 
                 DrawControl(new Rect(42f, 595f, 360f, 82f), "<", "STRIKE LEFT", "A / LEFT ARROW");
                 DrawControl(new Rect(878f, 595f, 360f, 82f), ">", "STRIKE RIGHT", "D / RIGHT ARROW");
-                Label(new Rect(423f, 616f, 434f, 20f), combat.Elapsed < 10f ? "WAIT FOR THE GOLD THRESHOLD" : "HOLD THE LINE. KEEP YOUR OATH.", 11, ArenaBuilder.Gold);
-                Label(new Rect(423f, 642f, 434f, 18f), combat.Elapsed < 10f ? "Tap the enemy's side once they enter sword range" : "Closer strikes earn PERFECT +50 souls", 10, Muted);
+                Fill(new Rect(423f, 536f, 434f, 144f), WithAlpha(Ink, 0.88f));
+                Label(new Rect(438f, 542f, 404f, 21f), combat.IsUltimateReady ? "OATHBREAKER  /  READY" :
+                    "OATHBREAKER  " + combat.UltimateCharge.ToString("0.#") + " / 100", 12,
+                    combat.IsUltimateReady ? ArenaBuilder.Gold : Paper, TextAnchor.MiddleCenter, true);
+                Fill(new Rect(438f, 574f, 404f, 11f), Line);
+                Fill(new Rect(438f, 574f, 404f * combat.UltimateCharge / CombatSession.UltimateMaxCharge, 11f),
+                    combat.IsUltimateReady ? ArenaBuilder.Gold : ArenaBuilder.Soul);
+                bool wasEnabled = GUI.enabled;
+                GUI.enabled = wasEnabled && combat.IsUltimateReady;
+                if (Button(ultimateLeftButton, "<  WAVE LEFT  [Q]", combat.IsUltimateReady)) action = Action.UltimateLeft;
+                if (Button(ultimateRightButton, "WAVE RIGHT  [E]  >", combat.IsUltimateReady)) action = Action.UltimateRight;
+                GUI.enabled = wasEnabled;
+                Label(new Rect(438f, 654f, 404f, 19f), combat.IsUltimateReady ? "CHOOSE A SIDE. CLEAR EVERY ENEMY." :
+                    "+2.5 PER KILL  /  40 KILLS TO FILL", 10, combat.IsUltimateReady ? ArenaBuilder.Gold : Muted);
+                Label(new Rect(360f, 690f, 560f, 18f), combat.Elapsed < 10f ? "Strike after enemies cross the gold marks beside you" :
+                    "A / D TO STRIKE   •   Q / E FOR ULTIMATE", 10, Muted);
             }
             else
             {
@@ -109,7 +126,8 @@ namespace Ashbound
                     if (Button(new Rect(470f, 316f, 340f, 58f), "RETURN TO THE FIGHT", true)) action = Action.Pause;
                     if (Button(new Rect(470f, 392f, 340f, 45f), "SCREEN SHAKE  " + (shake ? "ON" : "OFF"), false)) action = Action.Shake;
                     if (Button(new Rect(470f, 455f, 340f, 45f), "ABANDON RUN", false)) action = Action.Title;
-                    Label(new Rect(390f, 546f, 500f, 28f), "P / ESC TO RESUME    •    M TO MUTE", 11, Muted);
+                    Label(new Rect(390f, 536f, 500f, 22f), "ULTIMATE " + combat.UltimateCharge.ToString("0.#") + " / 100   •   Q LEFT / E RIGHT", 11, ArenaBuilder.Gold);
+                    Label(new Rect(390f, 572f, 500f, 28f), "P / ESC TO RESUME    •    M TO MUTE", 11, Muted);
                 }
                 else
                 {
@@ -127,6 +145,8 @@ namespace Ashbound
             }
             if (damageFlash > 0f && playing)
                 Fill(new Rect(0f, 0f, 1280f, 720f), new Color(0.65f, 0.06f, 0.025f, damageFlash * 0.2f));
+            if (ultimateFlash > 0f && playing)
+                Fill(new Rect(0f, 0f, 1280f, 720f), WithAlpha(ArenaBuilder.Gold, ultimateFlash * 0.15f));
             GUI.matrix = oldMatrix;
             GUI.color = Color.white;
             return action;
@@ -141,6 +161,7 @@ namespace Ashbound
             Label(new Rect(500f, 614f, 280f, 42f), "Tap left / right, or press A / D.\nHolding does not repeat attacks.", 12, Muted);
             Label(new Rect(830f, 581f, 280f, 24f), "03   KEEP YOUR OATH", 12, Paper, TextAnchor.MiddleCenter, true);
             Label(new Rect(830f, 614f, 280f, 42f), "Chain kills to multiply souls.\nThree wounds end the night.", 12, Muted);
+            Label(new Rect(270f, 683f, 740f, 20f), "ULTIMATE: +2.5 PER KILL. AT 100, Q CLEARS LEFT / E CLEARS RIGHT.", 10, ArenaBuilder.Gold);
         }
 
         private void DrawControl(Rect rect, string arrow, string title, string key)

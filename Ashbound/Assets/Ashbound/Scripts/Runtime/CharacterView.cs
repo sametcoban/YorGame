@@ -14,6 +14,8 @@ namespace Ashbound
         private readonly bool wraith;
         private float strikeAge = 10f;
         private float facing = 1f;
+        private bool ultimateStrike;
+        private AttackStyle attackStyle;
 
         internal CharacterView(Transform parent, bool isKnight, bool isWraith = false)
         {
@@ -85,10 +87,22 @@ namespace Ashbound
                 new Vector3(0f, 0.08f, 0f), new Vector3(1.05f, 0.008f, 0.6f), black);
         }
 
-        internal void Strike(Side side)
+        internal void Strike(Side side, AttackStyle style)
         {
             facing = (int)side;
+            attackStyle = style;
             strikeAge = 0f;
+            ultimateStrike = false;
+        }
+
+        internal void Ultimate(Side side) { Strike(side, AttackStyle.Cleave); ultimateStrike = true; }
+
+        internal void ResetPose()
+        {
+            facing = 1f;
+            strikeAge = 10f;
+            ultimateStrike = false;
+            attackStyle = AttackStyle.Cleave;
         }
 
         internal void Animate(float time, float dt, float x, int direction, bool walking)
@@ -101,9 +115,68 @@ namespace Ashbound
             body.localPosition = new Vector3(0f, wraith ? Mathf.Sin(time * 3f) * 0.12f : walking ? Mathf.Abs(stride) * 0.06f : Mathf.Sin(time * 2f) * 0.025f, 0f);
             leftLeg.localRotation = Quaternion.Euler(0f, 0f, walking ? stride * 22f : -4f);
             rightLeg.localRotation = Quaternion.Euler(0f, 0f, walking ? -stride * 22f : 4f);
-            float angle = knight ? (strikeAge < 0.24f ? Mathf.Lerp(65f, -38f, strikeAge / 0.24f) : -28f) : -35f;
-            weapon.localRotation = Quaternion.Euler(0f, 0f, angle);
-            body.localRotation = Quaternion.Euler(0f, 0f, knight && strikeAge < 0.2f ? -8f : 0f);
+            weapon.localRotation = Quaternion.Euler(0f, 0f, knight ? -28f : -35f);
+            body.localRotation = Quaternion.identity;
+            if (knight) PoseKnight();
+        }
+
+        private void PoseKnight()
+        {
+            weapon.localPosition = new Vector3(0.45f, 1.3f, -0.2f);
+            float duration = ultimateStrike ? 0.42f : attackStyle == AttackStyle.Spin ? 0.24f : 0.2f;
+            if (strikeAge >= duration) return;
+            float t = Mathf.Clamp01(strikeAge / duration);
+            // Finish the main motion before a follow-up strike can be accepted;
+            // the last part smoothly returns the limbs to the ready stance.
+            float cut = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.65f));
+            float recovery = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((t - 0.65f) / 0.35f));
+            float drive = Mathf.Sin(t * Mathf.PI);
+            float bladeAngle;
+            Vector3 offset = Vector3.zero;
+            Vector3 turn = Vector3.zero;
+
+            if (ultimateStrike)
+            {
+                bladeAngle = Mathf.Lerp(110f, -70f, cut);
+                offset = new Vector3(drive * 0.2f, drive * 0.09f, 0f);
+                turn = new Vector3(0f, 0f, -15f * drive);
+            }
+            else
+            {
+                switch (attackStyle)
+                {
+                    case AttackStyle.RisingCut:
+                        bladeAngle = Mathf.Lerp(-80f, 72f, cut);
+                        weapon.localPosition += new Vector3(0.04f, Mathf.Lerp(-0.35f, 0.3f, cut) * (1f - recovery), 0f);
+                        offset = new Vector3(drive * 0.12f, drive * 0.1f, 0f);
+                        turn = new Vector3(0f, -12f * drive, 9f * drive);
+                        break;
+                    case AttackStyle.Thrust:
+                        bladeAngle = -3f;
+                        weapon.localPosition += new Vector3(drive * 0.65f, -0.04f * drive, 0f);
+                        offset = new Vector3(drive * 0.26f, -0.04f * drive, 0f);
+                        turn = new Vector3(0f, 0f, -10f * drive);
+                        break;
+                    case AttackStyle.Spin:
+                        bladeAngle = Mathf.Lerp(12f, -20f, cut);
+                        weapon.localPosition += new Vector3(drive * 0.18f, -0.15f * drive, 0f);
+                        offset = new Vector3(drive * 0.08f, drive * 0.05f, 0f);
+                        turn = new Vector3(0f, cut * 360f, -5f * drive);
+                        break;
+                    default:
+                        bladeAngle = Mathf.Lerp(65f, -48f, cut);
+                        offset = new Vector3(drive * 0.17f, -0.05f * drive, 0f);
+                        turn = new Vector3(0f, -18f * drive, -11f * drive);
+                        break;
+                }
+            }
+
+            bladeAngle = Mathf.Lerp(bladeAngle, -28f, recovery);
+            body.localPosition += offset;
+            body.localRotation = Quaternion.Euler(turn);
+            weapon.localRotation = Quaternion.Euler(0f, 0f, bladeAngle);
+            leftLeg.localRotation = Quaternion.Euler(0f, 0f, -4f - drive * 14f);
+            rightLeg.localRotation = Quaternion.Euler(0f, 0f, 4f + drive * 14f);
         }
 
         internal void Destroy() { Object.Destroy(Root.gameObject); }

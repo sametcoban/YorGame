@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Ashbound.Core;
 
 // Dependency-free console regression suite. Kept outside Assets so it is never
@@ -22,6 +23,19 @@ internal static class CombatSessionTests
         Run("Long-run combat scales the multiplier and remains survivable", LongRun);
         Run("A large tick agrees with normal frame updates", FrameHitch);
         Run("Invalid time and attack input are rejected", InvalidInput);
+        Run("Every kill grants exactly 2.5 ultimate charge and forty fill it", UltimateCharge);
+        Run("Perfect strikes grant the same ultimate charge as normal kills", PerfectCharge);
+        Run("Misses and wounds preserve charge and contact gives no charge", PreserveCharge);
+        Run("Ultimate is unavailable below 100 and after defeat", UltimateUnavailable);
+        Run("Left wave clears every left enemy at any distance", UltimateLeft);
+        Run("Right wave clears every right enemy at any distance", UltimateRight);
+        Run("Ultimate can interrupt a normal attack and stops immediate repeats", UltimateInterrupt);
+        Run("An empty-side ultimate spends its charge and still emits a wave", EmptyUltimate);
+        Run("Restart clears accumulated ultimate charge", UltimateReset);
+        Run("Normal attacks cycle all four styles in either direction", AttackStyleCycle);
+        Run("Rejected cooldown inputs do not skip attack styles", AttackStyleCooldown);
+        Run("Restart returns the attack sequence to cleave", AttackStyleReset);
+        Run("Ultimate has its own animation without advancing normal styles", AttackStyleUltimate);
         Console.WriteLine("\n" + passed + " passed; " + failed + " failed.");
         return failed == 0 ? 0 : 1;
     }
@@ -230,5 +244,221 @@ internal static class CombatSessionTests
         Check(badSide, "Invalid side was accepted.");
         game.Tick(0f);
         Check(game.Elapsed == 0f, "Zero delta advanced time.");
+    }
+
+    private static CombatSession ChargeTo(int kills, int seed = 31)
+    {
+        var game = new CombatSession(seed);
+        for (int frame = 0; frame < 240 * 120 && game.Kills < kills && !game.IsOver; frame++)
+        {
+            game.Tick(1f / 120f);
+            AttackNearest(game);
+            game.DrainEvents();
+        }
+        Check(!game.IsOver && game.Kills == kills, "Could not prepare a charged live run.");
+        return game;
+    }
+
+    private static void UltimateCharge()
+    {
+        var game = new CombatSession(31);
+        Check(game.UltimateCharge == 0f && !game.IsUltimateReady, "New run starts charged.");
+        for (int i = 0; i < 120 * 120 && game.Kills < 45; i++)
+        {
+            game.Tick(1f / 120f);
+            AttackNearest(game);
+            game.DrainEvents();
+            Check(game.UltimateCharge == Math.Min(100f, game.Kills * 2.5f), "Wrong per-kill charge or charge exceeded 100.");
+            Check(game.IsUltimateReady == (game.Kills >= 40), "Readiness did not change at exactly forty kills.");
+        }
+        Check(game.Kills == 45 && game.UltimateCharge == 100f, "Did not exercise the full charge cap.");
+    }
+
+    private static void PerfectCharge()
+    {
+        var game = new CombatSession(3);
+        Enemy target = Approach(game, 1.5f);
+        game.Attack(target.Side);
+        Check(game.Score == 150 && game.UltimateCharge == 2.5f, "Perfect kill changed charge reward.");
+    }
+
+    private static void PreserveCharge()
+    {
+        var game = ChargeTo(1);
+        game.Tick(0.2f);
+        game.Attack(Side.Left);
+        Check(game.UltimateCharge == 2.5f, "Miss changed charge.");
+        for (int i = 0; i < 2000 && game.Health == 3; i++) game.Tick(1f / 120f);
+        Check(game.Health < 3 && game.UltimateCharge == 2.5f, "Contact granted charge or wound drained it.");
+    }
+
+    private static void UltimateUnavailable()
+    {
+        var game = ChargeTo(39);
+        int count = game.Enemies.Count;
+        int score = game.Score;
+        Check(!game.ActivateUltimate(Side.Left) && !game.ActivateUltimate(Side.Right), "Ultimate fired at 97.5.");
+        Check(game.UltimateCharge == 97.5f && game.Enemies.Count == count && game.Score == score &&
+            game.DrainEvents().Length == 0, "Rejected ultimate changed combat state.");
+        game = ChargeTo(40);
+        game.Tick(60f);
+        game.DrainEvents();
+        Check(game.IsOver && !game.ActivateUltimate(Side.Left) && game.UltimateCharge == 100f &&
+            game.DrainEvents().Length == 0, "Ultimate fired after defeat.");
+        bool invalid = false;
+        try { game.ActivateUltimate((Side)0); } catch (ArgumentOutOfRangeException) { invalid = true; }
+        Check(invalid, "Ultimate accepted an invalid direction.");
+    }
+
+    private static void UltimateLeft() { ClearSide(Side.Left); }
+    private static void UltimateRight() { ClearSide(Side.Right); }
+
+    private static void ClearSide(Side side)
+    {
+        var game = ChargeTo(40);
+        // Keep defending close to contact until both lanes have enemies and the
+        // chosen lane contains a group, including a target beyond sword range.
+        var selected = new List<Enemy>();
+        var opposite = new List<Enemy>();
+        for (int frame = 0; frame < 120 * 60; frame++)
+        {
+            selected.Clear(); opposite.Clear();
+            bool far = false;
+            foreach (var enemy in game.Enemies)
+            {
+                if (enemy.Side == side) { selected.Add(enemy); far |= enemy.Distance > CombatSession.StrikeRange; }
+                else opposite.Add(enemy);
+            }
+            if (selected.Count >= 2 && opposite.Count > 0 && far) break;
+            game.Tick(1f / 120f);
+            Enemy nearest = null;
+            foreach (var enemy in game.Enemies)
+                if (nearest == null || enemy.Distance < nearest.Distance) nearest = enemy;
+            if (nearest != null && nearest.Distance <= 1.2f) game.Attack(nearest.Side);
+            game.DrainEvents();
+        }
+        Check(!game.IsOver && selected.Count >= 2 && opposite.Count > 0, "Could not prepare both populated lanes.");
+        int kills = game.Kills, combo = game.Combo, score = game.Score;
+        int expectedReward = 0;
+        for (int i = 1; i <= selected.Count; i++) expectedReward += 100 * (1 + Math.Min(4, (combo + i) / 10));
+        game.DrainEvents();
+        Check(game.ActivateUltimate(side), "Charged ultimate was rejected.");
+        Check(game.Enemies.Count == opposite.Count, "Wave failed to clear only the chosen lane.");
+        foreach (var enemy in game.Enemies)
+            Check(opposite.Contains(enemy), "Wave damaged or replaced an opposite-side enemy.");
+        Check(game.Kills == kills + selected.Count && game.Combo == combo + selected.Count &&
+            game.Score == score + expectedReward, "Wave kills did not award normal kill rewards.");
+        Check(game.UltimateCharge == selected.Count * 2.5f, "Charge was not consumed before awarding wave kills.");
+        int killEvents = 0, waveEvents = 0;
+        foreach (var e in game.DrainEvents())
+        {
+            if (e.Kind == CombatEventKind.Ultimate)
+            {
+                waveEvents++;
+                Check(e.Side == side && e.IsUltimate, "Wave effect received the wrong direction.");
+            }
+            if (e.Kind == CombatEventKind.Kill)
+            {
+                killEvents++;
+                Check(e.Side == side && e.IsUltimate && !e.Perfect, "Invalid wave kill feedback.");
+            }
+        }
+        Check(killEvents == selected.Count && waveEvents == 1, "Missing wave/kill events.");
+    }
+
+    private static void UltimateInterrupt()
+    {
+        var game = ChargeTo(40); // The last regular strike is still cooling down.
+        Check(!game.Attack(Side.Left), "Test did not retain the active attack cooldown.");
+        Check(game.ActivateUltimate(Side.Right), "Regular cooldown blocked the ultimate.");
+        game.DrainEvents();
+        Check(!game.ActivateUltimate(Side.Left) && game.DrainEvents().Length == 0, "Ultimate immediately repeated without recharging.");
+    }
+
+    private static void EmptyUltimate()
+    {
+        var game = ChargeTo(40);
+        // A lane may be empty naturally. Defend the opposite lane until one is.
+        Side empty = Side.Left;
+        bool found = false;
+        for (int frame = 0; frame < 120 * 60 && !found; frame++)
+        {
+            bool left = false, right = false;
+            foreach (var enemy in game.Enemies)
+                if (enemy.Side == Side.Left) left = true; else right = true;
+            if (!left || !right) { empty = !left ? Side.Left : Side.Right; found = true; break; }
+            game.Tick(1f / 120f);
+            AttackNearest(game);
+            game.DrainEvents();
+        }
+        Check(found && !game.IsOver, "Could not prepare an empty lane.");
+        int kills = game.Kills, score = game.Score;
+        game.DrainEvents();
+        Check(game.ActivateUltimate(empty) && game.UltimateCharge == 0f, "Empty cast failed to spend its charge.");
+        var events = game.DrainEvents();
+        Check(game.Kills == kills && game.Score == score && events.Length == 1 &&
+            events[0].Kind == CombatEventKind.Ultimate, "Empty cast awarded kills or lost its wave effect.");
+    }
+
+    private static void UltimateReset()
+    {
+        var game = ChargeTo(40);
+        game.Reset(1);
+        Check(game.UltimateCharge == 0f && !game.IsUltimateReady && !game.ActivateUltimate(Side.Left),
+            "Restart retained a charged ultimate.");
+    }
+
+    private static AttackStyle StrikeStyle(CombatSession game, Side side)
+    {
+        Check(game.Attack(side), "Expected a normal attack to be accepted.");
+        foreach (var e in game.DrainEvents())
+            if (e.Kind == CombatEventKind.Strike)
+            {
+                Check(e.Side == side, "Animation direction did not match input.");
+                return e.Style;
+            }
+        throw new Exception("Normal attack did not send an animation event.");
+    }
+
+    private static void AttackStyleCycle()
+    {
+        var game = new CombatSession(1);
+        var expected = new[] { AttackStyle.Cleave, AttackStyle.RisingCut, AttackStyle.Thrust, AttackStyle.Spin };
+        for (int i = 0; i < 8; i++)
+        {
+            Check(StrikeStyle(game, i % 2 == 0 ? Side.Left : Side.Right) == expected[i % 4],
+                "Four-strike animation cycle was out of order.");
+            game.Tick(0.2f);
+        }
+        Check(game.Kills == 0, "Test should prove misses also advance animations.");
+    }
+
+    private static void AttackStyleCooldown()
+    {
+        var game = new CombatSession(1);
+        Check(StrikeStyle(game, Side.Left) == AttackStyle.Cleave, "First attack was not cleave.");
+        Check(!game.Attack(Side.Right) && game.DrainEvents().Length == 0, "Cooldown input produced an animation.");
+        game.Tick(0.2f);
+        Check(StrikeStyle(game, Side.Right) == AttackStyle.RisingCut, "Rejected input skipped an animation style.");
+    }
+
+    private static void AttackStyleReset()
+    {
+        var game = new CombatSession(1);
+        StrikeStyle(game, Side.Left);
+        game.Tick(0.2f);
+        StrikeStyle(game, Side.Right);
+        game.Reset(1);
+        Check(StrikeStyle(game, Side.Left) == AttackStyle.Cleave, "Restart retained the previous animation sequence.");
+    }
+
+    private static void AttackStyleUltimate()
+    {
+        var game = ChargeTo(40);
+        Check(game.ActivateUltimate(Side.Left), "Could not prepare ultimate animation.");
+        var events = game.DrainEvents();
+        Check(events[0].Kind == CombatEventKind.Ultimate && events[0].IsUltimate, "Ultimate did not request its own presentation.");
+        game.Tick(0.2f);
+        Check(StrikeStyle(game, Side.Right) == AttackStyle.Cleave, "Ultimate advanced the normal four-strike sequence.");
     }
 }

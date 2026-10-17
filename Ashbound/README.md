@@ -20,14 +20,21 @@ If Hub says **Please add a valid project**, extract the ZIP first and select the
 | --- | --- | --- |
 | Strike left | A or Left Arrow | Click / tap the left half |
 | Strike right | D or Right Arrow | Click / tap the right half |
+| Ultimate left | Q | WAVE LEFT button beneath the ultimate meter |
+| Ultimate right | E | WAVE RIGHT button beneath the ultimate meter |
 | Start / retry | Enter or Space | On-screen button |
 | Pause / resume | P or Escape | Top-right pause / resume button |
 | Toggle audio | M | SOUND button |
 
 Wait for an enemy to cross the gold marks beside the knight. Striking within range kills the nearest enemy on that side. Every enemy takes one hit; wraiths are a visual variant introduced after 22 seconds. Attacks have a short cooldown and do not repeat when held.
 
+Each accepted normal attack cycles **cleave → rising cut → thrust → spinning slash**, then repeats. Each style has its own sword path, body movement, and foot stance, mirrored toward the selected side. Misses still advance the animation cycle; presses rejected during cooldown do not. The kill-chain score is independent of this four-attack animation sequence. The ultimate has its own heavy swing and does not advance the normal attack cycle.
+
 - A kill earns **100 souls**. Waiting until an enemy is closer earns **PERFECT**, worth **150 souls**.
 - Every ten consecutive kills raises the multiplier, up to **x5**. Missing or being wounded breaks the chain.
+- Every defeated enemy adds **2.5 ultimate charge**, capped at **100**. Forty kills fill an empty meter; misses and wounds do not drain it.
+- At 100, press **Q** for left or **E** for right, or tap the matching **WAVE** button. **Oathbreaker** instantly clears all enemies currently on the chosen side, at any distance, and sends a large gold-and-teal crescent across the arena with trailing slashes, soul bursts, a brief flash, screen shake, and a distinct sound. The other side is unaffected.
+- Casting spends 100 charge, including when the selected side is empty. Wave kills award normal souls and combos and each return 2.5 charge toward the next ultimate. New runs start with zero charge. The ultimate can interrupt a normal sword attack.
 - You have **three wounds**. Brief protection after a wound prevents multiple enemies from instantly ending the run.
 - Each night lasts 20 seconds. Enemy arrivals accelerate as you survive.
 - The highest completed-run score and audio / screen-shake preferences are saved locally with PlayerPrefs.
@@ -62,12 +69,12 @@ With Mono (`mcs` and `mono`) installed, run from this project folder:
 bash Tools/test-combat.sh
 ```
 
-The script also supports the cloud environment's Mono installation automatically. Its output and compiled runner go into ignored `Artifacts/CombatTests/`. The dependency-free suite covers opening grace, range, perfect strikes, incorrect-side attacks, cooldowns, defeat, reset, deterministic encounters, wraith introduction, three minutes of automated survival and score scaling, frame hitches, and invalid inputs.
+The script also supports the cloud environment's Mono installation automatically. Its output and compiled runner go into ignored `Artifacts/CombatTests/`. The dependency-free suite covers opening grace, range, perfect strikes, incorrect-side attacks, cooldowns, defeat, reset, deterministic encounters, wraith introduction, three minutes of automated survival and score scaling, frame hitches, invalid inputs, exact ultimate charging and its cap, both directional clears, range independence, wave rewards, attack interrupts, empty casts, charge reset, the four-attack style cycle, and its behavior across cooldowns, restarts, and ultimate casts.
 
 With Python 3, run `python3 Tools/check-asset-guids.py` to check the length and format of asset GUIDs, duplicate identities, and serialized references in materials, scenes, and settings. This catches malformed built-in shader references that a C# compilation cannot detect.
 
-**Verified in the cloud:** all 12 combat regression tests passed. Runtime C# also compiled against Unity 2022.3 reference assemblies as an API compatibility check. No Unity Editor was available here, so Unity 6 import, Play mode rendering / audio / touch input, the Editor build menus, and actual desktop / Android builds still need validation on your machine. The compatibility compile does not replace those checks.
+**Verified in the cloud:** all 25 combat regression tests passed, along with the asset GUID check. Updated Core and Runtime C# also compiled against Unity 2022.3 reference assemblies as an API compatibility check. No Unity Editor was available here, so Unity 6 import, Play mode rendering / audio / touch input, attack animations, ultimate effects, the Editor build menus, and actual desktop / Android builds still need validation on your machine. The compatibility compile does not replace those checks.
 
-For the first Editor check, confirm the title appears without Console errors, start a run, kill enemies in each direction, try a premature strike, pause/resume, lose all three wounds, and retry. On a device, also test both touch halves, the sound / pause buttons, background/resume, and the safe-area layout.
+For the first Editor check, confirm the title appears without Console errors, start a run, kill enemies in each direction, try a premature strike, pause/resume, lose all three wounds, and retry. Tap four times in each direction and check the downward cleave, rising cut, forward thrust, and full-body spin, plus the return to the ready stance. Confirm each kill adds 2.5 to the ultimate meter; after 40 kills, cast with Q or E and check the hero's heavy swing, three-layer crescent, soul bursts, sound, flash, and chosen-side clear. Check that opposite-side enemies survive, wave kills recharge the meter, and retry resets it. On a device, also test both touch halves, both WAVE buttons (including that uncharged buttons do not cause a regular attack), the sound / pause buttons, background/resume, and the safe-area layout.
 
 This is a first playable implementation with procedural placeholder art, not a finished commercial game.
