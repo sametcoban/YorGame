@@ -134,7 +134,7 @@ namespace Ashbound.Core
             EnemyKind kind = Elapsed >= 22f && random.Next(4) == 0
                 ? EnemyKind.Wraith : EnemyKind.Skeleton;
             // All enemies within a lane use the same speed: no overtaking or hidden threats.
-            float speed = Math.Min(3.3f, 1.7f + Elapsed * 0.008f);
+            float speed = Math.Min(5f, 2.6f + Elapsed * 0.012f);
             for (int i = 0; i < enemies.Count; i++)
                 if (enemies[i].Side == side) { speed = enemies[i].Speed; break; }
             var enemy = new Enemy {
